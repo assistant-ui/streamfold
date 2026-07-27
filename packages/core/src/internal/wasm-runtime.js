@@ -12,6 +12,7 @@ const PATCH_SET_NUMBER = 4;
 const PATCH_SET_TRUE = 5;
 const PATCH_SET_FALSE = 6;
 const PATCH_SET_NULL = 7;
+const PATCH_COMPLETE = 8;
 
 const encoder = new TextEncoder();
 let exports;
@@ -137,6 +138,8 @@ const readPatches = (wasm, handle) => {
       patches.push({ op: "set", path, value: false });
     } else if (operation === PATCH_SET_NULL) {
       patches.push({ op: "set", path, value: null });
+    } else if (operation === PATCH_COMPLETE) {
+      patches.push({ op: "complete", path });
     } else {
       throw new Error(`Unknown Rust patch operation: ${operation}`);
     }

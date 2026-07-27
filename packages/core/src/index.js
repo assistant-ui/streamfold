@@ -16,6 +16,7 @@ const parserFinalizer =
 export class IncrementalJsonScanner {
   #parser = createWasmParser();
   #value;
+  #completion = createCompletionNode();
 
   constructor() {
     parserFinalizer?.register(this, this.#parser, this);
@@ -53,6 +54,12 @@ export class IncrementalJsonScanner {
     return this.#value;
   }
 
+  getFieldState(path) {
+    return isFieldComplete(this.#completion, path)
+      ? "complete"
+      : "partial";
+  }
+
   get backend() {
     return STREAMFOLD_ENGINE;
   }
@@ -73,7 +80,10 @@ export class IncrementalJsonScanner {
 
   #apply(changes) {
     for (const change of changes) {
-      if (change.op === "set") {
+      if (change.op === "complete") {
+        markFieldComplete(this.#completion, change.path);
+      } else if (change.op === "set") {
+        invalidateField(this.#completion, change.path);
         const value = Array.isArray(change.value)
           ? []
           : change.value !== null && typeof change.value === "object"
@@ -140,6 +150,14 @@ export class StructuredStreamPool {
     return { id, text, value, ...state };
   }
 
+  getFieldState(id, path) {
+    const entry = this.#streams.get(id);
+    if (entry === undefined) {
+      throw new Error(`Unknown structured stream: ${String(id)}`);
+    }
+    return entry.scanner.getFieldState(path);
+  }
+
   abort(id) {
     const entry = this.#streams.get(id);
     if (entry === undefined) return false;
@@ -183,4 +201,46 @@ const setAtPath = (root, path, value) => {
     writable: true,
   });
   return root;
+};
+
+const createCompletionNode = () => ({ complete: false, children: new Map() });
+
+const markFieldComplete = (root, path) => {
+  let node = root;
+  for (const segment of path) {
+    const key = String(segment);
+    let child = node.children.get(key);
+    if (child === undefined) {
+      child = createCompletionNode();
+      node.children.set(key, child);
+    }
+    node = child;
+  }
+  node.complete = true;
+};
+
+const invalidateField = (root, path) => {
+  if (path.length === 0) {
+    root.complete = false;
+    root.children.clear();
+    return;
+  }
+
+  let node = root;
+  for (let index = 0; index < path.length - 1; index++) {
+    node = node.children.get(String(path[index]));
+    if (node === undefined) return;
+  }
+  node.children.delete(String(path.at(-1)));
+};
+
+const isFieldComplete = (root, path) => {
+  let node = root;
+  if (node.complete) return true;
+  for (const segment of path) {
+    node = node.children.get(String(segment));
+    if (node === undefined) return false;
+    if (node.complete) return true;
+  }
+  return false;
 };

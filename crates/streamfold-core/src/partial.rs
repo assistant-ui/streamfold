@@ -8,6 +8,7 @@ const PATCH_SET_NUMBER: u8 = 4;
 const PATCH_SET_TRUE: u8 = 5;
 const PATCH_SET_FALSE: u8 = 6;
 const PATCH_SET_NULL: u8 = 7;
+const PATCH_COMPLETE: u8 = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PathSegment {
@@ -308,6 +309,7 @@ impl PartialValueParser {
                     });
                 }
                 self.emit_number_if_changed(&number);
+                self.emit_complete(&number.path);
                 self.complete_value()?;
             }
             Token::Literal(literal) => {
@@ -372,6 +374,7 @@ impl PartialValueParser {
                         return Err(StreamError::InvalidJson { offset });
                     }
                     self.emit_number_if_changed(&number);
+                    self.emit_complete(&number.path);
                     self.complete_value()?;
                     self.consume_structural(byte, offset)
                 }
@@ -488,6 +491,7 @@ impl PartialValueParser {
 
     fn start_literal(&mut self, path: Path, kind: LiteralKind) {
         self.emit_path_patch(kind.patch(), &path);
+        self.emit_complete(&path);
         self.token = Token::Literal(LiteralToken { kind, matched: 1 });
     }
 
@@ -506,6 +510,7 @@ impl PartialValueParser {
                     self.emit_string_append(&path, &string.delta);
                     string.delta.clear();
                 }
+                self.emit_complete(&path);
                 self.complete_value()
             }
         }
@@ -549,7 +554,10 @@ impl PartialValueParser {
         if !matches!(state, ObjectState::FirstKeyOrEnd | ObjectState::CommaOrEnd) {
             return Err(StreamError::InvalidJson { offset });
         }
-        self.stack.pop();
+        let Some(Frame::Object { path, .. }) = self.stack.pop() else {
+            unreachable!();
+        };
+        self.emit_complete(&path);
         self.complete_value()
     }
 
@@ -560,7 +568,10 @@ impl PartialValueParser {
         if !matches!(state, ArrayState::FirstValueOrEnd | ArrayState::CommaOrEnd) {
             return Err(StreamError::InvalidJson { offset });
         }
-        self.stack.pop();
+        let Some(Frame::Array { path, .. }) = self.stack.pop() else {
+            unreachable!();
+        };
+        self.emit_complete(&path);
         self.complete_value()
     }
 
@@ -684,6 +695,10 @@ impl PartialValueParser {
         self.emit_path_patch(PATCH_SET_NUMBER, path);
         write_u32(&mut self.output, number.len());
         self.output.extend_from_slice(number);
+    }
+
+    fn emit_complete(&mut self, path: &[PathSegment]) {
+        self.emit_path_patch(PATCH_COMPLETE, path);
     }
 }
 
@@ -847,5 +862,15 @@ mod tests {
             invalid.finish(),
             Err(StreamError::InvalidJson { .. })
         ));
+    }
+
+    #[test]
+    fn emits_completion_for_literal_values() {
+        let mut parser = PartialValueParser::new();
+        parser.push(b"t").unwrap();
+        assert_eq!(
+            parser.patch_bytes(),
+            &[PATCH_SET_TRUE, 0, 0, PATCH_COMPLETE, 0, 0]
+        );
     }
 }

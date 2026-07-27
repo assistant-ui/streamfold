@@ -15,15 +15,16 @@ For one 53,656-byte tool call delivered as 3,354 16-character deltas:
 
 | Path | Median |
 | --- | ---: |
-| Vercel AI SDK 7.0.22 `parsePartialJson` every delta | 1,252.85 ms |
-| Repair and `JSON.parse` every delta | 1,098.34 ms |
-| Direct Streamfold Rust/Wasm core | 6.33 ms |
-| Vercel AI SDK `fullStream` events through Streamfold | 6.36 ms |
-| Vercel AI SDK UIMessage events through Streamfold | 6.35 ms |
-| Slowest measured Streamfold integration | 6.74 ms |
+| Vercel AI SDK 7.0.22 `parsePartialJson` every delta | 1,272.33 ms |
+| Repair and `JSON.parse` every delta | 1,109.87 ms |
+| Direct Streamfold Rust/Wasm core | 7.39 ms |
+| Vercel AI SDK `fullStream` events through Streamfold | 7.47 ms |
+| Vercel AI SDK UIMessage events through Streamfold | 7.45 ms |
+| Slowest measured Streamfold integration | 7.66 ms |
 
-The direct Streamfold path was 198.0× faster than the measured Vercel partial
-parser and 173.6× faster than repair-and-reparse for this workload.
+The Vercel-shaped Streamfold path was 170.7× faster than the measured Vercel
+partial parser, while direct core was 150.1× faster than repair-and-reparse for
+this workload.
 
 Unlike the earlier structural-only experiment, Streamfold now returns a live
 partial JavaScript value and compact changes after each delta. The repository
