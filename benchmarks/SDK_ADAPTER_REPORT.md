@@ -11,6 +11,10 @@ surfaces, OpenAI Responses, Anthropic Messages, AG-UI, Gemini Interactions, and
 LangChain. It interleaves four calls, fragments each input every seven
 characters, and verifies IDs, partial updates, text, and final values.
 
+The partial-object suite also runs every field-state fixture from
+`assistant-stream` 0.3.25 against both implementations, comparing the partial
+value and the state of the requested path.
+
 For one 53,656-byte tool call delivered as 3,354 16-character deltas:
 
 | Path | Median |
