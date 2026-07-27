@@ -26,11 +26,15 @@ From a clean, up-to-date `main` branch:
 
 ```bash
 pnpm release
+# Equivalent:
+pnpm release:latest
 ```
 
 `bumpp` updates the root and package versions, runs the complete source and
 package checks, creates `chore: release v<version>`, tags it, and pushes the
-commit and tag.
+commit and tag. The tag starts the GitHub Actions release job, which runs
+`pnpm publish:npm` and publishes `./packages/core` as the public `streamfold`
+package with the npm `latest` tag.
 
 For a beta:
 
@@ -38,6 +42,14 @@ For a beta:
 pnpm release:beta
 ```
 
+The beta release follows the same path and publishes with the npm `beta` tag.
 The release workflow rebuilds the embedded Wasm, runs JavaScript, TypeScript,
 Rust, and package checks, publishes to npm with provenance, and creates the
 matching GitHub release.
+
+Do not run `npm publish` without a package path from the workspace root. The
+root manifest is intentionally private and is never published. The
+`pnpm publish:npm` helper targets the public package and is invoked by the
+release workflow. Normal releases should use `pnpm release:latest` or
+`pnpm release:beta` so publication happens through the trusted GitHub Actions
+environment.
