@@ -7,6 +7,7 @@ export type JsonValue =
   | { readonly [key: string]: JsonValue };
 
 export type StructuredStreamPath = readonly (string | number)[];
+export type StructuredStreamFieldState = "partial" | "complete";
 
 export type StructuredStreamPatch =
   | {
@@ -18,6 +19,10 @@ export type StructuredStreamPatch =
       readonly op: "append";
       readonly path: StructuredStreamPath;
       readonly value: string;
+    }
+  | {
+      readonly op: "complete";
+      readonly path: StructuredStreamPath;
     };
 
 export interface StreamState {
@@ -60,6 +65,7 @@ export interface StructuredStreamIntegration<Event, Id = string> {
 export class IncrementalJsonScanner {
   push(chunk: string): StreamState;
   finish(): StreamState;
+  getFieldState(path: StructuredStreamPath): StructuredStreamFieldState;
   dispose(): void;
   readonly backend: "rust-wasm";
   readonly state: StreamState;
@@ -71,6 +77,10 @@ export class StructuredStreamPool<Id = string> {
   start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
   push(id: Id, delta: string): ActiveStructuredStream<Id>;
   finish(id: Id): CompletedStructuredStream<Id>;
+  getFieldState(
+    id: Id,
+    path: StructuredStreamPath,
+  ): StructuredStreamFieldState;
   abort(id: Id): boolean;
   has(id: Id): boolean;
   readonly activeIds: readonly Id[];

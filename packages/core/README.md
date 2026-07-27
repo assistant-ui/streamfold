@@ -17,7 +17,10 @@ const stream = createStructuredStream();
 const update = stream.push('{"city":"San');
 
 console.log(update.partialValue); // { city: "San" }
-console.log(update.changes); // compact set/append patches
+console.log(update.changes); // compact set/append/complete patches
+
+stream.push(' Francisco"}');
+console.log(stream.getFieldState(["city"])); // "complete"
 ```
 
 Use an isolated event integration when consuming an SDK stream:

@@ -66,6 +66,7 @@ test("emits compact path patches instead of complete replacement values", () => 
 
   assert.deepEqual(stream.push(' Francisco","limit":1').changes, [
     { op: "append", path: ["tool", "query"], value: " Francisco" },
+    { op: "complete", path: ["tool", "query"] },
     { op: "set", path: ["tool", "limit"], value: 1 },
   ]);
   assert.deepEqual(stream.value, {
@@ -77,6 +78,31 @@ test("emits compact path patches instead of complete replacement values", () => 
     tool: { query: "San Francisco", limit: 10 },
   });
   stream.dispose();
+});
+
+test("tracks field completion without cloning the partial value", () => {
+  const stream = createStructuredStream();
+
+  assert.equal(stream.getFieldState(["query"]), "partial");
+  stream.push('{"query":"first","query":"sec');
+  assert.equal(stream.getFieldState(["query"]), "partial");
+
+  stream.push('ond","nested":{"value":12');
+  assert.equal(stream.getFieldState(["query"]), "complete");
+  assert.equal(stream.getFieldState(["nested"]), "partial");
+  assert.equal(stream.getFieldState(["nested", "value"]), "partial");
+
+  stream.push("}}");
+  assert.equal(stream.getFieldState(["nested"]), "complete");
+  assert.equal(stream.getFieldState(["nested", "value"]), "complete");
+  assert.equal(stream.getFieldState(["missing"]), "complete");
+  stream.dispose();
+
+  const numericKey = createStructuredStream();
+  numericKey.push('{"items":[{"1":"done","next":"');
+  assert.equal(numericKey.getFieldState(["items", 0, 1]), "complete");
+  assert.equal(numericKey.getFieldState(["items", 0, "next"]), "partial");
+  numericKey.dispose();
 });
 
 test("treats object keys as data without prototype mutation", () => {
