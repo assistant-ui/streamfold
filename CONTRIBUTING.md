@@ -22,6 +22,10 @@ pnpm bench
 pnpm bench:sdk
 ```
 
+The default test command includes seeded `fast-check` properties for generated
+JSON, chunk schedules, partial-value parity, and malformed truncations. A
+failure reports the seed and shrink path needed to reproduce it.
+
 Benchmarks write machine-local results under `artifacts/`; generated JSON and
 video files are intentionally ignored.
 
