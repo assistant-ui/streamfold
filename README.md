@@ -13,28 +13,19 @@ API stays protocol-neutral and works in browser and server runtimes.
 pnpm add streamfold
 ```
 
-## Before and after
+## Performance
 
 One 53,656-byte tool call was delivered as 3,354 16-character deltas. Each
 measurement is the median of warmed runs on an Apple M1 using Node.js 23.11.0.
 
-### Before: rebuild the full partial value every delta
+| Use case | **BEFORE — rebuild every delta** | **AFTER — retain state with Streamfold** | **FASTER** |
+| --- | ---: | ---: | ---: |
+| Vercel UIMessage tool input | `parsePartialJson` — **1,252.85 ms** | Rust/Wasm adapter — **6.35 ms** | **197.5×** |
+| Protocol-neutral JSON input | Repair + `JSON.parse` — **1,098.34 ms** | Rust/Wasm core — **6.33 ms** | **173.6×** |
 
-| Implementation | Median |
-| --- | ---: |
-| Vercel AI SDK 7.0.22 `parsePartialJson` | 1,252.85 ms |
-| Repair incomplete JSON, then `JSON.parse` | 1,098.34 ms |
-
-### After: retain parser and value state
-
-| Implementation | Median |
-| --- | ---: |
-| Streamfold core, Rust/Wasm | 6.33 ms |
-| Vercel UIMessage-shaped events through Streamfold | 6.35 ms |
-
-That is **198.0× faster** than the measured Vercel
-`parsePartialJson` path and **173.6×** versus repair-and-reparse for this
-small-delta workload.
+The before column reparses the complete accumulated JSON after every incoming
+delta. The after column keeps parser and partial-value state between deltas, so
+it processes only the new input.
 
 Streamfold targets frequent, small tool-call deltas. With very large chunks,
 the baseline reparses too few times for the same advantage and Wasm boundary
