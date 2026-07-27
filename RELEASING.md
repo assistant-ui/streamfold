@@ -34,7 +34,8 @@ pnpm release:latest
 package checks, creates `chore: release v<version>`, tags it, and pushes the
 commit and tag. The tag starts the GitHub Actions release job, which runs
 `pnpm publish:npm` and publishes `./packages/core` as the public `streamfold`
-package with the npm `latest` tag.
+package with the npm `latest` tag. The command waits for that workflow and
+exits only after the package is available on npm or the release fails.
 
 For a beta:
 
@@ -42,10 +43,11 @@ For a beta:
 pnpm release:beta
 ```
 
-The beta release follows the same path and publishes with the npm `beta` tag.
-The release workflow rebuilds the embedded Wasm, runs JavaScript, TypeScript,
-Rust, and package checks, publishes to npm with provenance, and creates the
-matching GitHub release.
+The beta command bumps to a beta version, follows the same release path, waits
+for completion, and publishes with the npm `beta` tag. The release workflow
+rebuilds the embedded Wasm, runs JavaScript, TypeScript, Rust, and package
+checks, publishes to npm with provenance, and creates the matching GitHub
+release.
 
 Do not run `npm publish` without a package path from the workspace root. The
 root manifest is intentionally private and is never published. The
@@ -53,3 +55,15 @@ root manifest is intentionally private and is never published. The
 release workflow. Normal releases should use `pnpm release:latest` or
 `pnpm release:beta` so publication happens through the trusted GitHub Actions
 environment.
+
+For a manual recovery publish from the repository root:
+
+```bash
+pnpm publish:latest
+# or
+pnpm publish:beta
+```
+
+These commands always publish `./packages/core`; they never publish the private
+workspace root. They do not bump versions, create tags, or create GitHub
+releases.
