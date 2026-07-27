@@ -9,6 +9,18 @@ export type JsonValue =
 export type StructuredStreamPath = readonly (string | number)[];
 export type StructuredStreamFieldState = "partial" | "complete";
 
+export interface StructuredStreamOptions {
+  /** Maximum UTF-8 bytes accepted by one stream. Defaults to 16 MiB. */
+  readonly maxBytes?: number;
+  /** Maximum nested object/array depth. Defaults to 128. */
+  readonly maxDepth?: number;
+}
+
+export interface StructuredStreamPoolOptions extends StructuredStreamOptions {
+  /** Maximum number of concurrently active streams. Defaults to 256. */
+  readonly maxActiveStreams?: number;
+}
+
 export type StructuredStreamPatch =
   | {
       readonly op: "set";
@@ -63,6 +75,7 @@ export interface StructuredStreamIntegration<Event, Id = string> {
 }
 
 export class IncrementalJsonScanner {
+  constructor(options?: StructuredStreamOptions);
   push(chunk: string): StreamState;
   finish(): StreamState;
   getFieldState(path: StructuredStreamPath): StructuredStreamFieldState;
@@ -74,6 +87,7 @@ export class IncrementalJsonScanner {
 }
 
 export class StructuredStreamPool<Id = string> {
+  constructor(options?: StructuredStreamPoolOptions);
   start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
   push(id: Id, delta: string): ActiveStructuredStream<Id>;
   finish(id: Id): CompletedStructuredStream<Id>;
@@ -88,9 +102,17 @@ export class StructuredStreamPool<Id = string> {
 }
 
 export function createStructuredStream(): IncrementalJsonScanner;
+export function createStructuredStream(
+  options: StructuredStreamOptions,
+): IncrementalJsonScanner;
 export function createStructuredStream<Event, Id = string>(
   integration: StructuredStreamIntegration<Event, Id>,
 ): EventStructuredStream<Event, Id>;
-export function createStructuredStreamPool<Id = string>(): StructuredStreamPool<Id>;
+export function createStructuredStreamPool<Id = string>(
+  options?: StructuredStreamPoolOptions,
+): StructuredStreamPool<Id>;
 
 export const STREAMFOLD_ENGINE: "rust-wasm";
+export const DEFAULT_STREAM_LIMITS: Readonly<
+  Required<StructuredStreamPoolOptions>
+>;

@@ -7,6 +7,11 @@ import {
 } from "./internal/wasm-runtime.js";
 
 export const STREAMFOLD_ENGINE = "rust-wasm";
+export const DEFAULT_STREAM_LIMITS = Object.freeze({
+  maxActiveStreams: 256,
+  maxBytes: 16 * 1024 * 1024,
+  maxDepth: 128,
+});
 
 const parserFinalizer =
   typeof FinalizationRegistry === "function"
@@ -14,32 +19,43 @@ const parserFinalizer =
     : undefined;
 
 export class IncrementalJsonScanner {
-  #parser = createWasmParser();
+  #parser;
   #value;
   #completion = createCompletionNode();
+  #error;
 
-  constructor() {
+  constructor(options = {}) {
+    const limits = normalizeStreamLimits(options);
+    this.#parser = createWasmParser(limits);
     parserFinalizer?.register(this, this.#parser, this);
   }
 
   push(chunk) {
-    const update = pushWasmParser(this.#getParser(), chunk);
-    this.#apply(update.changes);
-    return {
-      ...update.state,
-      changes: update.changes,
-      partialValue: this.#value,
-    };
+    try {
+      const update = pushWasmParser(this.#getParser(), chunk);
+      this.#apply(update.changes);
+      return {
+        ...update.state,
+        changes: update.changes,
+        partialValue: this.#value,
+      };
+    } catch (error) {
+      throw this.#fail(error);
+    }
   }
 
   finish() {
-    const update = finishWasmParser(this.#getParser());
-    this.#apply(update.changes);
-    return {
-      ...update.state,
-      changes: update.changes,
-      partialValue: this.#value,
-    };
+    try {
+      const update = finishWasmParser(this.#getParser());
+      this.#apply(update.changes);
+      return {
+        ...update.state,
+        changes: update.changes,
+        partialValue: this.#value,
+      };
+    } catch (error) {
+      throw this.#fail(error);
+    }
   }
 
   get state() {
@@ -65,17 +81,32 @@ export class IncrementalJsonScanner {
   }
 
   dispose() {
-    if (this.#parser === undefined) return;
-    parserFinalizer?.unregister(this);
-    freeWasmParser(this.#parser);
-    this.#parser = undefined;
+    if (this.#parser !== undefined) {
+      parserFinalizer?.unregister(this);
+      freeWasmParser(this.#parser);
+      this.#parser = undefined;
+    }
+    this.#error = undefined;
   }
 
   #getParser() {
+    if (this.#error !== undefined) throw this.#error;
     if (this.#parser === undefined) {
       throw new Error("Structured stream has been disposed");
     }
     return this.#parser;
+  }
+
+  #fail(error) {
+    const failure =
+      error instanceof Error ? error : new Error("Structured stream failed");
+    if (this.#parser !== undefined) {
+      parserFinalizer?.unregister(this);
+      freeWasmParser(this.#parser);
+      this.#parser = undefined;
+    }
+    this.#error = failure;
+    return failure;
   }
 
   #apply(changes) {
@@ -102,24 +133,49 @@ export class IncrementalJsonScanner {
   }
 }
 
-export const createStructuredStream = (integration) => {
-  if (integration === undefined) return new IncrementalJsonScanner();
-  if (typeof integration !== "function") {
-    throw new TypeError("A Streamfold integration must be a function");
+export const createStructuredStream = (integrationOrOptions) => {
+  if (
+    integrationOrOptions === undefined ||
+    (typeof integrationOrOptions === "object" &&
+      integrationOrOptions !== null &&
+      !Array.isArray(integrationOrOptions))
+  ) {
+    return new IncrementalJsonScanner(integrationOrOptions);
   }
-  return integration();
+  if (typeof integrationOrOptions !== "function") {
+    throw new TypeError(
+      "A Streamfold argument must be an integration or options object",
+    );
+  }
+  return integrationOrOptions();
 };
 
 export class StructuredStreamPool {
   #streams = new Map();
+  #maxActiveStreams;
+  #streamOptions;
+
+  constructor(options = {}) {
+    const limits = normalizePoolLimits(options);
+    this.#maxActiveStreams = limits.maxActiveStreams;
+    this.#streamOptions = {
+      maxBytes: limits.maxBytes,
+      maxDepth: limits.maxDepth,
+    };
+  }
 
   start(id, initialChunk = "") {
     if (this.#streams.has(id)) {
       throw new Error(`Structured stream already exists: ${String(id)}`);
     }
+    if (this.#streams.size >= this.#maxActiveStreams) {
+      throw new RangeError(
+        `Structured stream pool exceeds maxActiveStreams (${this.#maxActiveStreams})`,
+      );
+    }
 
     const entry = {
-      scanner: createStructuredStream(),
+      scanner: createStructuredStream(this.#streamOptions),
       chunks: [],
     };
     this.#streams.set(id, entry);
@@ -133,7 +189,12 @@ export class StructuredStreamPool {
       throw new Error(`Unknown structured stream: ${String(id)}`);
     }
     entry.chunks.push(delta);
-    return { id, ...entry.scanner.push(delta) };
+    try {
+      return { id, ...entry.scanner.push(delta) };
+    } catch (error) {
+      this.abort(id);
+      throw error;
+    }
   }
 
   finish(id) {
@@ -142,12 +203,15 @@ export class StructuredStreamPool {
       throw new Error(`Unknown structured stream: ${String(id)}`);
     }
 
-    const state = entry.scanner.finish();
-    const text = entry.chunks.join("");
-    const value = JSON.parse(text);
-    this.#streams.delete(id);
-    entry.scanner.dispose();
-    return { id, text, value, ...state };
+    try {
+      const state = entry.scanner.finish();
+      const text = entry.chunks.join("");
+      const value = JSON.parse(text);
+      return { id, text, value, ...state };
+    } finally {
+      this.#streams.delete(id);
+      entry.scanner.dispose();
+    }
   }
 
   getFieldState(id, path) {
@@ -179,7 +243,8 @@ export class StructuredStreamPool {
   }
 }
 
-export const createStructuredStreamPool = () => new StructuredStreamPool();
+export const createStructuredStreamPool = (options) =>
+  new StructuredStreamPool(options);
 
 const getAtPath = (root, path) => {
   let current = root;
@@ -244,3 +309,37 @@ const isFieldComplete = (root, path) => {
   }
   return false;
 };
+
+const normalizeLimit = (value, fallback, name) => {
+  const limit = value ?? fallback;
+  if (
+    !Number.isSafeInteger(limit) ||
+    limit <= 0 ||
+    limit > 0xffff_ffff
+  ) {
+    throw new RangeError(`${name} must be an integer between 1 and 4294967295`);
+  }
+  return limit;
+};
+
+const normalizeStreamLimits = (options) => ({
+  maxBytes: normalizeLimit(
+    options.maxBytes,
+    DEFAULT_STREAM_LIMITS.maxBytes,
+    "maxBytes",
+  ),
+  maxDepth: normalizeLimit(
+    options.maxDepth,
+    DEFAULT_STREAM_LIMITS.maxDepth,
+    "maxDepth",
+  ),
+});
+
+const normalizePoolLimits = (options) => ({
+  ...normalizeStreamLimits(options),
+  maxActiveStreams: normalizeLimit(
+    options.maxActiveStreams,
+    DEFAULT_STREAM_LIMITS.maxActiveStreams,
+    "maxActiveStreams",
+  ),
+});

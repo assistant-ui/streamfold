@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStructuredStream } from "streamfold";
+import { createStructuredStream, StructuredStreamPool } from "streamfold";
 import { assistantUI } from "streamfold/assistant-ui";
 import { createSdkCases, createToolInputs } from "./sdk-cases.mjs";
 
@@ -51,4 +51,33 @@ test("root factory composes with an integration export", () => {
   for (const event of assistantUiCase.events) stream.push(event);
 
   assert.deepEqual(stream.finish()[0].value, inputs[0].value);
+});
+
+test("integration failures are terminal and release every active stream", () => {
+  const pool = new StructuredStreamPool();
+  const stream = assistantUI(pool);
+
+  for (const [path, id] of [
+    [[0], "first"],
+    [[1], "second"],
+  ]) {
+    stream.push({
+      type: "part-start",
+      path,
+      part: { type: "tool-call", toolCallId: id, toolName: "test" },
+    });
+    stream.push({ type: "text-delta", path, textDelta: '{"value":' });
+  }
+
+  assert.throws(() => stream.finish(), SyntaxError);
+  assert.equal(pool.size, 0);
+  assert.throws(
+    () =>
+      stream.push({
+        type: "text-delta",
+        path: [0],
+        textDelta: "1}",
+      }),
+    SyntaxError,
+  );
 });
