@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+    environment: npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Use npm with trusted publishing support
+        run: npm install --global npm@^11.15.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify release source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release commit $GITHUB_SHA is not contained in origin/main."
+            exit 1
+          fi
+
+          visibility="$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)"
+          if [ "$visibility" != "public" ]; then
+            echo "Streamfold must be public before publishing to npm with provenance."
+            exit 1
+          fi
+
+          root_version="$(node -p "require('./package.json').version")"
+          package_version="$(node -p "require('./packages/core/package.json').version")"
+          if [ "$root_version" != "$package_version" ]; then
+            echo "Root version $root_version does not match package version $package_version."
+            exit 1
+          fi
+
+          if [ "v$package_version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $package_version."
+            exit 1
+          fi
+
+          if npm view "streamfold@$package_version" version >/dev/null 2>&1; then
+            echo "streamfold@$package_version is already published; npm publish will be skipped."
+            echo "NPM_ALREADY_PUBLISHED=true" >> "$GITHUB_ENV"
+          else
+            echo "NPM_ALREADY_PUBLISHED=false" >> "$GITHUB_ENV"
+          fi
+
+          if [[ "$package_version" == *-beta.* ]]; then
+            echo "NPM_DIST_TAG=beta" >> "$GITHUB_ENV"
+          else
+            echo "NPM_DIST_TAG=latest" >> "$GITHUB_ENV"
+          fi
+
+      - name: Verify source and package
+        run: pnpm check && pnpm pack:check
+
+      - name: Publish to npm
+        if: env.NPM_ALREADY_PUBLISHED != 'true'
+        working-directory: packages/core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag "$NPM_DIST_TAG" --provenance
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub release $GITHUB_REF_NAME already exists."
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --generate-notes \
+              --title "Streamfold $GITHUB_REF_NAME"
+          fi

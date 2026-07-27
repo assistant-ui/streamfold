@@ -1,12 +1,14 @@
 {
   "name": "streamfold-workspace",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
     "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs",
+    "test:browser": "node --test tests/browser-smoke.test.mjs",
     "typecheck": "tsc --noEmit",
-    "check:syntax": "find packages benchmarks dashboard -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+    "check:syntax": "find packages benchmarks dashboard tests -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "check": "pnpm build:wasm && pnpm check:syntax && pnpm typecheck && pnpm test && cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test",
     "pack:check": "cd packages/core && npm pack --dry-run",
     "bench": "node benchmarks/bench.mjs",
@@ -14,11 +16,15 @@
     "dashboard": "node dashboard/server.mjs",
     "record": "node dashboard/record.mjs",
     "record:chat": "node dashboard/record-chat.mjs",
+    "release": "bumpp",
+    "release:beta": "bumpp --preid beta",
+    "release:check": "pnpm check && pnpm pack:check",
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
     "ai": "7.0.22",
     "assistant-stream": "0.3.25",
+    "bumpp": "^10.4.1",
     "fast-check": "4.9.0",
     "playwright": "^1.54.2",
     "streamfold": "workspace:*",

@@ -186,5 +186,6 @@ pnpm dashboard
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the Rust/Wasm boundary and
-[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines. Streamfold is
-MIT licensed.
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines. Maintainers can
+follow [RELEASING.md](RELEASING.md) for versioning and npm publication.
+Streamfold is MIT licensed.
