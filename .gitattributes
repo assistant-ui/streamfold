@@ -1,1 +1,3 @@
 dashboard/*.html -linguist-detectable
+*.js -linguist-detectable
+*.mjs -linguist-detectable
