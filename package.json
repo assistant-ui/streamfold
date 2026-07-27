@@ -16,9 +16,11 @@
     "dashboard": "node dashboard/server.mjs",
     "record": "node dashboard/record.mjs",
     "record:chat": "node dashboard/record-chat.mjs",
-    "release": "bumpp",
+    "release": "pnpm release:latest",
+    "release:latest": "bumpp",
     "release:beta": "bumpp --preid beta",
     "release:check": "pnpm check && pnpm pack:check",
+    "publish:npm": "npm publish ./packages/core",
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
