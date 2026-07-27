@@ -1,0 +1,15 @@
+[package]
+name = "streamfold-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Incremental streaming state engine for AI protocols"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "streamfold-bench"
+path = "src/bin/bench.rs"
+

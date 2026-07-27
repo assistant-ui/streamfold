@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Streamfold chat benchmark</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #080b10;
+        color: #eef2f7;
+        --canvas: #080b10;
+        --panel: #0c1118;
+        --panel-raised: #111822;
+        --border: #27303b;
+        --border-soft: #1d2530;
+        --text: #eef2f7;
+        --muted: #8f9bab;
+        --faint: #5e6a79;
+        --accent: #6ee7b7;
+        --accent-soft: rgba(110, 231, 183, 0.1);
+        --blue: #84aaff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        background: var(--canvas);
+      }
+      button, select { font: inherit; }
+      button:focus-visible, select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .app {
+        display: grid;
+        width: min(1540px, calc(100% - 32px));
+        min-height: 100vh;
+        margin: 0 auto;
+        grid-template-rows: auto auto 1fr auto;
+        padding: 18px 0 22px;
+      }
+      .topbar {
+        display: flex;
+        min-height: 54px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        font: 650 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .brand-mark {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border: 1px solid #3b4653;
+        color: var(--accent);
+        font-size: 10px;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .control {
+        height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        color: #d6dde7;
+      }
+      select.control { padding: 0 34px 0 11px; }
+      button.control {
+        min-width: 128px;
+        padding: 0 16px;
+        background: var(--text);
+        color: #080b10;
+        font-weight: 680;
+        cursor: pointer;
+        transition:
+          transform 100ms ease-out,
+          opacity 140ms ease-out;
+      }
+      button.control:active { transform: translateY(1px); }
+      button.control:disabled { cursor: wait; opacity: 0.68; }
+      .summary {
+        display: flex;
+        min-height: 76px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      .summary h1 {
+        margin: 0;
+        font-size: clamp(24px, 3vw, 38px);
+        font-weight: 590;
+        letter-spacing: -0.045em;
+      }
+      .summary p {
+        max-width: 500px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+        text-align: right;
+      }
+      .threads {
+        display: grid;
+        min-height: 720px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        border: 1px solid var(--border);
+        background: var(--border);
+      }
+      .thread {
+        display: grid;
+        min-width: 0;
+        background: var(--panel);
+        grid-template-rows: auto 1fr auto;
+      }
+      .thread-header {
+        display: flex;
+        min-height: 62px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .engine {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .engine-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--faint);
+        box-shadow: 0 0 0 4px rgba(94, 106, 121, 0.12);
+      }
+      .thread[data-state="running"] .engine-dot {
+        background: var(--blue);
+        box-shadow: 0 0 0 4px rgba(132, 170, 255, 0.12);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      .thread.streamfold[data-state="running"] .engine-dot,
+      .thread[data-state="complete"] .engine-dot {
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+      .engine h2 {
+        margin: 0 0 3px;
+        font-size: 13px;
+        font-weight: 680;
+      }
+      .engine span {
+        display: block;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .turn-time {
+        text-align: right;
+        font: 650 20px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .turn-time small {
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 500;
+      }
+      .thread-body {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+        gap: 22px;
+        overflow: hidden;
+        padding: 22px 20px;
+      }
+      .message {
+        display: flex;
+        gap: 11px;
+        opacity: 1;
+        transition:
+          opacity 180ms ease-out,
+          transform 180ms ease-out;
+      }
+      .message.pending {
+        height: 0;
+        margin: -11px 0;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+      }
+      .message.user {
+        max-width: 82%;
+        align-self: flex-end;
+        flex-direction: row-reverse;
+      }
+      .avatar {
+        display: grid;
+        width: 27px;
+        height: 27px;
+        flex: 0 0 27px;
+        place-items: center;
+        border: 1px solid #364150;
+        border-radius: 999px;
+        color: #aeb8c5;
+        font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .assistant .avatar {
+        border-color: rgba(110, 231, 183, 0.38);
+        color: var(--accent);
+      }
+      .bubble {
+        min-width: 0;
+        color: #ccd4de;
+        font-size: 12.5px;
+        line-height: 1.6;
+      }
+      .user .bubble {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 13px 3px 13px 13px;
+        background: var(--panel-raised);
+      }
+      .assistant-copy {
+        min-height: 40px;
+        margin: 2px 0 10px;
+      }
+      .caret {
+        display: inline-block;
+        width: 6px;
+        height: 13px;
+        margin-left: 2px;
+        vertical-align: -2px;
+        background: var(--accent);
+        animation: blink 0.8s steps(2, start) infinite;
+      }
+      .tool {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #090e14;
+      }
+      .tool-header {
+        display: flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .tool-identity {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .tool-icon {
+        display: grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        border: 1px solid #34404d;
+        border-radius: 5px;
+        color: #b9c3cf;
+        font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .tool-name {
+        color: #dbe2eb;
+        font: 620 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .tool-status {
+        color: var(--muted);
+        font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        text-transform: uppercase;
+      }
+      .tool-progress {
+        height: 2px;
+        background: #171d25;
+      }
+      .tool-progress > span {
+        display: block;
+        width: 0;
+        height: 100%;
+        background: #9ba7b6;
+        transition: width 120ms ease-out;
+      }
+      .streamfold .tool-progress > span { background: var(--accent); }
+      .tool-preview {
+        height: 104px;
+        overflow: hidden;
+        padding: 10px 12px;
+        color: #8290a1;
+        font: 9.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .tool-preview .fresh { color: #d5dde7; }
+      .tool-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border-top: 1px solid var(--border-soft);
+      }
+      .tool-metric {
+        min-width: 0;
+        padding: 9px 11px;
+        border-right: 1px solid var(--border-soft);
+      }
+      .tool-metric:last-child { border-right: 0; }
+      .tool-metric label {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .tool-metric strong {
+        display: block;
+        overflow: hidden;
+        font: 620 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .complete-copy {
+        margin: 0;
+        color: #cdd6df;
+      }
+      .complete-meta {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font: 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .composer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 16px 15px;
+        padding: 8px 8px 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: #0a0f15;
+      }
+      .composer span {
+        flex: 1;
+        color: var(--faint);
+        font-size: 11px;
+      }
+      .send {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        background: #293340;
+        color: #8e9aa9;
+        font-size: 12px;
+      }
+      .verdict {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 12px;
+        padding: 12px 15px;
+        border: 1px solid rgba(110, 231, 183, 0.36);
+        background: var(--accent-soft);
+        color: #cbd8d3;
+        font-size: 11px;
+      }
+      .verdict.visible { display: flex; }
+      .verdict strong { color: #effff9; }
+      .speedup {
+        flex: none;
+        color: var(--accent);
+        font: 680 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.55; }
+        50% { opacity: 1; }
+      }
+      @media (max-width: 920px) {
+        .app { width: min(100% - 20px, 1540px); }
+        .topbar, .summary { align-items: flex-start; flex-direction: column; padding: 10px 0; }
+        .summary p { text-align: left; }
+        .controls { width: 100%; }
+        .controls select { flex: 1; }
+        .threads { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">SF</span>
+          Streamfold chat lab
+        </div>
+        <div class="controls">
+          <select id="size" class="control" aria-label="Generated project size">
+            <option value="180">Small · 180 files</option>
+            <option value="520" selected>Production · 520 files</option>
+            <option value="900">Stress · 900 files</option>
+          </select>
+          <button id="run" class="control" type="button">Send prompt</button>
+        </div>
+      </header>
+
+      <section class="summary">
+        <h1>The same agent turn, streamed two ways.</h1>
+        <p>
+          Assistant-ui-style thread surfaces receive identical text, tool-call
+          JSON, chunk boundaries, and final output.
+        </p>
+      </section>
+
+      <section class="threads" aria-label="Chat runtime comparison">
+        <article id="baseline" class="thread baseline" data-state="idle">
+          <header class="thread-header">
+            <div class="engine">
+              <span class="engine-dot"></span>
+              <div>
+                <h2>Current accumulator</h2>
+                <span>Repair + full parse per tool delta</span>
+              </div>
+            </div>
+            <span class="turn-time"><span data-time>0.00</span> <small>s</small></span>
+          </header>
+          <div class="thread-body">
+            <div class="message user">
+              <span class="avatar">YOU</span>
+              <div class="bubble">
+                Create a typed analytics dashboard with routes, tests, and all
+                generated feature files.
+              </div>
+            </div>
+            <div class="message assistant">
+              <span class="avatar">AI</span>
+              <div class="bubble">
+                <p class="assistant-copy" data-intro></p>
+                <div class="tool">
+                  <div class="tool-header">
+                    <div class="tool-identity">
+                      <span class="tool-icon">&gt;_</span>
+                      <span class="tool-name">create_project</span>
+                    </div>
+                    <span class="tool-status" data-tool-status>queued</span>
+                  </div>
+                  <div class="tool-progress"><span data-progress></span></div>
+                  <div class="tool-preview" data-preview>Waiting for arguments…</div>
+                  <div class="tool-metrics">
+                    <div class="tool-metric">
+                      <label>Arguments</label>
+                      <strong data-received>0 B</strong>
+                    </div>
+                    <div class="tool-metric">
+                      <label>Characters visited</label>
+                      <strong data-visited>0</strong>
+                    </div>
+                    <div class="tool-metric">
+                      <label>Checksum</label>
+                      <strong data-checksum>—</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="message assistant pending" data-final-message hidden>
+              <span class="avatar">AI</span>
+              <div class="bubble">
+                <p class="complete-copy">
+                  Done — the dashboard project and generated feature files are ready.
+                </p>
+                <span class="complete-meta" data-complete-meta></span>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <span>Message the assistant…</span>
+            <button class="send" type="button" aria-label="Send message" disabled>↑</button>
+          </div>
+        </article>
+
+        <article id="streamfold" class="thread streamfold" data-state="idle">
+          <header class="thread-header">
+            <div class="engine">
+              <span class="engine-dot"></span>
+              <div>
+                <h2>Streamfold accumulator</h2>
+                <span>Rust/Wasm state per tool delta</span>
+              </div>
+            </div>
+            <span class="turn-time"><span data-time>0.00</span> <small>s</small></span>
+          </header>
+          <div class="thread-body">
+            <div class="message user">
+              <span class="avatar">YOU</span>
+              <div class="bubble">
+                Create a typed analytics dashboard with routes, tests, and all
+                generated feature files.
+              </div>
+            </div>
+            <div class="message assistant">
+              <span class="avatar">AI</span>
+              <div class="bubble">
+                <p class="assistant-copy" data-intro></p>
+                <div class="tool">
+                  <div class="tool-header">
+                    <div class="tool-identity">
+                      <span class="tool-icon">&gt;_</span>
+                      <span class="tool-name">create_project</span>
+                    </div>
+                    <span class="tool-status" data-tool-status>queued</span>
+                  </div>
+                  <div class="tool-progress"><span data-progress></span></div>
+                  <div class="tool-preview" data-preview>Waiting for arguments…</div>
+                  <div class="tool-metrics">
+                    <div class="tool-metric">
+                      <label>Arguments</label>
+                      <strong data-received>0 B</strong>
+                    </div>
+                    <div class="tool-metric">
+                      <label>Characters visited</label>
+                      <strong data-visited>0</strong>
+                    </div>
+                    <div class="tool-metric">
+                      <label>Checksum</label>
+                      <strong data-checksum>—</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="message assistant pending" data-final-message hidden>
+              <span class="avatar">AI</span>
+              <div class="bubble">
+                <p class="complete-copy">
+                  Done — the dashboard project and generated feature files are ready.
+                </p>
+                <span class="complete-meta" data-complete-meta></span>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <span>Message the assistant…</span>
+            <button class="send" type="button" aria-label="Send message" disabled>↑</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="verdict" class="verdict" aria-live="polite">
+        <span>
+          <strong>Same conversation and final value.</strong>
+          Only the structured-stream accumulator changed.
+        </span>
+        <span id="speedup" class="speedup"></span>
+      </section>
+    </main>
+
+    <script type="module">
+      const runButton = document.getElementById("run");
+      const sizeSelect = document.getElementById("size");
+      const verdict = document.getElementById("verdict");
+      const speedup = document.getElementById("speedup");
+      const lanes = {
+        baseline: document.getElementById("baseline"),
+        streamfold: document.getElementById("streamfold"),
+      };
+      const introText =
+        "I’ll create the project structure, generate the feature modules, and include strict typing and tests.";
+      let workers = [];
+      let results = {};
+      let timers = [];
+      let startedAt = 0;
+
+      const formatNumber = (value) =>
+        new Intl.NumberFormat("en", {
+          notation: "compact",
+          maximumFractionDigits: 1,
+        }).format(value);
+      const formatBytes = (value) =>
+        value >= 1_000_000
+          ? `${(value / 1_000_000).toFixed(2)} MB`
+          : `${(value / 1000).toFixed(1)} KB`;
+
+      const createPayload = (count) => {
+        const files = [];
+        for (let index = 0; index < count; index++) {
+          files.push({
+            path: `src/features/feature-${String(index).padStart(3, "0")}.tsx`,
+            content:
+              `export const feature${index} = { id: ${index}, title: "Analytics feature ${index}", enabled: true };\\n` +
+              `export type Feature${index} = typeof feature${index};\\n`,
+            language: "tsx",
+          });
+        }
+        return JSON.stringify({
+          projectName: "analytics-dashboard",
+          framework: "nextjs",
+          files,
+          options: { strict: true, tests: true, formatter: "oxfmt" },
+        });
+      };
+
+      const elements = (lane) => ({
+        time: lane.querySelector("[data-time]"),
+        intro: lane.querySelector("[data-intro]"),
+        status: lane.querySelector("[data-tool-status]"),
+        progress: lane.querySelector("[data-progress]"),
+        preview: lane.querySelector("[data-preview]"),
+        received: lane.querySelector("[data-received]"),
+        visited: lane.querySelector("[data-visited]"),
+        checksum: lane.querySelector("[data-checksum]"),
+        finalMessage: lane.querySelector("[data-final-message]"),
+        completeMeta: lane.querySelector("[data-complete-meta]"),
+      });
+
+      const reset = (lane) => {
+        const view = elements(lane);
+        lane.dataset.state = "idle";
+        view.time.textContent = "0.00";
+        view.intro.textContent = "";
+        view.status.textContent = "queued";
+        view.progress.style.width = "0";
+        view.preview.textContent = "Waiting for arguments…";
+        view.received.textContent = "0 B";
+        view.visited.textContent = "0";
+        view.checksum.textContent = "—";
+        view.finalMessage.classList.add("pending");
+        view.finalMessage.hidden = true;
+        view.completeMeta.textContent = "";
+      };
+
+      const typeIntro = async (lane) => {
+        const view = elements(lane);
+        const words = introText.split(" ");
+        for (let index = 0; index < words.length; index++) {
+          view.intro.textContent = `${words.slice(0, index + 1).join(" ")} `;
+          const caret = document.createElement("span");
+          caret.className = "caret";
+          view.intro.append(caret);
+          await new Promise((resolve) => setTimeout(resolve, 34));
+        }
+        view.intro.textContent = introText;
+      };
+
+      const workerMessage = (kind, message) => {
+        const lane = lanes[kind];
+        const view = elements(lane);
+        if (message.type === "progress") {
+          const ratio = message.received / message.total;
+          view.status.textContent = `${Math.round(ratio * 100)}% arguments`;
+          view.progress.style.width = `${ratio * 100}%`;
+          view.received.textContent = formatBytes(message.received);
+          view.visited.textContent = formatNumber(message.visited);
+          const safeTail = message.tail
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;");
+          view.preview.innerHTML = `…${safeTail.slice(0, -84)}<span class="fresh">${safeTail.slice(-84)}</span>`;
+        }
+        if (message.type === "complete") {
+          lane.dataset.state = "complete";
+          view.time.textContent = ((performance.now() - startedAt) / 1000).toFixed(2);
+          view.status.textContent = "complete";
+          view.progress.style.width = "100%";
+          view.checksum.textContent = message.checksum.slice(-8);
+          view.finalMessage.hidden = false;
+          view.finalMessage.classList.remove("pending");
+          view.completeMeta.textContent =
+            `${formatBytes(message.total)} arguments · checksum ${message.checksum}`;
+          results[kind] = {
+            ...message,
+            turnMs: performance.now() - startedAt,
+          };
+          if (results.baseline && results.streamfold) finish();
+        }
+      };
+
+      const startToolStreams = (payload) => {
+        for (const [kind, lane] of Object.entries(lanes)) {
+          lane.dataset.state = "running";
+          elements(lane).status.textContent = "streaming arguments";
+          const worker = new Worker("/dashboard/product-worker.js", {
+            type: "module",
+          });
+          worker.onmessage = (event) => workerMessage(kind, event.data);
+          worker.postMessage({
+            kind,
+            payload,
+            chunkSize: 16,
+            batchSize: 96,
+          });
+          workers.push(worker);
+        }
+      };
+
+      const finish = () => {
+        for (const timer of timers) clearInterval(timer);
+        runButton.disabled = false;
+        runButton.textContent = "Send again";
+        const equal =
+          results.baseline.checksum === results.streamfold.checksum;
+        const ratio =
+          results.baseline.elapsedMs / results.streamfold.elapsedMs;
+        verdict.querySelector("span").innerHTML = equal
+          ? "<strong>Same conversation and final value.</strong> Only the structured-stream accumulator changed."
+          : "<strong>Checksum mismatch.</strong> The prototype result is invalid.";
+        speedup.textContent = equal
+          ? `${ratio.toFixed(ratio > 100 ? 0 : 1)}× tool parsing`
+          : "invalid";
+        verdict.classList.add("visible");
+      };
+
+      const run = async () => {
+        for (const worker of workers) worker.terminate();
+        for (const timer of timers) clearInterval(timer);
+        workers = [];
+        timers = [];
+        results = {};
+        verdict.classList.remove("visible");
+        Object.values(lanes).forEach(reset);
+        runButton.disabled = true;
+        runButton.textContent = "Running turn…";
+        startedAt = performance.now();
+
+        const clock = setInterval(() => {
+          const elapsed = ((performance.now() - startedAt) / 1000).toFixed(2);
+          for (const lane of Object.values(lanes)) {
+            if (lane.dataset.state !== "complete") {
+              elements(lane).time.textContent = elapsed;
+            }
+          }
+        }, 40);
+        timers.push(clock);
+
+        await Promise.all(Object.values(lanes).map(typeIntro));
+        startToolStreams(createPayload(Number(sizeSelect.value)));
+      };
+
+      runButton.addEventListener("click", run);
+      if (new URLSearchParams(location.search).has("autorun")) {
+        setTimeout(run, 650);
+      }
+    </script>
+  </body>
+</html>

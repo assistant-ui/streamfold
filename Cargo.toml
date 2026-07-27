@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/streamfold-core"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/assistant-ui/streamfold"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+strip = "symbols"

@@ -1,0 +1,76 @@
+{
+  "name": "streamfold",
+  "version": "0.1.0",
+  "description": "Protocol-neutral incremental state for structured AI streams",
+  "type": "module",
+  "license": "MIT",
+  "types": "./src/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "!src/**/*.test.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./ag-ui": {
+      "types": "./src/ag-ui.d.ts",
+      "default": "./src/ag-ui.js"
+    },
+    "./anthropic": {
+      "types": "./src/anthropic.d.ts",
+      "default": "./src/anthropic.js"
+    },
+    "./assistant-ui": {
+      "types": "./src/assistant-ui.d.ts",
+      "default": "./src/assistant-ui.js"
+    },
+    "./gemini": {
+      "types": "./src/gemini.d.ts",
+      "default": "./src/gemini.js"
+    },
+    "./langchain": {
+      "types": "./src/langchain.d.ts",
+      "default": "./src/langchain.js"
+    },
+    "./openai": {
+      "types": "./src/openai.d.ts",
+      "default": "./src/openai.js"
+    },
+    "./vercel-ai": {
+      "types": "./src/vercel-ai.d.ts",
+      "default": "./src/vercel-ai.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/assistant-ui/streamfold.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/assistant-ui/streamfold#readme",
+  "bugs": {
+    "url": "https://github.com/assistant-ui/streamfold/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "incremental",
+    "json",
+    "rust",
+    "streaming",
+    "tool-calling",
+    "webassembly"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/build-wasm.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

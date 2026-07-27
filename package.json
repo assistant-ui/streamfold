@@ -1,0 +1,29 @@
+{
+  "name": "streamfold-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:syntax": "find packages benchmarks dashboard -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
+    "check": "pnpm build:wasm && pnpm check:syntax && pnpm typecheck && pnpm test && cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test",
+    "pack:check": "cd packages/core && npm pack --dry-run",
+    "bench": "node benchmarks/bench.mjs",
+    "bench:sdk": "node benchmarks/sdk-adapters.mjs",
+    "dashboard": "node dashboard/server.mjs",
+    "record": "node dashboard/record.mjs",
+    "record:chat": "node dashboard/record-chat.mjs",
+    "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
+  },
+  "devDependencies": {
+    "ai": "7.0.22",
+    "playwright": "^1.54.2",
+    "streamfold": "workspace:*",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.10.0"
+}
