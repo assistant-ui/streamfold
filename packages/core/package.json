@@ -71,6 +71,7 @@
     "prepack": "node ../../scripts/build-wasm.mjs"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   }
 }
