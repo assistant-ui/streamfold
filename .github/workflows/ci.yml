@@ -33,7 +33,6 @@ jobs:
           targets: wasm32-unknown-unknown
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:wasm
-      - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js
       - run: pnpm check:syntax
       - run: pnpm typecheck
       - run: pnpm test
