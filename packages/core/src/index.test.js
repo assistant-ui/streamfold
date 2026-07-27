@@ -16,14 +16,30 @@ test("runs the published scanner through the Rust WebAssembly backend", () => {
 
 test("incrementally scans every possible two-part split", () => {
   const input =
-    '{"query":"a \\"quoted\\" value","items":[1,true,null,{"ok":false}]}';
+    '{"query":"a \\"quoted\\" 👋 value","items":[1,true,null,{"ok":false}]}';
   for (let split = 0; split <= input.length; split++) {
     const scanner = new IncrementalJsonScanner();
     scanner.push(input.slice(0, split));
-    scanner.push(input.slice(split));
+    const update = scanner.push(input.slice(split));
     assert.equal(scanner.state.complete, true, `split ${split}`);
-    assert.equal(scanner.state.bytesSeen, input.length);
+    assert.equal(scanner.state.bytesSeen, Buffer.byteLength(input));
+    assert.deepEqual(update.partialValue, JSON.parse(input), `split ${split}`);
+    scanner.dispose();
   }
+});
+
+test("preserves surrogate pairs split across separate pushes", () => {
+  const input = '{"message":"Hello 👋 from Streamfold"}';
+  const scanner = new IncrementalJsonScanner();
+
+  for (let index = 0; index < input.length; index++) {
+    scanner.push(input[index]);
+  }
+
+  const update = scanner.finish();
+  assert.deepEqual(update.partialValue, JSON.parse(input));
+  assert.equal(update.bytesSeen, Buffer.byteLength(input));
+  scanner.dispose();
 });
 
 test("reports useful partial structural state", () => {
