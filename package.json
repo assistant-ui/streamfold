@@ -19,6 +19,7 @@
   "devDependencies": {
     "ai": "7.0.22",
     "assistant-stream": "0.3.25",
+    "fast-check": "4.9.0",
     "playwright": "^1.54.2",
     "streamfold": "workspace:*",
     "typescript": "^5.9.3"
