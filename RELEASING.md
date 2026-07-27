@@ -53,3 +53,15 @@ root manifest is intentionally private and is never published. The
 release workflow. Normal releases should use `pnpm release:latest` or
 `pnpm release:beta` so publication happens through the trusted GitHub Actions
 environment.
+
+For a manual recovery publish from the repository root:
+
+```bash
+pnpm publish:latest
+# or
+pnpm publish:beta
+```
+
+These commands always publish `./packages/core`; they never publish the private
+workspace root. They do not bump versions, create tags, or create GitHub
+releases.

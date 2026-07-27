@@ -1,6 +1,7 @@
 {
   "name": "streamfold-workspace",
   "version": "0.1.1",
+  "private": true,
   "type": "module",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
@@ -20,6 +21,8 @@
     "release:beta": "bumpp --preid beta",
     "release:check": "pnpm check && pnpm pack:check",
     "publish:npm": "npm publish ./packages/core",
+    "publish:latest": "pnpm publish:npm --access public --tag latest --provenance=false",
+    "publish:beta": "pnpm publish:npm --access public --tag beta --provenance=false",
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
