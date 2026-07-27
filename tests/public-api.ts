@@ -13,6 +13,7 @@ const scanner = createStructuredStream();
 scanner.push('{"ok":');
 scanner.push("true}");
 scanner.finish();
+scanner.getFieldState(["ok"]) satisfies "complete" | "partial";
 scanner.backend satisfies "rust-wasm";
 STREAMFOLD_ENGINE satisfies "rust-wasm";
 scanner.dispose();
@@ -20,6 +21,7 @@ scanner.dispose();
 const pool = createStructuredStreamPool<string>();
 pool.start("call-1");
 pool.push("call-1", '{"query":"streamfold"}');
+pool.getFieldState("call-1", ["query"]) satisfies "complete" | "partial";
 pool.finish("call-1").value;
 
 const assistantUi = createAssistantUiStream();

@@ -20,8 +20,8 @@ measurement is the median of warmed runs on an Apple M1 using Node.js 23.11.0.
 
 | Use case | **BEFORE — rebuild every delta** | **AFTER — retain state with Streamfold** | **FASTER** |
 | --- | ---: | ---: | ---: |
-| Vercel UIMessage tool input | `parsePartialJson` — **1,252.85 ms** | Rust/Wasm adapter — **6.35 ms** | **197.5×** |
-| Protocol-neutral JSON input | Repair + `JSON.parse` — **1,098.34 ms** | Rust/Wasm core — **6.33 ms** | **173.6×** |
+| Vercel UIMessage tool input | `parsePartialJson` — **1,272.33 ms** | Rust/Wasm adapter — **7.45 ms** | **170.7×** |
+| Protocol-neutral JSON input | Repair + `JSON.parse` — **1,109.87 ms** | Rust/Wasm core — **7.39 ms** | **150.1×** |
 
 The before column reparses the complete accumulated JSON after every incoming
 delta. The after column keeps parser and partial-value state between deltas, so
@@ -67,11 +67,14 @@ first.changes;
 const complete = stream.push(' Francisco"}');
 complete.partialValue;
 // { city: "San Francisco" }
+
+stream.getFieldState(["city"]);
+// "complete"
 ```
 
 `partialValue` is a live view updated in place for minimum overhead. Reactive
-stores can consume the compact `changes` list instead of cloning the complete
-object after every fragment.
+stores can consume the compact `set`, `append`, and `complete` changes instead
+of cloning the complete object after every fragment.
 
 For concurrent tool calls, use one pool:
 
