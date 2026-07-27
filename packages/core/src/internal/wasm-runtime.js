@@ -149,10 +149,10 @@ export const createWasmParser = () => {
   const wasm = getExports();
   const handle = wasm.streamfold_parser_new();
   if (handle === 0) throw new Error("Unable to allocate the Rust parser");
-  return { wasm, handle };
+  return { wasm, handle, pendingHighSurrogate: "" };
 };
 
-export const pushWasmParser = ({ wasm, handle }, chunk) => {
+const pushChunk = ({ wasm, handle }, chunk) => {
   const capacity = chunk.length * 3;
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
@@ -172,13 +172,35 @@ export const pushWasmParser = ({ wasm, handle }, chunk) => {
   return { state, changes: readPatches(wasm, handle) };
 };
 
-export const finishWasmParser = ({ wasm, handle }) => {
+export const pushWasmParser = (parser, chunk) => {
+  let input = parser.pendingHighSurrogate + chunk;
+  parser.pendingHighSurrogate = "";
+
+  if (input.length > 0) {
+    const lastUnit = input.charCodeAt(input.length - 1);
+    if (lastUnit >= 0xd800 && lastUnit <= 0xdbff) {
+      parser.pendingHighSurrogate = input.at(-1);
+      input = input.slice(0, -1);
+    }
+  }
+
+  return pushChunk(parser, input);
+};
+
+export const finishWasmParser = (parser) => {
+  const { wasm, handle } = parser;
+  const changes = [];
+  if (parser.pendingHighSurrogate.length > 0) {
+    changes.push(...pushChunk(parser, parser.pendingHighSurrogate).changes);
+    parser.pendingHighSurrogate = "";
+  }
   const state = readState(
     wasm,
     handle,
     wasm.streamfold_parser_finish(handle),
   );
-  return { state, changes: readPatches(wasm, handle) };
+  changes.push(...readPatches(wasm, handle));
+  return { state, changes };
 };
 
 export const readWasmParser = ({ wasm, handle }) =>
