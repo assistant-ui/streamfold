@@ -1,57 +1,52 @@
 # SDK adapter benchmark
 
-This benchmark asks two separate questions:
-
-1. Can one protocol-neutral state pool consume the tool-input streams exposed by
-   major AI SDKs?
-2. Does mapping each SDK event envelope into that pool erase the performance
-   opportunity?
+This benchmark measures whether one protocol-neutral incremental value engine
+can consume major AI SDK tool-input event shapes without losing its performance
+advantage.
 
 ## Result
 
-Yes to the first question, and no to the second.
-
-The conformance fixture passes for assistant-stream, both Vercel AI SDK stream
+The fixture suite passes for assistant-stream, both Vercel AI SDK stream
 surfaces, OpenAI Responses, Anthropic Messages, AG-UI, Gemini Interactions, and
-LangChain. Four tool calls are interleaved and fragmented every seven
-characters. Every path reconstructs the same text and final JavaScript value.
+LangChain. It interleaves four calls, fragments each input every seven
+characters, and verifies IDs, partial updates, text, and final values.
 
-For a 53,656-byte tool input delivered in 3,354 deltas, direct Rust/Wasm core
-ingestion took about 0.73 ms median. The adapters took about 0.77–0.85 ms.
-Total dispatch overhead was therefore about 0.12 ms or less across the complete
-stream.
+For one 53,656-byte tool call delivered as 3,354 16-character deltas:
 
-For eight concurrent calls totaling 106,344 bytes and 3,328 interleaved deltas,
-direct core took about 1.06 ms. The adapters took about 1.08–1.20 ms, adding
-about 0.14 ms or less for the complete workload.
+| Path | Median |
+| --- | ---: |
+| Vercel AI SDK 7.0.22 `parsePartialJson` every delta | 1,252.85 ms |
+| Repair and `JSON.parse` every delta | 1,098.34 ms |
+| Direct Streamfold Rust/Wasm core | 6.33 ms |
+| Vercel AI SDK `fullStream` events through Streamfold | 6.36 ms |
+| Vercel AI SDK UIMessage events through Streamfold | 6.35 ms |
+| Slowest measured Streamfold integration | 6.74 ms |
 
-## Vercel AI SDK comparison
+The direct Streamfold path was 198.0× faster than the measured Vercel partial
+parser and 173.6× faster than repair-and-reparse for this workload.
 
-The root benchmark installs Vercel AI SDK 7.0.22 as a development-only
-dependency and calls its public `parsePartialJson` export after every accumulated
-delta. That path took about 1,310 ms for the one-call scenario. Routing the same
-Vercel UIMessage-shaped events through Streamfold took about 0.81 ms.
+Unlike the earlier structural-only experiment, Streamfold now returns a live
+partial JavaScript value and compact changes after each delta. The repository
+checks its partial result against Vercel AI SDK at every character boundary for
+the conformance fixtures. This is a substantially closer comparison, but the
+fixture set is not an exhaustive drop-in compatibility claim.
 
-This approximately 1,600× difference must not be presented as a drop-in
-application speedup. The outputs available during streaming differ:
+## What is measured
 
-- Vercel returns a repaired, renderable partial object after each delta.
-- Streamfold currently returns structural state after each delta and parses the
-  final object once.
-
-The experiment proves that event normalization is cheap and identifies repeated
-prefix parsing as the target. The next engineering milestone is an incremental
-value builder that preserves partial-object behavior without revisiting the
-complete prefix.
+- prebuilt SDK-shaped event dispatch and tool-call identity lookup;
+- UTF-8 encoding and every JavaScript/Wasm boundary crossing;
+- incremental Rust parsing and patch generation;
+- applying patches to the live JavaScript partial value;
+- final string join and `JSON.parse`.
 
 ## What is not measured
 
-- model or network latency;
-- SSE decoding and framework rendering;
+- model, network, or SSE latency;
+- framework rendering;
 - schema validation;
-- cold Wasm compilation before benchmark warmups;
-- malformed provider events;
-- partial-object materialization parity.
+- cold Wasm compilation before warmups;
+- every malformed or provider-specific payload.
 
-Run `pnpm test` for conformance and `pnpm bench:sdk` for the measurements. Raw
-results are written to `artifacts/sdk-adapter-results.json`.
+Run `pnpm test` for conformance and `pnpm bench:sdk` for measurements. Raw
+results, including warmed median, p95, environment, and concurrent-call
+scenarios, are written to `artifacts/sdk-adapter-results.json`.

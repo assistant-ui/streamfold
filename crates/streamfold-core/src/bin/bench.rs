@@ -1,6 +1,6 @@
 use std::hint::black_box;
 use std::time::Instant;
-use streamfold_core::JsonStreamParser;
+use streamfold_core::{JsonStreamParser, StructuredJsonParser};
 
 fn payload(item_count: usize) -> Vec<u8> {
     let mut text = String::with_capacity(item_count * 80);
@@ -51,11 +51,35 @@ fn main() {
             }
             first = false;
             print!(
-                r#"{{"implementation":"rust-native","bytes":{},"chunkSize":{},"medianMs":{:.6},"p95Ms":{:.6},"iterations":{},"charactersVisited":{}}}"#,
+                r#"{{"implementation":"rust-native-structure","bytes":{},"chunkSize":{},"medianMs":{:.6},"p95Ms":{:.6},"iterations":{},"charactersVisited":{}}}"#,
                 data.len(),
                 chunk_size,
                 median,
                 p95,
+                iterations,
+                data.len()
+            );
+
+            let mut semantic_samples = Vec::with_capacity(iterations);
+            for _ in 0..iterations {
+                let started = Instant::now();
+                let mut parser = StructuredJsonParser::new();
+                for chunk in data.chunks(chunk_size) {
+                    black_box(parser.push(black_box(chunk)).unwrap());
+                    black_box(parser.patch_bytes());
+                }
+                assert!(parser.state().complete);
+                semantic_samples.push(started.elapsed().as_secs_f64() * 1000.0);
+            }
+
+            let semantic_median = percentile(&mut semantic_samples.clone(), 0.5);
+            let semantic_p95 = percentile(&mut semantic_samples, 0.95);
+            print!(
+                r#",{{"implementation":"rust-native-values","bytes":{},"chunkSize":{},"medianMs":{:.6},"p95Ms":{:.6},"iterations":{},"charactersVisited":{}}}"#,
+                data.len(),
+                chunk_size,
+                semantic_median,
+                semantic_p95,
                 iterations,
                 data.len()
             );

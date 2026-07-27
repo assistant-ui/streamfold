@@ -13,11 +13,23 @@ test("all SDK envelopes produce identical concurrent tool inputs", () => {
 
   for (const sdkCase of createSdkCases(inputs)) {
     const adapter = sdkCase.createAdapter();
-    for (const event of sdkCase.events) adapter.push(event);
+    let partialUpdates = 0;
+    for (const event of sdkCase.events) {
+      const update = adapter.push(event);
+      if (update?.partialValue !== undefined) {
+        partialUpdates++;
+        assert.equal(
+          inputs.some((input) => input.id === update.id),
+          true,
+          sdkCase.name,
+        );
+      }
+    }
     const results = adapter.finish();
     const byId = new Map(results.map((result) => [result.id, result]));
 
     assert.equal(results.length, inputs.length, sdkCase.name);
+    assert.equal(partialUpdates > 0, true, sdkCase.name);
     for (const input of inputs) {
       const result = byId.get(input.id);
       assert.deepEqual(result?.value, input.value, sdkCase.name);

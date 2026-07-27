@@ -16,7 +16,7 @@ test("runs the published scanner through the Rust WebAssembly backend", () => {
 
 test("incrementally scans every possible two-part split", () => {
   const input =
-    '{"query":"a \\\\\"quoted\\\\\" value","items":[1,true,null,{"ok":false}]}';
+    '{"query":"a \\"quoted\\" value","items":[1,true,null,{"ok":false}]}';
   for (let split = 0; split <= input.length; split++) {
     const scanner = new IncrementalJsonScanner();
     scanner.push(input.slice(0, split));
@@ -28,12 +28,20 @@ test("incrementally scans every possible two-part split", () => {
 
 test("reports useful partial structural state", () => {
   const scanner = new IncrementalJsonScanner();
-  assert.deepEqual(scanner.push('{"items":[{"name":"hel'), {
+  const state = scanner.push('{"items":[{"name":"hel');
+  assert.deepEqual({
+    bytesSeen: state.bytesSeen,
+    depth: state.depth,
+    complete: state.complete,
+    inString: state.inString,
+  }, {
     bytesSeen: 22,
     depth: 3,
     complete: false,
     inString: true,
   });
+  assert.deepEqual(state.partialValue, { items: [{ name: "hel" }] });
+  assert.equal(state.changes.length, 5);
 });
 
 test("finishes primitive values at the stream boundary", () => {
