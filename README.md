@@ -152,7 +152,8 @@ WebAssembly keeps the same engine portable across browsers and server runtimes.
 Streamfold is an early, benchmark-backed project. The current conformance suite
 covers nested objects and arrays, partial strings and numbers, escapes, Unicode
 and surrogate pairs, literals, malformed JSON, prototype-pollution keys,
-interleaved tool calls, and all integration event shapes listed above.
+interleaved tool calls, every partial-object field-state fixture from
+`assistant-stream` 0.3.25, and all integration event shapes listed above.
 
 The next milestones are broader provider conformance fixtures, browser
 compatibility coverage, and profiling larger real-world traces.
