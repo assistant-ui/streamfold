@@ -8,24 +8,26 @@ SDK event
   → integration subpath
   → StructuredStreamPool
   → JavaScript Wasm bridge
-  → Rust JsonStreamParser
-  → structural StreamState
+  → Rust StructuredJsonParser
+  → compact binary patches
+  → live partial JavaScript value
 ```
 
 ## Runtime boundary
 
 The Rust ABI is defined in `crates/streamfold-core/src/wasm.rs`. It exposes
-parser allocation, input-buffer access, push, finish, state, error, and cleanup
-functions using numeric values and Wasm linear memory.
+parser allocation, input-buffer access, push, finish, output, state, error, and
+cleanup functions using numeric values and Wasm linear memory.
 
 `packages/core/src/internal/wasm-runtime.js`:
 
 1. lazily instantiates the embedded Wasm module once;
 2. encodes each JavaScript fragment directly into a parser-owned Rust buffer;
 3. calls the Rust state transition;
-4. translates the packed state or error into the public JavaScript API.
+4. decodes compact path patches from Wasm linear memory;
+5. applies those patches to a live JavaScript value.
 
-The approximately 20 KB Wasm binary is generated into
+The approximately 41 KB Wasm binary is generated into
 `packages/core/src/internal/wasm-binary.js`. Embedding it keeps
 `createStructuredStream()` synchronous and avoids runtime file loading,
 platform-specific native packages, and provider dependencies.

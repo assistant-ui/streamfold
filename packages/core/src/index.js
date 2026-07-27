@@ -15,21 +15,42 @@ const parserFinalizer =
 
 export class IncrementalJsonScanner {
   #parser = createWasmParser();
+  #value;
 
   constructor() {
     parserFinalizer?.register(this, this.#parser, this);
   }
 
   push(chunk) {
-    return pushWasmParser(this.#getParser(), chunk);
+    const update = pushWasmParser(this.#getParser(), chunk);
+    this.#apply(update.changes);
+    return {
+      ...update.state,
+      changes: update.changes,
+      partialValue: this.#value,
+    };
   }
 
   finish() {
-    return finishWasmParser(this.#getParser());
+    const update = finishWasmParser(this.#getParser());
+    this.#apply(update.changes);
+    return {
+      ...update.state,
+      changes: update.changes,
+      partialValue: this.#value,
+    };
   }
 
   get state() {
-    return readWasmParser(this.#getParser());
+    return {
+      ...readWasmParser(this.#getParser()),
+      changes: [],
+      partialValue: this.#value,
+    };
+  }
+
+  get value() {
+    return this.#value;
   }
 
   get backend() {
@@ -48,6 +69,26 @@ export class IncrementalJsonScanner {
       throw new Error("Structured stream has been disposed");
     }
     return this.#parser;
+  }
+
+  #apply(changes) {
+    for (const change of changes) {
+      if (change.op === "set") {
+        const value = Array.isArray(change.value)
+          ? []
+          : change.value !== null && typeof change.value === "object"
+            ? {}
+            : change.value;
+        this.#value = setAtPath(this.#value, change.path, value);
+      } else {
+        const current = getAtPath(this.#value, change.path);
+        this.#value = setAtPath(
+          this.#value,
+          change.path,
+          `${current}${change.value}`,
+        );
+      }
+    }
   }
 }
 
@@ -72,8 +113,8 @@ export class StructuredStreamPool {
       chunks: [],
     };
     this.#streams.set(id, entry);
-    if (initialChunk.length > 0) this.push(id, initialChunk);
-    return entry.scanner.state;
+    if (initialChunk.length > 0) return this.push(id, initialChunk);
+    return { id, ...entry.scanner.state };
   }
 
   push(id, delta) {
@@ -82,7 +123,7 @@ export class StructuredStreamPool {
       throw new Error(`Unknown structured stream: ${String(id)}`);
     }
     entry.chunks.push(delta);
-    return entry.scanner.push(delta);
+    return { id, ...entry.scanner.push(delta) };
   }
 
   finish(id) {
@@ -121,3 +162,25 @@ export class StructuredStreamPool {
 }
 
 export const createStructuredStreamPool = () => new StructuredStreamPool();
+
+const getAtPath = (root, path) => {
+  let current = root;
+  for (const segment of path) current = current[segment];
+  return current;
+};
+
+const setAtPath = (root, path, value) => {
+  if (path.length === 0) return value;
+
+  let target = root;
+  for (let index = 0; index < path.length - 1; index++) {
+    target = target[path[index]];
+  }
+  Object.defineProperty(target, path.at(-1), {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+  return root;
+};

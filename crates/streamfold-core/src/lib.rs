@@ -1,5 +1,8 @@
+mod partial;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
+
+pub use partial::{PartialValueParser, StructuredJsonParser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Container {
@@ -14,6 +17,7 @@ pub enum StreamError {
     TrailingData { offset: usize },
     EmptyInput,
     Incomplete { offset: usize },
+    InvalidJson { offset: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,7 +156,7 @@ mod tests {
 
     #[test]
     fn parses_one_byte_at_a_time() {
-        let input = br#"{"query":"a \\\"quoted\\\" value","items":[1,true,null,{"ok":false}]}"#;
+        let input = br#"{"query":"a \"quoted\" value","items":[1,true,null,{"ok":false}]}"#;
         let mut parser = JsonStreamParser::new();
         for byte in input {
             parser.push(std::slice::from_ref(byte)).unwrap();

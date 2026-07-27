@@ -7,16 +7,19 @@ export const langchain = (pool = createStructuredStreamPool()) => {
   return createIntegration(
     pool,
     (message) => {
+      let update;
       for (const chunk of message.tool_call_chunks ?? []) {
         let id = idsByIndex.get(chunk.index);
         if (id === undefined && chunk.id) {
           id = chunk.id;
           idsByIndex.set(chunk.index, id);
-          pool.start(id);
+          update = pool.start(id);
         }
-        if (id !== undefined && chunk.args) pool.push(id, chunk.args);
+        if (id !== undefined && chunk.args) {
+          update = pool.push(id, chunk.args);
+        }
       }
-      return undefined;
+      return update;
     },
     (complete) => {
       for (const id of idsByIndex.values()) complete(id);

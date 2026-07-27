@@ -127,11 +127,11 @@ writeFileSync(
         baseline:
           "Accumulate every chunk, repair incomplete containers, and JSON.parse the entire accumulated value after every chunk.",
         incremental:
-          "Retain parser state in the published Rust/WASM npm implementation and visit each incoming UTF-8 byte exactly once. Timing includes UTF-8 encoding, memory copies, and every JavaScript-to-Wasm call.",
+          "Retain parser and value state in the published Rust/Wasm npm implementation. Timing includes UTF-8 encoding, memory copies, every JavaScript-to-Wasm call, patch decoding, and live partial-value updates.",
         javascriptReference:
-          "Use the previous retained JavaScript scanner in benchmark-only code to isolate the cost of crossing the Wasm boundary.",
+          "Use a structural-only retained JavaScript scanner in benchmark-only code to isolate transition-loop and Wasm-boundary costs. It does not build partial values and is not an equivalent implementation.",
         note:
-          "The prototype scanner validates structure and reports partial state; it does not yet materialize the complete partial object exposed by assistant-stream.",
+          "The Rust/Wasm implementation materializes a live partial value. Final correctness is checked with JSON.parse, while prefix conformance is covered separately in the test suite.",
       },
       results,
     },

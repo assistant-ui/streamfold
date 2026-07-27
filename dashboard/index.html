@@ -225,22 +225,24 @@
       </section>
       <footer>
         <span id="environment"></span>
-        <span>Median of warmed runs · prototype structural scanner</span>
+        <span>Median of warmed runs · local machine</span>
       </footer>
     </main>
 
     <script type="module">
       const labels = {
         "repair-and-reparse": "Repair + full JSON.parse",
-        "javascript-reference": "Retained JavaScript reference",
-        "rust-wasm-npm": "Streamfold npm · Rust/Wasm",
-        "rust-native": "Streamfold · Rust native",
+        "javascript-reference": "JavaScript structure-only reference",
+        "rust-wasm-npm": "Streamfold · Rust/Wasm partial values",
+        "rust-native-structure": "Rust native · structure only",
+        "rust-native-values": "Rust native · partial values",
       };
       const classes = {
         "repair-and-reparse": "",
         "javascript-reference": "incremental",
         "rust-wasm-npm": "rust",
-        "rust-native": "rust",
+        "rust-native-structure": "rust",
+        "rust-native-values": "rust",
       };
       const formatBytes = (value) =>
         value >= 1_000_000

@@ -2,5 +2,4 @@
 node_modules/
 target/
 artifacts/*
-!artifacts/streamfold-chat-benchmark.png
 dashboard/results.js

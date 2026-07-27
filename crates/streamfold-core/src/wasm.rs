@@ -1,4 +1,4 @@
-use crate::{JsonStreamParser, StreamError, StreamState};
+use crate::{StreamError, StreamState, StructuredJsonParser};
 
 const DEPTH_MASK: u32 = 0x00ff_ffff;
 const COMPLETE_FLAG: u32 = 1 << 24;
@@ -6,7 +6,7 @@ const IN_STRING_FLAG: u32 = 1 << 25;
 const ERROR_SHIFT: u32 = 28;
 
 struct WasmParser {
-    parser: JsonStreamParser,
+    parser: StructuredJsonParser,
     input: Vec<u8>,
     error_offset: usize,
     error_byte: u8,
@@ -15,7 +15,7 @@ struct WasmParser {
 impl WasmParser {
     fn new() -> Self {
         Self {
-            parser: JsonStreamParser::new(),
+            parser: StructuredJsonParser::new(),
             input: Vec::new(),
             error_offset: 0,
             error_byte: 0,
@@ -48,6 +48,10 @@ impl WasmParser {
                     StreamError::Incomplete { offset } => {
                         self.error_offset = offset;
                         5
+                    }
+                    StreamError::InvalidJson { offset } => {
+                        self.error_offset = offset;
+                        6
                     }
                 };
                 encode_state(self.parser.state()) | (code << ERROR_SHIFT)
@@ -122,4 +126,14 @@ pub extern "C" fn streamfold_parser_error_offset(handle: usize) -> usize {
 #[unsafe(no_mangle)]
 pub extern "C" fn streamfold_parser_error_byte(handle: usize) -> u32 {
     parser_mut(handle).error_byte.into()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamfold_parser_output(handle: usize) -> usize {
+    parser_mut(handle).parser.patch_bytes().as_ptr() as usize
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn streamfold_parser_output_len(handle: usize) -> usize {
+    parser_mut(handle).parser.patch_bytes().len()
 }

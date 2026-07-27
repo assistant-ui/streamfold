@@ -6,12 +6,29 @@ export type JsonValue =
   | readonly JsonValue[]
   | { readonly [key: string]: JsonValue };
 
+export type StructuredStreamPath = readonly (string | number)[];
+
+export type StructuredStreamPatch =
+  | {
+      readonly op: "set";
+      readonly path: StructuredStreamPath;
+      readonly value: JsonValue;
+    }
+  | {
+      readonly op: "append";
+      readonly path: StructuredStreamPath;
+      readonly value: string;
+    };
+
 export interface StreamState {
   /** Number of UTF-8 bytes processed by the Rust parser. */
   readonly bytesSeen: number;
   readonly depth: number;
   readonly complete: boolean;
   readonly inString: boolean;
+  readonly changes: readonly StructuredStreamPatch[];
+  /** A live view updated in place; use `changes` for reactive state updates. */
+  readonly partialValue: JsonValue | undefined;
 }
 
 export interface CompletedStructuredStream<Id = string> extends StreamState {
@@ -20,8 +37,12 @@ export interface CompletedStructuredStream<Id = string> extends StreamState {
   readonly value: JsonValue;
 }
 
+export interface ActiveStructuredStream<Id = string> extends StreamState {
+  readonly id: Id;
+}
+
 export type StructuredStreamUpdate<Id = string> =
-  | StreamState
+  | ActiveStructuredStream<Id>
   | CompletedStructuredStream<Id>
   | undefined;
 
@@ -42,11 +63,13 @@ export class IncrementalJsonScanner {
   dispose(): void;
   readonly backend: "rust-wasm";
   readonly state: StreamState;
+  /** A live view updated in place; use `StreamState.changes` for reactive updates. */
+  readonly value: JsonValue | undefined;
 }
 
 export class StructuredStreamPool<Id = string> {
-  start(id: Id, initialChunk?: string): StreamState;
-  push(id: Id, delta: string): StreamState;
+  start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
+  push(id: Id, delta: string): ActiveStructuredStream<Id>;
   finish(id: Id): CompletedStructuredStream<Id>;
   abort(id: Id): boolean;
   has(id: Id): boolean;

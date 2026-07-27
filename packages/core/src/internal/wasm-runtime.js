@@ -4,6 +4,14 @@ const DEPTH_MASK = 0x00ff_ffff;
 const COMPLETE_FLAG = 1 << 24;
 const IN_STRING_FLAG = 1 << 25;
 const ERROR_SHIFT = 28;
+const PATCH_SET_OBJECT = 0;
+const PATCH_SET_ARRAY = 1;
+const PATCH_SET_STRING = 2;
+const PATCH_APPEND_STRING = 3;
+const PATCH_SET_NUMBER = 4;
+const PATCH_SET_TRUE = 5;
+const PATCH_SET_FALSE = 6;
+const PATCH_SET_NULL = 7;
 
 const encoder = new TextEncoder();
 let exports;
@@ -38,6 +46,7 @@ const syntaxError = (wasm, handle, code) => {
   if (code === 3) return new SyntaxError(`Trailing data at ${offset}`);
   if (code === 4) return new SyntaxError("Empty JSON input");
   if (code === 5) return new SyntaxError(`Incomplete JSON at ${offset}`);
+  if (code === 6) return new SyntaxError(`Invalid JSON at ${offset}`);
   return new SyntaxError(`Rust parser failed with error code ${code}`);
 };
 
@@ -50,6 +59,90 @@ const readState = (wasm, handle, encoded) => {
     complete: (encoded & COMPLETE_FLAG) !== 0,
     inString: (encoded & IN_STRING_FLAG) !== 0,
   };
+};
+
+const readString = (view, cursor, length) => {
+  let value = "";
+  const batch = [];
+  for (let index = 0; index < length; index++) {
+    batch.push(view.getUint16(cursor.offset, true));
+    cursor.offset += 2;
+    if (batch.length === 4096) {
+      value += String.fromCharCode(...batch);
+      batch.length = 0;
+    }
+  }
+  if (batch.length > 0) value += String.fromCharCode(...batch);
+  return value;
+};
+
+const readPath = (view, cursor) => {
+  const length = view.getUint16(cursor.offset, true);
+  cursor.offset += 2;
+  const path = [];
+  for (let index = 0; index < length; index++) {
+    const kind = view.getUint8(cursor.offset++);
+    if (kind === 0) {
+      const units = view.getUint32(cursor.offset, true);
+      cursor.offset += 4;
+      path.push(readString(view, cursor, units));
+    } else {
+      path.push(view.getUint32(cursor.offset, true));
+      cursor.offset += 4;
+    }
+  }
+  return path;
+};
+
+const readNumber = (view, cursor) => {
+  const length = view.getUint32(cursor.offset, true);
+  cursor.offset += 4;
+  let text = "";
+  for (let index = 0; index < length; index++) {
+    text += String.fromCharCode(view.getUint8(cursor.offset++));
+  }
+  return Number(text);
+};
+
+const readPatches = (wasm, handle) => {
+  const length = wasm.streamfold_parser_output_len(handle) >>> 0;
+  if (length === 0) return [];
+  const pointer = wasm.streamfold_parser_output(handle) >>> 0;
+  const view = new DataView(wasm.memory.buffer, pointer, length);
+  const cursor = { offset: 0 };
+  const patches = [];
+
+  while (cursor.offset < length) {
+    const operation = view.getUint8(cursor.offset++);
+    const path = readPath(view, cursor);
+    if (operation === PATCH_SET_OBJECT) {
+      patches.push({ op: "set", path, value: {} });
+    } else if (operation === PATCH_SET_ARRAY) {
+      patches.push({ op: "set", path, value: [] });
+    } else if (operation === PATCH_SET_STRING) {
+      patches.push({ op: "set", path, value: "" });
+    } else if (operation === PATCH_APPEND_STRING) {
+      const units = view.getUint32(cursor.offset, true);
+      cursor.offset += 4;
+      patches.push({
+        op: "append",
+        path,
+        value: readString(view, cursor, units),
+      });
+    } else if (operation === PATCH_SET_NUMBER) {
+      patches.push({ op: "set", path, value: readNumber(view, cursor) });
+    } else if (operation === PATCH_SET_TRUE) {
+      patches.push({ op: "set", path, value: true });
+    } else if (operation === PATCH_SET_FALSE) {
+      patches.push({ op: "set", path, value: false });
+    } else if (operation === PATCH_SET_NULL) {
+      patches.push({ op: "set", path, value: null });
+    } else {
+      throw new Error(`Unknown Rust patch operation: ${operation}`);
+    }
+  }
+
+  return patches;
 };
 
 export const createWasmParser = () => {
@@ -71,15 +164,22 @@ export const pushWasmParser = ({ wasm, handle }, chunk) => {
     }
     length = result.written;
   }
-  return readState(
+  const state = readState(
     wasm,
     handle,
     wasm.streamfold_parser_push(handle, length),
   );
+  return { state, changes: readPatches(wasm, handle) };
 };
 
-export const finishWasmParser = ({ wasm, handle }) =>
-  readState(wasm, handle, wasm.streamfold_parser_finish(handle));
+export const finishWasmParser = ({ wasm, handle }) => {
+  const state = readState(
+    wasm,
+    handle,
+    wasm.streamfold_parser_finish(handle),
+  );
+  return { state, changes: readPatches(wasm, handle) };
+};
 
 export const readWasmParser = ({ wasm, handle }) =>
   readState(wasm, handle, wasm.streamfold_parser_state(handle));

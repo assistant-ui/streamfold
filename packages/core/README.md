@@ -1,44 +1,41 @@
 # streamfold
 
-Protocol-neutral incremental state for structured AI streams.
+Incremental structured state for streamed AI tool calls.
 
-The parser runs in Rust through an embedded WebAssembly module. Consumers do not
-need Rust installed and the package has no provider SDK dependencies.
+Streamfold retains JSON parser and value state across deltas. Its Rust/WebAssembly
+engine emits compact patches that update a live partial JavaScript value without
+reparsing the complete accumulated input.
 
 ```bash
 pnpm add streamfold
 ```
 
-Use an integration-specific entry point:
+```ts
+import { createStructuredStream } from "streamfold";
+
+const stream = createStructuredStream();
+const update = stream.push('{"city":"San');
+
+console.log(update.partialValue); // { city: "San" }
+console.log(update.changes); // compact set/append patches
+```
+
+Use an isolated event integration when consuming an SDK stream:
 
 ```ts
 import { createStructuredStream } from "streamfold/assistant-ui";
 
-const stream = createStructuredStream();
+const toolCalls = createStructuredStream();
 
 for await (const event of assistantStream) {
-  const update = stream.push(event);
-  if (update && "value" in update) {
-    console.log(update.id, update.value);
-  }
+  const update = toolCalls.push(event);
+  if (update) renderToolInput(update.id, update.partialValue);
 }
 ```
 
-Or compose an integration with the core factory:
-
-```ts
-import { createStructuredStream } from "streamfold";
-import { assistantUI } from "streamfold/assistant-ui";
-
-const stream = createStructuredStream(assistantUI);
-```
-
 Available subpaths are `assistant-ui`, `vercel-ai`, `openai`, `anthropic`,
-`gemini`, `langchain`, and `ag-ui`. None imports a provider SDK.
-
-Streamfold is currently a benchmark-backed prototype. It retains structural
-state and materializes the final value once; it does not yet provide a
-renderable partial value after every delta.
+`gemini`, `langchain`, and `ag-ui`. They consume structural event shapes and do
+not install or load provider SDKs.
 
 See the [repository README](https://github.com/assistant-ui/streamfold#readme)
 for benchmarks, methodology, and development instructions.

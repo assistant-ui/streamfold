@@ -1,8 +1,8 @@
 # Contributing
 
 Streamfold is an early, benchmark-backed prototype. Issues and focused pull
-requests are welcome, especially for correctness fixtures, incremental value
-materialization, and browser/server portability.
+requests are welcome, especially for correctness fixtures, real-world traces,
+and browser/server portability.
 
 ## Setup
 
