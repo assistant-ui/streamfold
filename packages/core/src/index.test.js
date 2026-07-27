@@ -116,3 +116,52 @@ test("releases aborted streams", () => {
   assert.equal(pool.abort("cancelled"), false);
   assert.throws(() => pool.push("cancelled", "1}"), /Unknown structured stream/);
 });
+
+test("enforces byte and depth limits with terminal failures", () => {
+  const bytes = new IncrementalJsonScanner({ maxBytes: 8 });
+  let byteFailure;
+  assert.throws(() => bytes.push('{"value":1}'), (error) => {
+    byteFailure = error;
+    return /maxBytes \(8\)/.test(error.message);
+  });
+  assert.throws(() => bytes.push("{}"), (error) => error === byteFailure);
+  bytes.dispose();
+
+  const depth = new IncrementalJsonScanner({ maxDepth: 2 });
+  assert.throws(() => depth.push('{"value":[['), /maxDepth \(2\)/);
+  assert.throws(() => depth.finish(), /maxDepth \(2\)/);
+  depth.dispose();
+
+  const utf8 = new IncrementalJsonScanner({ maxBytes: 4 });
+  assert.equal(utf8.push('"é"').complete, true);
+  utf8.dispose();
+  assert.throws(
+    () => new IncrementalJsonScanner({ maxBytes: 3 }).push('"é"'),
+    /maxBytes \(3\)/,
+  );
+
+  assert.throws(
+    () => new IncrementalJsonScanner({ maxDepth: 0 }),
+    /maxDepth must be an integer/,
+  );
+});
+
+test("bounds active streams and cleans up failed pool entries", () => {
+  const bounded = new StructuredStreamPool({ maxActiveStreams: 1 });
+  bounded.start("first");
+  assert.throws(() => bounded.start("second"), /maxActiveStreams \(1\)/);
+  bounded.abort("first");
+
+  const malformed = new StructuredStreamPool();
+  malformed.start("broken");
+  assert.throws(() => malformed.push("broken", "{]"), SyntaxError);
+  assert.equal(malformed.size, 0);
+
+  assert.throws(() => malformed.start("initial", "{]"), SyntaxError);
+  assert.equal(malformed.size, 0);
+
+  const incomplete = new StructuredStreamPool();
+  incomplete.start("broken", '{"value":');
+  assert.throws(() => incomplete.finish("broken"), SyntaxError);
+  assert.equal(incomplete.size, 0);
+});

@@ -92,6 +92,20 @@ console.log(update.partialValue); // { query: "streamfold" }
 console.log(result.value); // final JSON value
 ```
 
+Streams are bounded by default to 16 MiB, nesting depth 128, and 256 active
+calls per pool. Applications can lower or raise those limits explicitly:
+
+```ts
+const streams = createStructuredStreamPool({
+  maxBytes: 2 * 1024 * 1024,
+  maxDepth: 64,
+  maxActiveStreams: 32,
+});
+```
+
+Syntax and limit failures are terminal. Pools automatically dispose failed or
+incomplete entries so untrusted tool input cannot leave orphaned Wasm parsers.
+
 ## Integrations
 
 Import only the event shape you need:

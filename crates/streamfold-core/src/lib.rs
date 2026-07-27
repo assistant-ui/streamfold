@@ -4,6 +4,9 @@ mod wasm;
 
 pub use partial::{PartialValueParser, StructuredJsonParser};
 
+pub const DEFAULT_MAX_BYTES: usize = 16 * 1024 * 1024;
+pub const DEFAULT_MAX_DEPTH: usize = 128;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Container {
     Object,
@@ -18,6 +21,8 @@ pub enum StreamError {
     EmptyInput,
     Incomplete { offset: usize },
     InvalidJson { offset: usize },
+    MaxBytesExceeded { offset: usize, limit: usize },
+    MaxDepthExceeded { offset: usize, limit: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,7 +33,7 @@ pub struct StreamState {
     pub in_string: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct JsonStreamParser {
     stack: Vec<Container>,
     bytes_seen: usize,
@@ -37,6 +42,24 @@ pub struct JsonStreamParser {
     in_string: bool,
     escaped: bool,
     primitive: bool,
+    max_bytes: usize,
+    max_depth: usize,
+}
+
+impl Default for JsonStreamParser {
+    fn default() -> Self {
+        Self {
+            stack: Vec::new(),
+            bytes_seen: 0,
+            started: false,
+            complete: false,
+            in_string: false,
+            escaped: false,
+            primitive: false,
+            max_bytes: DEFAULT_MAX_BYTES,
+            max_depth: DEFAULT_MAX_DEPTH,
+        }
+    }
 }
 
 impl JsonStreamParser {
@@ -44,7 +67,22 @@ impl JsonStreamParser {
         Self::default()
     }
 
+    pub fn with_limits(max_depth: usize, max_bytes: usize) -> Self {
+        Self {
+            max_bytes,
+            max_depth,
+            ..Self::default()
+        }
+    }
+
     pub fn push(&mut self, chunk: &[u8]) -> Result<StreamState, StreamError> {
+        if chunk.len() > self.max_bytes.saturating_sub(self.bytes_seen) {
+            return Err(StreamError::MaxBytesExceeded {
+                offset: self.bytes_seen,
+                limit: self.max_bytes,
+            });
+        }
+
         for &byte in chunk {
             let offset = self.bytes_seen;
             self.bytes_seen += 1;
@@ -78,10 +116,12 @@ impl JsonStreamParser {
                 }
                 b'{' => {
                     self.started = true;
+                    self.check_depth(offset)?;
                     self.stack.push(Container::Object);
                 }
                 b'[' => {
                     self.started = true;
+                    self.check_depth(offset)?;
                     self.stack.push(Container::Array);
                 }
                 b'}' => self.close(Container::Object, offset, byte)?,
@@ -148,6 +188,16 @@ impl JsonStreamParser {
         }
         Ok(())
     }
+
+    fn check_depth(&self, offset: usize) -> Result<(), StreamError> {
+        if self.stack.len() >= self.max_depth {
+            return Err(StreamError::MaxDepthExceeded {
+                offset,
+                limit: self.max_depth,
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -194,6 +244,27 @@ mod tests {
         assert!(matches!(
             incomplete.finish(),
             Err(StreamError::Incomplete { .. })
+        ));
+    }
+
+    #[test]
+    fn enforces_byte_and_depth_limits() {
+        let mut bytes = JsonStreamParser::with_limits(8, 4);
+        assert!(matches!(
+            bytes.push(b"12345"),
+            Err(StreamError::MaxBytesExceeded {
+                offset: 0,
+                limit: 4
+            })
+        ));
+
+        let mut depth = JsonStreamParser::with_limits(2, 1024);
+        assert!(matches!(
+            depth.push(br#"{"x":[["#),
+            Err(StreamError::MaxDepthExceeded {
+                offset: 6,
+                limit: 2
+            })
         ));
     }
 }

@@ -36,7 +36,7 @@ const getExports = () => {
   return exports;
 };
 
-const syntaxError = (wasm, handle, code) => {
+const parserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
   const offset = wasm.streamfold_parser_error_offset(handle) >>> 0;
   const byte = wasm.streamfold_parser_error_byte(handle);
   if (code === 1) {
@@ -48,12 +48,23 @@ const syntaxError = (wasm, handle, code) => {
   if (code === 4) return new SyntaxError("Empty JSON input");
   if (code === 5) return new SyntaxError(`Incomplete JSON at ${offset}`);
   if (code === 6) return new SyntaxError(`Invalid JSON at ${offset}`);
+  if (code === 7) {
+    return new RangeError(
+      `Structured stream exceeds maxBytes (${maxBytes}) at ${offset}`,
+    );
+  }
+  if (code === 8) {
+    return new RangeError(
+      `Structured stream exceeds maxDepth (${maxDepth}) at ${offset}`,
+    );
+  }
   return new SyntaxError(`Rust parser failed with error code ${code}`);
 };
 
-const readState = (wasm, handle, encoded) => {
+const readState = (parser, encoded) => {
+  const { wasm, handle } = parser;
   const error = encoded >>> ERROR_SHIFT;
-  if (error !== 0) throw syntaxError(wasm, handle, error);
+  if (error !== 0) throw parserError(parser, error);
   return {
     bytesSeen: wasm.streamfold_parser_bytes_seen(handle) >>> 0,
     depth: encoded & DEPTH_MASK,
@@ -148,14 +159,21 @@ const readPatches = (wasm, handle) => {
   return patches;
 };
 
-export const createWasmParser = () => {
+export const createWasmParser = ({ maxBytes, maxDepth }) => {
   const wasm = getExports();
-  const handle = wasm.streamfold_parser_new();
+  const handle = wasm.streamfold_parser_new(maxDepth, maxBytes);
   if (handle === 0) throw new Error("Unable to allocate the Rust parser");
-  return { wasm, handle, pendingHighSurrogate: "" };
+  return {
+    wasm,
+    handle,
+    maxBytes,
+    maxDepth,
+    pendingHighSurrogate: "",
+  };
 };
 
-const pushChunk = ({ wasm, handle }, chunk) => {
+const pushChunk = (parser, chunk) => {
+  const { wasm, handle } = parser;
   const capacity = chunk.length * 3;
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
@@ -167,11 +185,7 @@ const pushChunk = ({ wasm, handle }, chunk) => {
     }
     length = result.written;
   }
-  const state = readState(
-    wasm,
-    handle,
-    wasm.streamfold_parser_push(handle, length),
-  );
+  const state = readState(parser, wasm.streamfold_parser_push(handle, length));
   return { state, changes: readPatches(wasm, handle) };
 };
 
@@ -197,17 +211,16 @@ export const finishWasmParser = (parser) => {
     changes.push(...pushChunk(parser, parser.pendingHighSurrogate).changes);
     parser.pendingHighSurrogate = "";
   }
-  const state = readState(
-    wasm,
-    handle,
-    wasm.streamfold_parser_finish(handle),
-  );
+  const state = readState(parser, wasm.streamfold_parser_finish(handle));
   changes.push(...readPatches(wasm, handle));
   return { state, changes };
 };
 
-export const readWasmParser = ({ wasm, handle }) =>
-  readState(wasm, handle, wasm.streamfold_parser_state(handle));
+export const readWasmParser = (parser) =>
+  readState(
+    parser,
+    parser.wasm.streamfold_parser_state(parser.handle),
+  );
 
 export const freeWasmParser = ({ wasm, handle }) => {
   wasm.streamfold_parser_free(handle);

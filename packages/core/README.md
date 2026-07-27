@@ -23,6 +23,15 @@ stream.push(' Francisco"}');
 console.log(stream.getFieldState(["city"])); // "complete"
 ```
 
+Resource limits are configurable and enabled by default:
+
+```ts
+const stream = createStructuredStream({
+  maxBytes: 2 * 1024 * 1024,
+  maxDepth: 64,
+});
+```
+
 Use an isolated event integration when consuming an SDK stream:
 
 ```ts

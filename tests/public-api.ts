@@ -1,6 +1,7 @@
 import {
   createStructuredStream,
   createStructuredStreamPool,
+  DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
 } from "streamfold";
 import {
@@ -18,7 +19,14 @@ scanner.backend satisfies "rust-wasm";
 STREAMFOLD_ENGINE satisfies "rust-wasm";
 scanner.dispose();
 
-const pool = createStructuredStreamPool<string>();
+createStructuredStream({ maxBytes: 1024, maxDepth: 8 }).dispose();
+DEFAULT_STREAM_LIMITS.maxBytes satisfies number;
+
+const pool = createStructuredStreamPool<string>({
+  maxActiveStreams: 4,
+  maxBytes: 1024,
+  maxDepth: 8,
+});
 pool.start("call-1");
 pool.push("call-1", '{"query":"streamfold"}');
 pool.getFieldState("call-1", ["query"]) satisfies "complete" | "partial";

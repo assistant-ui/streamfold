@@ -713,6 +713,13 @@ impl StructuredJsonParser {
         Self::default()
     }
 
+    pub fn with_limits(max_depth: usize, max_bytes: usize) -> Self {
+        Self {
+            scanner: JsonStreamParser::with_limits(max_depth, max_bytes),
+            values: PartialValueParser::new(),
+        }
+    }
+
     pub fn push(&mut self, chunk: &[u8]) -> Result<StreamState, StreamError> {
         let state = self.scanner.push(chunk)?;
         self.values.push(chunk)?;

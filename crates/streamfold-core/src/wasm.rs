@@ -13,9 +13,9 @@ struct WasmParser {
 }
 
 impl WasmParser {
-    fn new() -> Self {
+    fn new(max_depth: usize, max_bytes: usize) -> Self {
         Self {
-            parser: StructuredJsonParser::new(),
+            parser: StructuredJsonParser::with_limits(max_depth, max_bytes),
             input: Vec::new(),
             error_offset: 0,
             error_byte: 0,
@@ -53,6 +53,14 @@ impl WasmParser {
                         self.error_offset = offset;
                         6
                     }
+                    StreamError::MaxBytesExceeded { offset, .. } => {
+                        self.error_offset = offset;
+                        7
+                    }
+                    StreamError::MaxDepthExceeded { offset, .. } => {
+                        self.error_offset = offset;
+                        8
+                    }
                 };
                 encode_state(self.parser.state()) | (code << ERROR_SHIFT)
             }
@@ -73,8 +81,8 @@ fn parser_mut(handle: usize) -> &'static mut WasmParser {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_new() -> usize {
-    Box::into_raw(Box::new(WasmParser::new())) as usize
+pub extern "C" fn streamfold_parser_new(max_depth: usize, max_bytes: usize) -> usize {
+    Box::into_raw(Box::new(WasmParser::new(max_depth, max_bytes))) as usize
 }
 
 #[unsafe(no_mangle)]
