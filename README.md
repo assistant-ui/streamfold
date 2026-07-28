@@ -9,9 +9,30 @@ reparsing the complete prefix after every delta. The parser and incremental
 value builder run in Rust through an embedded WebAssembly module; the TypeScript
 API stays protocol-neutral and works in browser and server runtimes.
 
+## Installation
+
+Streamfold is ESM-only and requires Node.js 20 or newer when used on the
+server. Its Rust/WebAssembly engine is included in the package, so consumers do
+not need Rust, native build tools, or provider SDK dependencies.
+
 ```bash
+# npm
+npm install streamfold
+
+# pnpm
 pnpm add streamfold
+
+# Yarn
+yarn add streamfold
+
+# Bun
+bun add streamfold
 ```
+
+Import the protocol-neutral API from `streamfold`, or use an integration
+subpath such as `streamfold/assistant-ui` or `streamfold/vercel-ai` for decoded
+SDK events. See the [core API](#core-api) for a first example and the
+[migration guide](MIGRATION.md) for every bundled integration.
 
 ## Performance
 
