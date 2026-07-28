@@ -1,57 +1,136 @@
-# SDK adapter benchmark
+# Published package benchmark
 
-This benchmark measures whether one protocol-neutral incremental value engine
-can consume major AI SDK tool-input event shapes without losing its performance
-advantage.
+This report measures the npm-published `streamfold@0.1.1` artifact, not a
+repository-relative source import. The benchmark runner installs the package
+from:
 
-## Result
+```text
+https://registry.npmjs.org/streamfold/-/streamfold-0.1.1.tgz
+```
 
-The fixture suite passes for assistant-stream, both Vercel AI SDK stream
-surfaces, OpenAI Responses, Anthropic Messages, AG-UI, Gemini Interactions, and
-LangChain. It interleaves four calls, fragments each input every seven
-characters, and verifies IDs, partial updates, text, and final values.
+The measured tarball has this registry integrity:
 
-The partial-object suite also runs every field-state fixture from
-`assistant-stream` 0.3.25 against both implementations, comparing the partial
-value and the state of the requested path.
+```text
+sha512-+bVJfbiuWqXagmjmjw6SPDrDIgBYCHtkKVo1keunqFeYlsSDsxPjNzcNrCVJZW7+4lb9+sHPLzPiSPlo8ftaFw==
+```
 
-For one 53,656-byte tool call delivered as 3,354 16-character deltas:
+## Environment
 
-| Path | Median |
-| --- | ---: |
-| Vercel AI SDK 7.0.22 `parsePartialJson` every delta | 1,272.33 ms |
-| Repair and `JSON.parse` every delta | 1,109.87 ms |
-| Direct Streamfold Rust/Wasm core | 7.39 ms |
-| Vercel AI SDK `fullStream` events through Streamfold | 7.47 ms |
-| Vercel AI SDK UIMessage events through Streamfold | 7.45 ms |
-| Slowest measured Streamfold integration | 7.66 ms |
+- Apple M1, macOS arm64
+- Node.js 23.11.0
+- `streamfold` 0.1.1 from npm
+- `assistant-stream` 0.3.25
+- Vercel AI SDK 7.0.22
 
-The Vercel-shaped Streamfold path was 170.7× faster than the measured Vercel
-partial parser, while direct core was 150.1× faster than repair-and-reparse for
-this workload.
+Results are warmed medians from one local machine. They are evidence for the
+algorithmic difference in these fixtures, not universal latency guarantees.
 
-Unlike the earlier structural-only experiment, Streamfold now returns a live
-partial JavaScript value and compact changes after each delta. The repository
-checks its partial result against Vercel AI SDK at every character boundary for
-the conformance fixtures. This is a substantially closer comparison, but the
-fixture set is not an exhaustive drop-in compatibility claim.
+## Real parser replacement
 
-## What is measured
+One 53,656-byte tool call is delivered as 3,354 16-character deltas. Each
+baseline reparses the complete accumulated prefix after every delta.
 
-- prebuilt SDK-shaped event dispatch and tool-call identity lookup;
-- UTF-8 encoding and every JavaScript/Wasm boundary crossing;
-- incremental Rust parsing and patch generation;
-- applying patches to the live JavaScript partial value;
-- final string join and `JSON.parse`.
+| Existing path | Existing median | Streamfold event path | Streamfold median | Ratio |
+| --- | ---: | --- | ---: | ---: |
+| `assistant-stream` `parsePartialJsonObject` | 1,876.95 ms | `streamfold/assistant-ui` | 8.62 ms | 217.7× |
+| Vercel AI SDK `parsePartialJson` | 1,434.15 ms | `streamfold/vercel-ai` UIMessage | 8.63 ms | 166.1× |
+| Generic repair + `JSON.parse` | 1,145.55 ms | Published Rust/Wasm core | 7.91 ms | 144.8× |
 
-## What is not measured
+The Streamfold measurements include event dispatch, ID lookup, UTF-8 encoding,
+JavaScript/Wasm calls, Rust parsing, patch decoding, live partial-value updates,
+one final join, and one final `JSON.parse`.
 
-- model, network, or SSE latency;
-- framework rendering;
+## Integration matrix
+
+All integrations process the same 53,656 bytes and 3,354 deltas.
+
+| Integration | Median | p95 |
+| --- | ---: | ---: |
+| assistant-stream | 8.62 ms | 11.26 ms |
+| Vercel AI SDK `fullStream` | 8.71 ms | 12.83 ms |
+| Vercel AI SDK UIMessage | 8.63 ms | 10.74 ms |
+| OpenAI Responses | 8.65 ms | 11.17 ms |
+| Anthropic Messages | 9.26 ms | 19.63 ms |
+| AG-UI | 9.50 ms | 15.06 ms |
+| Google Gemini Interactions | 9.01 ms | 12.96 ms |
+| LangChain `AIMessageChunk` | 9.02 ms | 11.22 ms |
+
+The sub-millisecond ordering between adapters is benchmark noise, not evidence
+that one provider is faster. The useful result is that all event envelopes stay
+in the same narrow range.
+
+Eight interleaved tool calls process 106,344 total bytes across 3,328 deltas:
+
+| Integration | Median | p95 |
+| --- | ---: | ---: |
+| assistant-stream | 19.93 ms | 27.45 ms |
+| Vercel AI SDK `fullStream` | 19.03 ms | 27.43 ms |
+| Vercel AI SDK UIMessage | 17.41 ms | 23.56 ms |
+| OpenAI Responses | 17.06 ms | 21.20 ms |
+| Anthropic Messages | 16.41 ms | 20.38 ms |
+| AG-UI | 16.23 ms | 20.91 ms |
+| Google Gemini Interactions | 14.81 ms | 17.78 ms |
+| LangChain `AIMessageChunk` | 15.00 ms | 17.95 ms |
+
+## Crossover by payload and chunk size
+
+This matrix compares generic repair-and-reparse with the published Streamfold
+core. A ratio below 1× means repair-and-reparse was faster.
+
+| Payload | Chunk | Repair + parse | Streamfold | Ratio |
+| ---: | ---: | ---: | ---: | ---: |
+| 953 B | 16 B | 0.893 ms | 0.263 ms | 3.4× |
+| 953 B | 256 B | 0.038 ms | 0.118 ms | 0.32× |
+| 953 B | 4,096 B | 0.005 ms | 0.112 ms | 0.04× |
+| 9,529 B | 16 B | 61.922 ms | 1.534 ms | 40.4× |
+| 9,529 B | 256 B | 3.126 ms | 1.125 ms | 2.8× |
+| 9,529 B | 4,096 B | 0.240 ms | 1.060 ms | 0.23× |
+| 48,449 B | 16 B | 1,145.550 ms | 7.913 ms | 144.8× |
+| 48,449 B | 256 B | 68.058 ms | 10.539 ms | 6.5× |
+| 48,449 B | 4,096 B | 4.764 ms | 8.016 ms | 0.59× |
+
+Streamfold is aimed at long structured values delivered as many small model
+deltas. It is not a replacement for one final `JSON.parse`, and it should not
+be added to one-shot or already-large JSON chunks merely because Rust is
+available.
+
+## Scope
+
+Measured:
+
+- published npm Rust/Wasm code;
+- real assistant-stream and Vercel partial parsers;
+- official-shaped events for every listed integration;
+- interleaved concurrent calls;
+- live partial values and final values.
+
+Not measured:
+
+- model, network, SSE decoding, or provider latency;
+- React rendering;
 - schema validation;
 - cold Wasm compilation before warmups;
-- every malformed or provider-specific payload.
+- provider SDK request creation;
+- every malformed provider payload.
 
-Run `pnpm test` for conformance and `pnpm bench:sdk` for measurements. Raw
-results, including warmed median, p95, environment, and concurrent-call
-scenarios, are written to `artifacts/sdk-adapter-results.json`.
+OpenAI, Anthropic, Gemini, LangChain, and AG-UI expose streaming event
+envelopes, but do not provide an equivalent public partial-JSON materializer to
+benchmark directly. Their rows therefore measure Streamfold integration cost,
+not a claim that Streamfold makes those provider SDKs themselves faster.
+
+## Reproduce
+
+```bash
+pnpm install
+pnpm bench:published 0.1.1
+```
+
+The runner installs the requested Streamfold version into a temporary project,
+checks the installed version, runs both benchmark suites, and removes the
+temporary project. Machine-readable output is written to:
+
+```text
+artifacts/published-package.json
+artifacts/published-benchmark-results.json
+artifacts/published-sdk-adapter-results.json
+```

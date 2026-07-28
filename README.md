@@ -15,13 +15,18 @@ pnpm add streamfold
 
 ## Performance
 
-One 53,656-byte tool call was delivered as 3,354 16-character deltas. Each
-measurement is the median of warmed runs on an Apple M1 using Node.js 23.11.0.
+The published `streamfold@0.1.1` npm artifact was measured on an Apple M1 using
+Node.js 23.11.0. One 53,656-byte tool call was delivered as 3,354
+16-character deltas.
 
 | Use case | **BEFORE — rebuild every delta** | **AFTER — retain state with Streamfold** | **FASTER** |
 | --- | ---: | ---: | ---: |
-| Vercel UIMessage tool input | `parsePartialJson` — **1,272.33 ms** | Rust/Wasm adapter — **7.45 ms** | **170.7×** |
-| Protocol-neutral JSON input | Repair + `JSON.parse` — **1,109.87 ms** | Rust/Wasm core — **7.39 ms** | **150.1×** |
+| assistant-stream tool input | `parsePartialJsonObject` — **1,876.95 ms** | Rust/Wasm adapter — **8.62 ms** | **217.7×** |
+| Vercel UIMessage tool input | `parsePartialJson` — **1,434.15 ms** | Rust/Wasm adapter — **8.63 ms** | **166.1×** |
+| Protocol-neutral JSON input¹ | Repair + `JSON.parse` — **1,145.55 ms** | Rust/Wasm core — **7.91 ms** | **144.8×** |
+
+¹ The protocol-neutral row uses a 48,449-byte payload delivered as 3,029
+16-character deltas.
 
 The before column reparses the complete accumulated JSON after every incoming
 delta. The after column keeps parser and partial-value state between deltas, so
@@ -37,14 +42,17 @@ patch application, a live partial value after every delta, and final
 UI rendering. Prefix-by-prefix conformance is tested against Vercel AI SDK for
 the repository fixtures; exhaustive drop-in parity is not yet claimed.
 
-Run the measurements on your machine:
+Run the workspace or published-package measurements on your machine:
 
 ```bash
 pnpm bench
 pnpm bench:sdk
+pnpm bench:published 0.1.1
 ```
 
 Machine-readable results are written to `artifacts/`.
+See the [published benchmark report](benchmarks/SDK_ADAPTER_REPORT.md) for the
+full integration matrix, methodology, and crossover points.
 
 ## Core API
 
@@ -145,6 +153,10 @@ Available isolated entry points:
 Streamfold has no provider SDK runtime dependencies. Importing one integration
 does not load any of the others.
 
+See [MIGRATION.md](MIGRATION.md) for raw streams, assistant-stream,
+assistant-ui, Vercel AI SDK, OpenAI, Anthropic, Gemini, LangChain, AG-UI, and
+custom protocol migration patterns.
+
 ## How it works
 
 ```text
@@ -182,6 +194,7 @@ pnpm check
 pnpm pack:check
 pnpm bench
 pnpm bench:sdk
+pnpm bench:published 0.1.1
 pnpm dashboard
 ```
 

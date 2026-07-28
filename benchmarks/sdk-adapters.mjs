@@ -1,14 +1,30 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { cpus } from "node:os";
 import { performance } from "node:perf_hooks";
+import { pathToFileURL } from "node:url";
 import { parsePartialJson } from "ai";
+import { parsePartialJsonObject } from "assistant-stream/utils";
 import { StructuredStreamPool } from "streamfold";
 import { repairAndParse } from "./repair-and-parse.mjs";
 import { createSdkCases, createToolInputs } from "./sdk-cases.mjs";
 
 const require = createRequire(import.meta.url);
 const aiSdkVersion = require("ai/package.json").version;
+const assistantStreamEntry = require.resolve("assistant-stream/utils");
+const assistantStreamVersion = JSON.parse(
+  readFileSync(
+    new URL("../package.json", pathToFileURL(assistantStreamEntry)),
+    "utf8",
+  ),
+).version;
+const streamfoldEntry = require.resolve("streamfold");
+const streamfoldVersion = JSON.parse(
+  readFileSync(
+    new URL("../package.json", pathToFileURL(streamfoldEntry)),
+    "utf8",
+  ),
+).version;
 
 const percentile = (samples, ratio) => {
   const ordered = samples.toSorted((a, b) => a - b);
@@ -16,6 +32,7 @@ const percentile = (samples, ratio) => {
 };
 
 const measure = (run, iterations = 200, warmups = 20) => {
+  globalThis.gc?.();
   const samples = [];
   for (let iteration = 0; iteration < iterations + warmups; iteration++) {
     const started = performance.now();
@@ -32,6 +49,7 @@ const measure = (run, iterations = 200, warmups = 20) => {
 };
 
 const measureAsync = async (run, iterations = 3, warmups = 1) => {
+  globalThis.gc?.();
   const samples = [];
   for (let iteration = 0; iteration < iterations + warmups; iteration++) {
     const started = performance.now();
@@ -140,6 +158,35 @@ results.push({
   ...baseline,
 });
 
+const assistantStreamBaseline = measure(
+  () => {
+    for (const input of baselineInputs) {
+      let accumulated = "";
+      let finalValue;
+      for (const chunk of input.chunks) {
+        accumulated += chunk;
+        finalValue = parsePartialJsonObject(accumulated);
+      }
+      if (JSON.stringify(finalValue) !== input.text) {
+        throw new Error(
+          "assistant-stream baseline produced a different final value",
+        );
+      }
+    }
+  },
+  3,
+  1,
+);
+results.push({
+  scenario: scenarios[0].name,
+  implementation: `assistant-stream ${assistantStreamVersion} parsePartialJsonObject`,
+  bytes: baselineInputs[0].text.length,
+  calls: 1,
+  chunkSize: scenarios[0].chunkSize,
+  deltaEvents: baselineInputs[0].chunks.length,
+  ...assistantStreamBaseline,
+});
+
 const vercelBaseline = await measureAsync(async () => {
   for (const input of baselineInputs) {
     let accumulated = "";
@@ -179,6 +226,9 @@ const maxConcurrentAdapterOverheadUs = Math.max(
 const vercelUi = singleScenario.find(
   (result) => result.implementation === "Vercel AI SDK UIMessage",
 );
+const assistantUi = singleScenario.find(
+  (result) => result.implementation === "assistant-stream",
+);
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -186,6 +236,11 @@ const report = {
     node: process.version,
     platform: `${process.platform}-${process.arch}`,
     cpu: cpus()[0]?.model ?? "unknown",
+    streamfold: streamfoldVersion,
+    streamfoldSource:
+      process.env.STREAMFOLD_BENCHMARK_SOURCE ?? "workspace",
+    assistantStream: assistantStreamVersion,
+    vercelAiSdk: aiSdkVersion,
   },
   methodology: {
     adapter:
@@ -196,6 +251,8 @@ const report = {
       "The complete accumulated string is repaired and parsed after every delta. This isolates the repeated-work pattern used by partial-object materializers; it is not a claim about every SDK.",
     vercelBaseline:
       "The installed Vercel AI SDK parsePartialJson export is awaited on the complete accumulated input after every delta, matching the hot path in its UI message stream processor.",
+    assistantStreamBaseline:
+      "The installed assistant-stream parsePartialJsonObject export is called on the complete accumulated input after every delta, matching its tool-call accumulator.",
     scope:
       "No network or model latency is included. Adapters use structural event shapes and do not import provider SDK packages.",
   },
@@ -204,6 +261,8 @@ const report = {
     maxConcurrentAdapterOverheadUs,
     vercelPartialParseOpportunityRatio:
       vercelBaseline.medianMs / vercelUi.medianMs,
+    assistantStreamPartialParseOpportunityRatio:
+      assistantStreamBaseline.medianMs / assistantUi.medianMs,
   },
   results,
 };

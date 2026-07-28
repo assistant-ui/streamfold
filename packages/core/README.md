@@ -50,4 +50,6 @@ Available subpaths are `assistant-ui`, `vercel-ai`, `openai`, `anthropic`,
 not install or load provider SDKs.
 
 See the [repository README](https://github.com/assistant-ui/streamfold#readme)
-for benchmarks, methodology, and development instructions.
+for benchmarks, methodology, and development instructions. The
+[migration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md)
+covers direct streams and every bundled integration.

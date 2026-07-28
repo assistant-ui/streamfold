@@ -13,6 +13,7 @@
     "pack:check": "cd packages/core && npm pack --dry-run",
     "bench": "node benchmarks/bench.mjs",
     "bench:sdk": "node benchmarks/sdk-adapters.mjs",
+    "bench:published": "node scripts/benchmark-published.mjs",
     "dashboard": "node dashboard/server.mjs",
     "record": "node dashboard/record.mjs",
     "record:chat": "node dashboard/record-chat.mjs",
