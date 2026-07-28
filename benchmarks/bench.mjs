@@ -1,13 +1,20 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
-import {
-  IncrementalJsonScanner,
-  STREAMFOLD_ENGINE,
-} from "../packages/core/src/index.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { IncrementalJsonScanner, STREAMFOLD_ENGINE } from "streamfold";
 import { JavaScriptIncrementalScanner } from "./javascript-scanner.mjs";
 import { repairAndParse } from "./repair-and-parse.mjs";
+
+const require = createRequire(import.meta.url);
+const streamfoldEntry = require.resolve("streamfold");
+const streamfoldPackage = JSON.parse(
+  readFileSync(
+    new URL("../package.json", pathToFileURL(streamfoldEntry)),
+    "utf8",
+  ),
+);
 
 const payload = (targetSize) => {
   const items = [];
@@ -90,27 +97,37 @@ for (const targetSize of sizes) {
     results.at(-1).charactersVisited = data.length;
 
     results.push(
-      measure(`${STREAMFOLD_ENGINE}-npm`, data, chunkSize, incrementalIterations, () => {
-        const scanner = new IncrementalJsonScanner();
-        for (const chunk of chunks) scanner.push(chunk);
-        if (!scanner.state.complete) throw new Error("incomplete result");
-        scanner.dispose();
-      }),
+      measure(
+        `${STREAMFOLD_ENGINE}-npm@${streamfoldPackage.version}`,
+        data,
+        chunkSize,
+        incrementalIterations,
+        () => {
+          const scanner = new IncrementalJsonScanner();
+          for (const chunk of chunks) scanner.push(chunk);
+          if (!scanner.state.complete) throw new Error("incomplete result");
+          scanner.dispose();
+        },
+      ),
     );
     results.at(-1).charactersVisited = data.length;
   }
 }
 
-execFileSync("cargo", ["build", "--release", "-p", "streamfold-core"], {
-  cwd: new URL("..", import.meta.url),
-  stdio: "inherit",
-});
-const rustOutput = execFileSync(
-  fileURLToPath(new URL("../target/release/streamfold-bench", import.meta.url)),
-  [],
-  { encoding: "utf8" },
-);
-results.push(...JSON.parse(rustOutput));
+if (process.env.STREAMFOLD_SKIP_NATIVE !== "1") {
+  execFileSync("cargo", ["build", "--release", "-p", "streamfold-core"], {
+    cwd: new URL("..", import.meta.url),
+    stdio: "inherit",
+  });
+  const rustOutput = execFileSync(
+    fileURLToPath(
+      new URL("../target/release/streamfold-bench", import.meta.url),
+    ),
+    [],
+    { encoding: "utf8" },
+  );
+  results.push(...JSON.parse(rustOutput));
+}
 
 mkdirSync(new URL("../artifacts", import.meta.url), { recursive: true });
 writeFileSync(
@@ -122,6 +139,8 @@ writeFileSync(
         node: process.version,
         platform: `${process.platform}-${process.arch}`,
         cpu: process.env.STREAMFOLD_CPU ?? "local machine",
+        streamfold: streamfoldPackage.version,
+        source: process.env.STREAMFOLD_BENCHMARK_SOURCE ?? "workspace",
       },
       methodology: {
         baseline:
