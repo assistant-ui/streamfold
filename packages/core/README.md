@@ -6,9 +6,27 @@ Streamfold retains JSON parser and value state across deltas. Its Rust/WebAssemb
 engine emits compact patches that update a live partial JavaScript value without
 reparsing the complete accumulated input.
 
+## Installation
+
+Streamfold is ESM-only and supports Node.js 20 or newer and modern browsers.
+The Rust/WebAssembly engine is bundled, so no Rust toolchain, native build
+tools, or provider SDK dependencies are required.
+
 ```bash
+# npm
+npm install streamfold
+
+# pnpm
 pnpm add streamfold
+
+# Yarn
+yarn add streamfold
+
+# Bun
+bun add streamfold
 ```
+
+## Quick start
 
 ```ts
 import { createStructuredStream } from "streamfold";
