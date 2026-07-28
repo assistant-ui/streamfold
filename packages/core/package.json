@@ -1,6 +1,6 @@
 {
   "name": "streamfold",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Protocol-neutral incremental state for structured AI streams",
   "type": "module",
   "license": "MIT",
