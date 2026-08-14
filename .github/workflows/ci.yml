@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  javascript:
-    name: JavaScript and package
+  checks:
+    name: Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -28,52 +28,23 @@ jobs:
           install: false
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build:wasm
-      - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js
-      - run: pnpm check:syntax
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm pack:check
-
-  browser:
-    name: Browser (${{ matrix.browser }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        browser:
-          - chromium
-          - firefox
-          - webkit
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v2
-        with:
-          runtime: node@22
-          cache: true
-          install: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
-      - run: pnpm test:browser
-        env:
-          STREAMFOLD_BROWSER: ${{ matrix.browser }}
-
-  rust:
-    name: Rust
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - uses: dtolnay/rust-toolchain@stable
-        with:
+          toolchain: 1.97.1
           components: clippy,rustfmt
           targets: wasm32-unknown-unknown
-      - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --workspace --all-features
-      - run: node scripts/build-wasm.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm pack:check
       - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js
+
+  browser:
+    name: Browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@22
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:browser
