@@ -32,7 +32,7 @@
     "fast-check": "4.9.0",
     "playwright": "^1.54.2",
     "streamfold": "workspace:*",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=22"
