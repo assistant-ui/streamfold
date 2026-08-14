@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Incremental streaming state engine for AI protocols"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -12,4 +13,3 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "streamfold-bench"
 path = "src/bin/bench.rs"
-

@@ -2,28 +2,14 @@
 
 Incremental structured state for streamed AI tool calls.
 
-Streamfold retains JSON parser and value state across deltas. Its Rust/WebAssembly
-engine emits compact patches that update a live partial JavaScript value without
-reparsing the complete accumulated input.
+Streamfold retains JSON parser and value state across deltas. Its embedded
+Rust/WebAssembly engine emits compact patches and works in Node.js 20+ and
+modern browsers without native build tools or provider SDK dependencies.
 
-## Installation
-
-Streamfold is ESM-only and supports Node.js 20 or newer and modern browsers.
-The Rust/WebAssembly engine is bundled, so no Rust toolchain, native build
-tools, or provider SDK dependencies are required.
+## Install
 
 ```bash
-# npm
 npm install streamfold
-
-# pnpm
-pnpm add streamfold
-
-# Yarn
-yarn add streamfold
-
-# Bun
-bun add streamfold
 ```
 
 ## Quick start
@@ -35,39 +21,21 @@ const stream = createStructuredStream();
 const update = stream.push('{"city":"San');
 
 console.log(update.partialValue); // { city: "San" }
-console.log(update.changes); // compact set/append/complete patches
 
 stream.push(' Francisco"}');
 console.log(stream.getFieldState(["city"])); // "complete"
+
+stream.finish();
+stream.dispose();
 ```
 
-Resource limits are configurable and enabled by default:
+Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
+`streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
+`streamfold/ag-ui` for decoded SDK events. Integrations use structural event
+types and do not load provider SDKs.
 
-```ts
-const stream = createStructuredStream({
-  maxBytes: 2 * 1024 * 1024,
-  maxDepth: 64,
-});
-```
+See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
+[integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),
+and [benchmarks](https://github.com/assistant-ui/streamfold#performance).
 
-Use an isolated event integration when consuming an SDK stream:
-
-```ts
-import { createStructuredStream } from "streamfold/assistant-ui";
-
-const toolCalls = createStructuredStream();
-
-for await (const event of assistantStream) {
-  const update = toolCalls.push(event);
-  if (update) renderToolInput(update.id, update.partialValue);
-}
-```
-
-Available subpaths are `assistant-ui`, `vercel-ai`, `openai`, `anthropic`,
-`gemini`, `langchain`, and `ag-ui`. They consume structural event shapes and do
-not install or load provider SDKs.
-
-See the [repository README](https://github.com/assistant-ui/streamfold#readme)
-for benchmarks, methodology, and development instructions. The
-[migration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md)
-covers direct streams and every bundled integration.
+MIT © Streamfold contributors

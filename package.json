@@ -23,8 +23,6 @@
     "release:await": "node scripts/await-release.mjs",
     "release:check": "pnpm check && pnpm pack:check",
     "publish:npm": "npm publish ./packages/core",
-    "publish:latest": "pnpm publish:npm --access public --tag latest --provenance=false",
-    "publish:beta": "pnpm publish:npm --access public --tag beta --provenance=false",
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {

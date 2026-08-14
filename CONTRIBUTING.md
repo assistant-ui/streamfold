@@ -1,45 +1,34 @@
 # Contributing
 
-Streamfold is an early, benchmark-backed prototype. Issues and focused pull
-requests are welcome, especially for correctness fixtures, real-world traces,
-and browser/server portability.
+Issues and focused pull requests are welcome. By participating, you agree to
+follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-Install Node.js 22 or newer, pnpm 11, and the pinned Rust toolchain. Rustup
-installs the required `wasm32-unknown-unknown` target from `rust-toolchain.toml`.
+Install Node.js 22+, pnpm 11, and Rustup. The pinned Rust toolchain includes the
+`wasm32-unknown-unknown` target.
 
 ```bash
 pnpm install
-pnpm build:wasm
 pnpm check
+pnpm pack:check
 ```
 
-Run the performance suites separately:
-
-```bash
-pnpm bench
-pnpm bench:sdk
-```
-
-The default test command includes seeded `fast-check` properties for generated
-JSON, chunk schedules, partial-value parity, and malformed truncations. A
-failure reports the seed and shrink path needed to reproduce it.
-
-Benchmarks write machine-local results under `artifacts/`; generated JSON and
-video files are intentionally ignored.
+Install a browser with `pnpm exec playwright install chromium`, then run browser
+tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
+and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
+directory.
 
 ## Pull requests
 
-- Keep each change focused and include tests for behavioral changes.
-- Preserve event-envelope fixtures when changing an integration.
-- Report the environment, payload size, chunk size, warmups, median, and p95
-  when making performance claims.
-- Do not claim a drop-in speedup unless both implementations expose equivalent
-  partial and final values.
-- Do not add provider SDKs as runtime dependencies. Integrations consume
-  structural event shapes and remain independently importable.
+- Keep one concern per pull request.
+- Add tests for behavior changes and update affected docs.
+- Keep provider SDKs out of runtime dependencies; adapters use structural
+  event shapes.
+- Include the environment, payload, chunk size, warmups, median, and p95 with
+  performance claims.
+- Compare equivalent partial and final values when claiming a speedup.
 
-Commit the regenerated `packages/core/src/internal/wasm-binary.js` whenever the
-Rust core changes. Run `pnpm check` and `pnpm pack:check` before opening a pull
-request.
+Rust changes must include the regenerated
+`packages/core/src/internal/wasm-binary.js`. Run `pnpm check` and
+`pnpm pack:check` before opening the pull request.

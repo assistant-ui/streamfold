@@ -21,20 +21,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v2
         with:
-          version: 11.10.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+          runtime: node@22
+          install: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -96,8 +91,6 @@ jobs:
 
       - name: Publish to npm
         if: env.NPM_ALREADY_PUBLISHED != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm publish:npm --access public --tag "$NPM_DIST_TAG" --provenance
 
       - name: Create GitHub release

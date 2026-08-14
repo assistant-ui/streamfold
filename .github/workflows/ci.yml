@@ -20,19 +20,18 @@ jobs:
     name: JavaScript and package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
         with:
-          version: 11.10.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+          runtime: node@22
+          cache: true
+          install: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:wasm
+      - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js
       - run: pnpm check:syntax
       - run: pnpm typecheck
       - run: pnpm test
@@ -49,14 +48,12 @@ jobs:
           - firefox
           - webkit
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
         with:
-          version: 11.10.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+          runtime: node@22
+          cache: true
+          install: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - run: pnpm test:browser
@@ -67,7 +64,10 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
@@ -76,3 +76,4 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --all-features
       - run: node scripts/build-wasm.mjs
+      - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js

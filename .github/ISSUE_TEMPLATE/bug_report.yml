@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible Streamfold problem.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Streamfold.
+  - type: input
+    id: version
+    attributes:
+      label: Streamfold version
+      placeholder: 0.1.3
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime, version, operating system, and browser if relevant.
+      placeholder: Node.js 22 on macOS 15
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Share runnable code or a small repository and exact input chunks.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checks
+      options:
+        - label: This is not a security vulnerability.
+          required: true
+        - label: I searched for an existing report.
+          required: true
