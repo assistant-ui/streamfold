@@ -12,8 +12,8 @@ importers:
         specifier: 7.0.22
         version: 7.0.22(zod@4.4.3)
       assistant-stream:
-        specifier: 0.3.25
-        version: 0.3.25
+        specifier: 0.3.37
+        version: 0.3.37
       bumpp:
         specifier: ^12.2.0
         version: 12.2.0
@@ -192,10 +192,10 @@ packages:
   args-tokenizer@0.3.0:
     resolution: {integrity: sha512-xXAd7G2Mll5W8uo37GETpQ2VrE84M181Z7ugHFGQnJZ50M2mbOv0osSZ9VsSgPfJQ+LVG0prSi0th+ELMsno7Q==}
 
-  assistant-stream@0.3.25:
-    resolution: {integrity: sha512-hOShVxlctNPWbGF4B1BqwM9Snp8NdS13F7sBIfhkCxlKDdX67/ylxNlGLVcB0E24V/U8XM0GlfS9DsVrxRsn8A==}
+  assistant-stream@0.3.37:
+    resolution: {integrity: sha512-oxomJOPM7z09+nj2lwOhAaoH/TbRZ3EDOJ83TIgh6X1S1+CL5To/azmE8ZA2YMiXsKhhdDzqhyc5CQfU19ob5g==}
     peerDependencies:
-      ioredis: ^5.10.1
+      ioredis: ^5.10.1 || ^6.0.0
       redis: ^5.12.1
     peerDependenciesMeta:
       ioredis:
@@ -247,9 +247,9 @@ packages:
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
 
-  nanoid@5.1.16:
-    resolution: {integrity: sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==}
-    engines: {node: ^18 || >=20}
+  nanoid@6.0.1:
+    resolution: {integrity: sha512-3wVS3i51pE2pi1k5FFL/95BGfVS0kSsvDVuGXHOtxox/TywUmtgq+3qiTOTbs9J7KfHaXPiN171k/A6dBnaXFw==}
+    engines: {node: ^22 || ^24 || >=26}
     hasBin: true
 
   package-manager-detector@1.8.0:
@@ -409,10 +409,10 @@ snapshots:
 
   args-tokenizer@0.3.0: {}
 
-  assistant-stream@0.3.25:
+  assistant-stream@0.3.37:
     dependencies:
       '@standard-schema/spec': 1.1.0
-      nanoid: 5.1.16
+      nanoid: 6.0.1
       secure-json-parse: 4.1.0
 
   bumpp@12.2.0:
@@ -450,7 +450,7 @@ snapshots:
 
   jsonc-parser@3.3.1: {}
 
-  nanoid@5.1.16: {}
+  nanoid@6.0.1: {}
 
   package-manager-detector@1.8.0: {}
 
