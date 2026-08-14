@@ -101,8 +101,6 @@ methodology, raw commands, and crossover points.
 - [Architecture](ARCHITECTURE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
-- [Security policy](SECURITY.md)
-- [Release process](RELEASING.md)
 
 ## Development
 
