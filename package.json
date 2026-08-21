@@ -26,11 +26,12 @@
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
-    "ai": "7.0.22",
     "assistant-stream": "0.3.38",
-    "bumpp": "^12.2.0",
+    "ai": "7.0.66",
+    "assistant-stream": "0.3.37",
+    "bumpp": "^12.2.1",
     "fast-check": "4.9.0",
-    "playwright": "^1.54.2",
+    "playwright": "^1.62.1",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2"
   },
