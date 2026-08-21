@@ -30,7 +30,7 @@
     "assistant-stream": "0.3.37",
     "bumpp": "^12.2.0",
     "fast-check": "4.9.0",
-    "playwright": "^1.54.2",
+    "playwright": "^1.62.1",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2"
   },
