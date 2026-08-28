@@ -12,8 +12,8 @@ importers:
         specifier: 7.0.66
         version: 7.0.66(zod@4.4.3)
       assistant-stream:
-        specifier: 0.3.38
-        version: 0.3.38
+        specifier: 0.3.39
+        version: 0.3.39
       bumpp:
         specifier: ^12.2.1
         version: 12.2.1
@@ -192,8 +192,8 @@ packages:
   args-tokenizer@0.3.0:
     resolution: {integrity: sha512-xXAd7G2Mll5W8uo37GETpQ2VrE84M181Z7ugHFGQnJZ50M2mbOv0osSZ9VsSgPfJQ+LVG0prSi0th+ELMsno7Q==}
 
-  assistant-stream@0.3.38:
-    resolution: {integrity: sha512-WASh+97pCN1+Q0pRS8m1fZ56eqWYmDucGs5uLTfsb/Iel69K+GAIntVDn2HTaaOBDyAGs2QBizT7d7lcUcllvA==}
+  assistant-stream@0.3.39:
+    resolution: {integrity: sha512-Ad28saCwQxqaB69w4WNaS3uW5OW5BgTYnzTfbgFnz1CPXZjcWFsMrHhcJUpR4+lfYPTNal0oHEb47VUZH4Zz1g==}
     peerDependencies:
       ioredis: ^5.10.1 || ^6.0.0
       redis: ^5.12.1
@@ -414,7 +414,7 @@ snapshots:
 
   args-tokenizer@0.3.0: {}
 
-  assistant-stream@0.3.38:
+  assistant-stream@0.3.39:
     dependencies:
       '@standard-schema/spec': 1.1.0
       nanoid: 6.0.1
