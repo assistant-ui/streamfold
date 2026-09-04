@@ -29,7 +29,7 @@
     "assistant-stream": "0.3.38",
     "ai": "7.0.66",
     "assistant-stream": "0.3.39",
-    "bumpp": "^12.2.1",
+    "bumpp": "^12.2.2",
     "fast-check": "4.9.0",
     "playwright": "^1.62.1",
     "streamfold": "workspace:*",
