@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "assistant-stream": "0.3.38",
-    "ai": "7.0.66",
+    "ai": "7.0.87",
     "assistant-stream": "0.3.39",
     "bumpp": "^12.2.1",
     "fast-check": "4.9.0",
