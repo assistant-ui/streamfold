@@ -101,8 +101,13 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "GitHub release $GITHUB_REF_NAME already exists."
           else
+            release_flags=()
+            if [ "$NPM_DIST_TAG" = "beta" ]; then
+              release_flags+=(--prerelease)
+            fi
             gh release create "$GITHUB_REF_NAME" \
               --verify-tag \
               --generate-notes \
-              --title "Streamfold $GITHUB_REF_NAME"
+              --title "Streamfold $GITHUB_REF_NAME" \
+              "${release_flags[@]}"
           fi

@@ -100,6 +100,7 @@ methodology, raw commands, and crossover points.
 - [Integration and migration guide](MIGRATION.md)
 - [Architecture](ARCHITECTURE.md)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
 
 ## Development

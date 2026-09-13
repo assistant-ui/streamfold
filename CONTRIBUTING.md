@@ -32,3 +32,27 @@ directory.
 Rust changes must include the regenerated
 `packages/core/src/internal/wasm-binary.js`. Run `pnpm check` and
 `pnpm pack:check` before opening the pull request.
+
+## Maintainer releases
+
+Releases publish through `.github/workflows/release.yml` using npm trusted
+publishing. The npm trusted publisher must match this repository, the
+`release.yml` workflow, and the GitHub environment named `npm`.
+
+For the prepared 0.1.4 release, merge the cleanup into `main`, check out the
+updated `main`, and run:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm release:check
+pnpm test:browser
+git tag v0.1.4
+git push origin v0.1.4
+pnpm release:await
+```
+
+For subsequent releases, start from a clean, up-to-date `main` and use
+`pnpm release` (or `pnpm release:beta`). This bumps both package versions,
+checks the package, commits, tags, and pushes before waiting for publication.
+Update the changelog before releasing. A release tag must point to a commit
+contained in `origin/main`.
