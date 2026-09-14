@@ -131,6 +131,7 @@ freezing costs, especially for wide, growing arrays or objects.
 
 ## Documentation
 
+- [Runnable integration examples](examples/README.md)
 - [API reference](API.md)
 - [Integration and migration guide](MIGRATION.md)
 - [Architecture](ARCHITECTURE.md)

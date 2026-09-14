@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
-    "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs",
+    "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs examples/*.test.mjs",
+    "examples": "node examples/run.mjs",
     "test:browser": "node --test tests/browser-smoke.test.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --project examples/tsconfig.json",
     "check:syntax": "find packages benchmarks dashboard scripts tests -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check",
     "check": "pnpm build:wasm && pnpm check:syntax && pnpm typecheck && pnpm test && cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test",
     "pack:check": "cd packages/core && npm pack --dry-run",

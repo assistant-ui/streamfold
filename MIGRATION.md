@@ -24,8 +24,8 @@ need Rust, native build tools, or provider SDK dependencies.
 | --- | --- |
 | One isolated JSON stream | `createStructuredStream()` |
 | Interleaved tool calls | `createStructuredStreamPool()` |
-| Decoded SDK events | An integration subpath |
-| Unsupported event protocol | A small wrapper around the pool |
+| Decoded SDK events | `readStructured(events, { integration })` |
+| Unsupported event protocol | `defineAdapter(mapEvent)` with `readStructured` |
 
 ## 3. Replace repeated parsing
 
@@ -164,29 +164,42 @@ assistant-ui runtime code; it depends only on the event shape above.
 
 ## 6. Add an unsupported protocol
 
-Map its start, delta, end, and abort events to a pool. Depend only on the event
-fields you need; provider packages do not need to become runtime dependencies.
+Map decoded events to ordered operations. `defineAdapter` owns the pool and
+`readStructured` owns iteration, EOF finalization, and cleanup. Depend only on
+the event fields you need; provider SDKs are not runtime dependencies.
+
 ```ts
-import { createStructuredStreamPool } from "streamfold";
+import { defineAdapter, readStructured } from "streamfold";
 
-export function createMyProtocolStream() {
-  const pool = createStructuredStreamPool();
+type MyEvent =
+  | { type: "tool-start" | "tool-end" | "tool-abort"; id: string }
+  | { type: "tool-delta"; id: string; delta: string };
 
-  return {
-    push(event: MyEvent) {
-      if (event.type === "tool-start") return pool.start(event.id);
-      if (event.type === "tool-delta") {
-        return pool.push(event.id, event.delta);
-      }
-      if (event.type === "tool-end") return pool.finish(event.id);
-      if (event.type === "tool-abort") return pool.abort(event.id);
-    },
-    finish() {
-      return pool.activeIds.map((id) => pool.finish(id));
-    },
-  };
+const adapter = defineAdapter((event: MyEvent) => {
+  switch (event.type) {
+    case "tool-start": return [{ type: "start", id: event.id }];
+    case "tool-delta": return [{ type: "delta", id: event.id, text: event.delta }];
+    case "tool-end": return [{ type: "end", id: event.id }];
+    case "tool-abort": return [{ type: "abort", id: event.id }];
+  }
+});
+
+for await (const update of readStructured(decodedEvents, {
+  adapter,
+  limits: { snapshots: "immutable" },
+  signal: controller.signal,
+})) {
+  updateToolInput(update.id, update.partialValue);
+  if (update.type === "complete") validateArguments(update.value);
 }
 ```
+
+`decodedEvents`, `controller`, and the update/validation callbacks belong to your
+application. Pass the same signal to the transport to cancel network activity.
+Use the [runnable examples](examples/README.md) for complete, credential-free
+programs and `streamfold/testing` contract tests for a custom protocol. The
+signal option and test kit are additions after 0.1.5; use the current source
+branch until the next version is published.
 
 ## 7. Roll out safely
 
