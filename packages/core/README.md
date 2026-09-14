@@ -29,10 +29,20 @@ stream.finish();
 stream.dispose();
 ```
 
+Values are live by default. Use `createStructuredStream({ snapshots: "immutable" })`
+for frozen snapshots that preserve earlier values and share unchanged branches.
+Pools accept the same option.
+
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event
 types and do not load provider SDKs.
+
+Every built-in adapter supports `pushAll(event)`, returning all ordered
+`start`, `update`, and `complete` updates, including multiple calls in one event.
+Existing `push(event)` remains available. Call `finish()` at the stream boundary.
+Adapter options accept an optional `onDiagnostic` callback; errors preserve their
+native categories and include structured codes and call context where known.
 
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),

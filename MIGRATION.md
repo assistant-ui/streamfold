@@ -58,9 +58,10 @@ function finish() {
 }
 ```
 
-Feed only new deltas. `partialValue` is a live value updated in place; reactive
-stores can apply `changes` instead to consume compact `set`, `append`, and
-`complete` patches.
+Feed only new deltas. `partialValue` is a live value updated in place by default.
+Use `createStructuredStream({ snapshots: "immutable" })` for stable, frozen
+snapshots that work with reference-equality-based stores. Reactive stores can
+also apply `changes` to consume compact `set`, `append`, and `complete` patches.
 
 ## 4. Handle concurrent calls
 
@@ -107,19 +108,29 @@ Import the adapter matching your decoded event stream:
 Every adapter follows the same pattern:
 
 ```ts
+import { createStructuredStreamPool } from "streamfold";
 import { createStructuredStream } from "streamfold/assistant-ui";
 
-const toolInputs = createStructuredStream();
+const toolInputs = createStructuredStream(
+  createStructuredStreamPool({ snapshots: "immutable" }),
+  { onDiagnostic: (diagnostic) => console.warn(diagnostic) },
+);
 
 for await (const event of decodedEvents) {
-  const update = toolInputs.push(event);
-  if (update) {
+  for (const update of toolInputs.pushAll(event)) {
     updateToolInput(update.id, update.partialValue, update.changes);
   }
 }
 
 const completedCalls = toolInputs.finish();
 ```
+
+`pushAll` preserves every call update in a multi-call event. Check
+`update.type === "complete"` for finalized arguments, not `update.complete`,
+which describes JSON syntax only. The final `finish()` result includes calls
+already completed during the loop, plus any remaining calls.
+Existing `push(event)` consumers continue to work; replace the singular return
+handling with a loop to adopt batch updates. Do not call both for one event.
 
 Initialize Streamfold in the transport or runtime layer. UI components should
 receive partial values or patches rather than create parsers during render.
@@ -155,6 +166,10 @@ assistant-ui runtime code; it depends only on the event shape above.
 
 Map its start, delta, end, and abort events to a pool. Depend only on the event
 fields you need; provider packages do not need to become runtime dependencies.
+Custom wrappers get immutable values by configuring their pool and structured
+errors directly from pool operations. Built-in adapter diagnostics and batch
+envelopes are separate conveniences; a custom wrapper can define its own
+lifecycle contract.
 
 ```ts
 import { createStructuredStreamPool } from "streamfold";

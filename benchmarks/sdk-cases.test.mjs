@@ -53,6 +53,59 @@ test("root factory composes with an integration export", () => {
   assert.deepEqual(stream.finish()[0].value, inputs[0].value);
 });
 
+test("every SDK adapter supports batch lifecycle updates with either snapshot mode", () => {
+  const inputs = createToolInputs({
+    calls: 3,
+    targetBytes: 3_000,
+    chunkSize: 11,
+  });
+  for (const snapshots of ["live", "immutable"]) {
+    for (const sdkCase of createSdkCases(inputs)) {
+      const diagnostics = [];
+      const adapter = sdkCase.createAdapter(
+        new StructuredStreamPool({ snapshots }),
+        {
+          onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+        },
+      );
+      const updates = sdkCase.events.flatMap((event) => adapter.pushAll(event));
+      assert.equal(
+        updates.filter(({ type }) => type === "start").length,
+        inputs.length,
+        sdkCase.name,
+      );
+      for (const input of inputs) {
+        const callUpdates = updates.filter(({ id }) => id === input.id);
+        assert.equal(callUpdates[0].type, "start", sdkCase.name);
+        assert.equal(
+          callUpdates.some(({ type }) => type === "update"),
+          true,
+          sdkCase.name,
+        );
+        const expectedEnd = sdkCase.name.includes("LangChain")
+          ? "update"
+          : "complete";
+        assert.equal(callUpdates.at(-1).type, expectedEnd, sdkCase.name);
+        if (snapshots === "immutable") {
+          assert.equal(callUpdates[0].partialValue, undefined, sdkCase.name);
+          assert.equal(
+            Object.isFrozen(callUpdates.at(-1).partialValue),
+            true,
+            sdkCase.name,
+          );
+        }
+      }
+      const results = adapter.finish();
+      assert.deepEqual(
+        results.map(({ value }) => value),
+        inputs.map(({ value }) => value),
+        sdkCase.name,
+      );
+      assert.deepEqual(diagnostics, [], sdkCase.name);
+    }
+  }
+});
+
 test("integration failures are terminal and release every active stream", () => {
   const pool = new StructuredStreamPool();
   const stream = assistantUI(pool);

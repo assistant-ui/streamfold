@@ -1,6 +1,7 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -16,11 +17,12 @@ export interface LangChainToolCallMessage {
   readonly tool_call_chunks?: readonly LangChainToolCallChunk[];
 }
 
-export const langchain: StructuredStreamIntegration<
+export const langchain: BatchStructuredStreamIntegration<
   LangChainToolCallMessage,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<LangChainToolCallMessage, string>;
+  options?: StructuredStreamIntegrationOptions,
+): BatchEventStructuredStream<LangChainToolCallMessage, string>;

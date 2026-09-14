@@ -38,7 +38,9 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       if (url.pathname === "/") {
         response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end("<!doctype html><title>Streamfold browser smoke test</title>");
+        response.end(
+          "<!doctype html><title>Streamfold browser smoke test</title>",
+        );
         return;
       }
 
@@ -70,9 +72,12 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     const result = await page.evaluate(async () => {
-      const { createStructuredStream, STREAMFOLD_ENGINE } = await import(
-        "/src/index.js"
-      );
+      const {
+        createStructuredStream,
+        createStructuredStreamPool,
+        isStructuredStreamError,
+        STREAMFOLD_ENGINE,
+      } = await import("/src/index.js");
       const stream = createStructuredStream();
       stream.push('{"city":"Addis ');
       stream.push("\ud83d");
@@ -84,11 +89,31 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       stream.dispose();
 
       let limitError = "";
+      let errorCode;
       try {
         createStructuredStream({ maxDepth: 1 }).push('{"nested":{');
       } catch (error) {
         limitError = error.message;
+        if (isStructuredStreamError(error)) errorCode = error.code;
       }
+
+      const { langchain } = await import("/src/langchain.js");
+      const calls = langchain(
+        createStructuredStreamPool({ snapshots: "immutable" }),
+      );
+      const batch = calls.pushAll({
+        tool_call_chunks: [
+          { index: 0, id: "a", args: '{"items":[' },
+          { index: 1, id: "b", args: "{}" },
+          { index: 0, args: "1,2]}" },
+        ],
+      });
+      const dx = {
+        lifecycle: batch.map(({ type }) => type),
+        earlier: batch[1].partialValue,
+        frozen: Object.isFrozen(batch[4].partialValue.items),
+        final: calls.finish().map(({ value }) => value),
+      };
 
       return {
         backend: STREAMFOLD_ENGINE,
@@ -96,6 +121,8 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         fieldState,
         limitError,
         value,
+        errorCode,
+        dx,
       };
     });
 
@@ -104,6 +131,13 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       complete: true,
       fieldState: "complete",
       limitError: "Structured stream exceeds maxDepth (1) at 10",
+      errorCode: "MAX_DEPTH_EXCEEDED",
+      dx: {
+        lifecycle: ["start", "update", "start", "update", "update"],
+        earlier: { items: [] },
+        frozen: true,
+        final: [{ items: [1, 2] }, {}],
+      },
       value: {
         city: "Addis 🚀 Ababa",
         items: [1, 2],
