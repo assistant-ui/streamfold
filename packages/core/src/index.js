@@ -7,6 +7,7 @@ import {
 } from "./internal/wasm-runtime.js";
 
 export { defineAdapter } from "./adapter.js";
+export { readStructured } from "./read-structured.js";
 
 export const STREAMFOLD_ENGINE = "rust-wasm";
 export const DEFAULT_STREAM_LIMITS = Object.freeze({

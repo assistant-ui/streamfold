@@ -90,6 +90,12 @@ call creates its own parser pool; `pushAll(event)` returns all updates from an
 event, including multi-call batches. See [custom adapters](API.md#custom-adapters)
 for a switch-based example and lifecycle rules.
 
+Use `readStructured(events, { adapter })` to consume that custom adapter with a
+`for await` loop. It yields every update, finalizes remaining calls when the
+source ends, and disposes the session when the loop exits. See
+[managed consumption](API.md#managed-consumption) for examples and cancellation
+boundaries.
+
 ## Performance
 
 On the published `streamfold@0.1.1` benchmark, retaining state was 144–217×
