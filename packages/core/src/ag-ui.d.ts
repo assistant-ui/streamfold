@@ -1,6 +1,7 @@
 import type {
   BatchEventStructuredStream,
   BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -28,4 +29,5 @@ export const agUI: BatchStructuredStreamIntegration<AgUiToolCallEvent, string>;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
+  options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<AgUiToolCallEvent, string>;

@@ -6,7 +6,9 @@ import {
   readWasmParser,
 } from "./internal/wasm-runtime.js";
 import { applyImmutableChanges, freezeJson } from "./internal/snapshots.js";
+import { annotateError, streamError } from "./internal/errors.js";
 
+export { isStructuredStreamError } from "./internal/errors.js";
 export { defineAdapter } from "./adapter.js";
 export { readStructured } from "./read-structured.js";
 
@@ -46,7 +48,7 @@ export class IncrementalJsonScanner {
         partialValue: this.#value,
       };
     } catch (error) {
-      throw this.#fail(error);
+      throw this.#fail(error, "push");
     }
   }
 
@@ -60,7 +62,7 @@ export class IncrementalJsonScanner {
         partialValue: this.#value,
       };
     } catch (error) {
-      throw this.#fail(error);
+      throw this.#fail(error, "finish");
     }
   }
 
@@ -77,9 +79,7 @@ export class IncrementalJsonScanner {
   }
 
   getFieldState(path) {
-    return isFieldComplete(this.#completion, path)
-      ? "complete"
-      : "partial";
+    return isFieldComplete(this.#completion, path) ? "complete" : "partial";
   }
 
   get backend() {
@@ -98,12 +98,15 @@ export class IncrementalJsonScanner {
   #getParser() {
     if (this.#error !== undefined) throw this.#error;
     if (this.#parser === undefined) {
-      throw new Error("Structured stream has been disposed");
+      throw streamError(
+        new Error("Structured stream has been disposed"),
+        "STREAM_DISPOSED",
+      );
     }
     return this.#parser;
   }
 
-  #fail(error) {
+  #fail(error, operation) {
     const failure =
       error instanceof Error ? error : new Error("Structured stream failed");
     if (this.#parser !== undefined) {
@@ -112,11 +115,13 @@ export class IncrementalJsonScanner {
       this.#parser = undefined;
     }
     this.#error = failure;
+    if (failure.operation === undefined) annotateError(failure, { operation });
     return failure;
   }
 
   #apply(changes) {
-    if (this.#immutable) this.#value = applyImmutableChanges(this.#value, changes);
+    if (this.#immutable)
+      this.#value = applyImmutableChanges(this.#value, changes);
     for (const change of changes) {
       if (change.op === "complete") {
         markFieldComplete(this.#completion, change.path);
@@ -151,8 +156,11 @@ export const createStructuredStream = (integrationOrOptions) => {
     return new IncrementalJsonScanner(integrationOrOptions);
   }
   if (typeof integrationOrOptions !== "function") {
-    throw new TypeError(
-      "A Streamfold argument must be an integration or options object",
+    throw streamError(
+      new TypeError(
+        "A Streamfold argument must be an integration or options object",
+      ),
+      "INVALID_OPTIONS",
     );
   }
   return integrationOrOptions();
@@ -174,12 +182,27 @@ export class StructuredStreamPool {
   }
 
   start(id, initialChunk = "") {
+    if (typeof initialChunk !== "string") {
+      throw streamError(
+        new TypeError("A structured stream chunk must be a string"),
+        "INVALID_CHUNK",
+        { id, operation: "start" },
+      );
+    }
     if (this.#streams.has(id)) {
-      throw new Error(`Structured stream already exists: ${String(id)}`);
+      throw streamError(
+        new Error(`Structured stream already exists: ${String(id)}`),
+        "DUPLICATE_STREAM",
+        { id, operation: "start" },
+      );
     }
     if (this.#streams.size >= this.#maxActiveStreams) {
-      throw new RangeError(
-        `Structured stream pool exceeds maxActiveStreams (${this.#maxActiveStreams})`,
+      throw streamError(
+        new RangeError(
+          `Structured stream pool exceeds maxActiveStreams (${this.#maxActiveStreams})`,
+        ),
+        "MAX_ACTIVE_STREAMS_EXCEEDED",
+        { id, operation: "start" },
       );
     }
 
@@ -188,28 +211,44 @@ export class StructuredStreamPool {
       chunks: [],
     };
     this.#streams.set(id, entry);
-    if (initialChunk.length > 0) return this.push(id, initialChunk);
+    if (initialChunk.length > 0) {
+      try {
+        return this.push(id, initialChunk);
+      } catch (error) {
+        throw annotateError(error, { operation: "start" });
+      }
+    }
     return { id, ...entry.scanner.state };
   }
 
   push(id, delta) {
     const entry = this.#streams.get(id);
     if (entry === undefined) {
-      throw new Error(`Unknown structured stream: ${String(id)}`);
+      throw streamError(
+        new Error(
+          `Unknown structured stream: ${String(id)} (push requires an active call)`,
+        ),
+        "UNKNOWN_STREAM",
+        { id, operation: "push" },
+      );
     }
     entry.chunks.push(delta);
     try {
       return { id, ...entry.scanner.push(delta) };
     } catch (error) {
       this.abort(id);
-      throw error;
+      throw annotateError(error, { id, operation: "push" });
     }
   }
 
   finish(id) {
     const entry = this.#streams.get(id);
     if (entry === undefined) {
-      throw new Error(`Unknown structured stream: ${String(id)}`);
+      throw streamError(
+        new Error(`Unknown structured stream: ${String(id)}`),
+        "UNKNOWN_STREAM",
+        { id, operation: "finish" },
+      );
     }
 
     try {
@@ -218,6 +257,8 @@ export class StructuredStreamPool {
       const value = JSON.parse(text);
       if (this.#streamOptions.snapshots === "immutable") freezeJson(value);
       return { id, text, value, ...state };
+    } catch (error) {
+      throw annotateError(error, { id, operation: "finish" });
     } finally {
       this.#streams.delete(id);
       entry.scanner.dispose();
@@ -227,7 +268,11 @@ export class StructuredStreamPool {
   getFieldState(id, path) {
     const entry = this.#streams.get(id);
     if (entry === undefined) {
-      throw new Error(`Unknown structured stream: ${String(id)}`);
+      throw streamError(
+        new Error(`Unknown structured stream: ${String(id)}`),
+        "UNKNOWN_STREAM",
+        { id, operation: "getFieldState" },
+      );
     }
     return entry.scanner.getFieldState(path);
   }
@@ -322,12 +367,11 @@ const isFieldComplete = (root, path) => {
 
 const normalizeLimit = (value, fallback, name) => {
   const limit = value ?? fallback;
-  if (
-    !Number.isSafeInteger(limit) ||
-    limit <= 0 ||
-    limit > 0xffff_ffff
-  ) {
-    throw new RangeError(`${name} must be an integer between 1 and 4294967295`);
+  if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 0xffff_ffff) {
+    throw streamError(
+      new RangeError(`${name} must be an integer between 1 and 4294967295`),
+      "INVALID_OPTIONS",
+    );
   }
   return limit;
 };
@@ -348,7 +392,10 @@ const normalizeStreamLimits = (options) => ({
 
 const normalizeSnapshots = (snapshots = "live") => {
   if (snapshots !== "live" && snapshots !== "immutable") {
-    throw new TypeError('snapshots must be "live" or "immutable"');
+    throw streamError(
+      new TypeError('snapshots must be "live" or "immutable"'),
+      "INVALID_OPTIONS",
+    );
   }
   return snapshots;
 };

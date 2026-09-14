@@ -10,6 +10,11 @@
 - Add opt-in `snapshots: "immutable"` for deeply frozen partial and final
   values with structural sharing; default live mode remains unchanged.
 
+- Add structured error codes, UTF-8 offsets, call/event context, and the
+  `isStructuredStreamError` guard while preserving native error categories.
+- Add opt-in SDK/custom adapter diagnostics and forward them through managed
+  consumption; mapper failures remain terminal and release active parsers.
+
 ## 0.1.4
 
 - Add a practical migration guide for adopting Streamfold with existing SDKs.

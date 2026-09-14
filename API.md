@@ -258,7 +258,7 @@ finalized calls appended, matching the built-in contract.
 
 ### Built-in SDK adapters
 
-Each integration exports `createStructuredStream(pool?)`, its event type, and a
+Each integration exports `createStructuredStream(pool?, options?)`, its event type, and a
 composable integration value:
 
 | Import | Integration export |
@@ -296,5 +296,65 @@ Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
 Use a separate pool per response/session.
+
+### Errors and diagnostics
+
+```ts
+import { createStructuredStreamPool, isStructuredStreamError } from "streamfold";
+import { vercelAI } from "streamfold/vercel-ai";
+
+const inputs = vercelAI(
+  createStructuredStreamPool({ snapshots: "immutable" }),
+  { onDiagnostic: (diagnostic) => console.warn(diagnostic) },
+);
+
+try {
+  inputs.pushAll({ type: "tool-input-delta", id: "missing", delta: "{}" });
+} catch (error) {
+  if (isStructuredStreamError(error)) {
+    console.error(error.code, error.id, error.adapter, error.eventType);
+    // UNKNOWN_STREAM, missing, vercel-ai, tool-input-delta
+  }
+}
+```
+
+Streamfold annotates the original error, preserving `instanceof SyntaxError`,
+`RangeError`, or `TypeError`. `isStructuredStreamError(error)` narrows it to
+`StructuredStreamError`. Metadata:
+
+| Field | Availability |
+| --- | --- |
+| `code` | Stable machine-readable category |
+| `byteOffset` | Zero-based UTF-8 byte offset for Rust parser failures, not a JavaScript character index |
+| `id`, `operation` | Pool call and operation, when known; scanners supply `operation` |
+| `adapter`, `eventType` | Built-in adapter name and event type, when known; `finish()` has no event type |
+
+Error codes include `UNEXPECTED_TOKEN`, `MISMATCHED_CLOSING`, `TRAILING_DATA`,
+`EMPTY_INPUT`, `INCOMPLETE_JSON`, `INVALID_JSON`, `PARSER_ERROR`,
+`MAX_BYTES_EXCEEDED`, `MAX_DEPTH_EXCEEDED`, `MAX_ACTIVE_STREAMS_EXCEEDED`,
+`DUPLICATE_STREAM`, `UNKNOWN_STREAM`, `STREAM_DISPOSED`, `INVALID_CHUNK`,
+`INVALID_OPTIONS`, and `INTEGRATION_ERROR`. Frozen upstream errors are rethrown
+unchanged if metadata cannot be attached.
+
+`onDiagnostic` is optional; nothing is logged by default. Diagnostics include
+`code`, `message`, `adapter`, and relevant event/call context:
+
+- `NO_TOOL_EVENTS`: emitted once at `finish()` after events were consumed but
+  no calls matched. Text-only responses are valid; this is a debugging hint.
+- `UNMATCHED_TOOL_EVENT`: a recognizable tool event lacks a matching ID/index
+  or start. Unrelated text events are ignored.
+- `STREAM_ERROR`: a terminal failure, with the original `error`.
+
+Diagnostics do not attach event payloads or argument text. They do contain
+IDs and original error messages; redact sensitive application identifiers in
+your logger. Callback exceptions are ignored so logging cannot break parsing.
+
+Custom factories accept the same callback in their options:
+`weatherAdapter({ snapshots: "immutable", onDiagnostic })`. Custom diagnostics
+use `adapter: "custom"` and preserve mapper/protocol failures as well as pool
+errors. For managed consumption, pass `onDiagnostic` beside `adapter` or
+`integration`; it is forwarded to the selected factory. Upstream iterator and
+consumer errors still propagate unchanged and are not reported by adapter
+diagnostics.
 
 See [MIGRATION.md](MIGRATION.md) for accepted event shapes and provider examples.

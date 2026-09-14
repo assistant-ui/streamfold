@@ -128,5 +128,6 @@ test("live snapshots remain the default and invalid modes fail clearly", () => {
   }
   assert.throws(() => createStructuredStream({ snapshots: "typo" }), {
     name: "TypeError",
+    code: "INVALID_OPTIONS",
   });
 });

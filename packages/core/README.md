@@ -55,6 +55,10 @@ Every built-in adapter supports `pushAll(event)`, returning all ordered
 `start`, `update`, and `complete` updates, including multiple calls in one event.
 Existing `push(event)` remains available. Call `finish()` at the stream boundary.
 
+Pass `onDiagnostic` in a custom factory's options, as an SDK factory's second
+argument, or beside the factory in `readStructured`. Errors preserve their
+native categories and include structured codes and call context where known.
+
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),
 and [benchmarks](https://github.com/assistant-ui/streamfold#performance).
