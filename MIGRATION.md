@@ -58,9 +58,10 @@ function finish() {
 }
 ```
 
-Feed only new deltas. `partialValue` is a live value updated in place; reactive
-stores can apply `changes` instead to consume compact `set`, `append`, and
-`complete` patches.
+Feed only new deltas. `partialValue` is a live value updated in place by default.
+Use `createStructuredStream({ snapshots: "immutable" })` for stable, frozen
+snapshots that work with reference-equality-based stores. Reactive stores can
+also apply `changes` to consume compact `set`, `append`, and `complete` patches.
 
 ## 4. Handle concurrent calls
 
@@ -107,9 +108,12 @@ Import the adapter matching your decoded event stream:
 Every adapter follows the same pattern:
 
 ```ts
+import { createStructuredStreamPool } from "streamfold";
 import { createStructuredStream } from "streamfold/assistant-ui";
 
-const toolInputs = createStructuredStream();
+const toolInputs = createStructuredStream(
+  createStructuredStreamPool({ snapshots: "immutable" }),
+);
 
 for await (const event of decodedEvents) {
   for (const update of toolInputs.pushAll(event)) {

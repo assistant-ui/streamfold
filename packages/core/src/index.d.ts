@@ -14,6 +14,8 @@ export interface StructuredStreamOptions {
   readonly maxBytes?: number;
   /** Maximum nested object/array depth. Defaults to 128. */
   readonly maxDepth?: number;
+  /** Live views by default; immutable snapshots are frozen with structural sharing. */
+  readonly snapshots?: "live" | "immutable";
 }
 
 export interface StructuredStreamPoolOptions extends StructuredStreamOptions {
@@ -44,7 +46,7 @@ export interface StreamState {
   readonly complete: boolean;
   readonly inString: boolean;
   readonly changes: readonly StructuredStreamPatch[];
-  /** A live view updated in place; use `changes` for reactive state updates. */
+  /** Live by default; a stable, deeply frozen value with `snapshots: "immutable"`. */
   readonly partialValue: JsonValue | undefined;
 }
 
@@ -144,7 +146,7 @@ export class IncrementalJsonScanner {
   dispose(): void;
   readonly backend: "rust-wasm";
   readonly state: StreamState;
-  /** A live view updated in place; use `StreamState.changes` for reactive updates. */
+  /** Live by default; a stable, deeply frozen value with `snapshots: "immutable"`. */
   readonly value: JsonValue | undefined;
 }
 
@@ -179,5 +181,5 @@ export function createStructuredStreamPool<Id = string>(
 
 export const STREAMFOLD_ENGINE: "rust-wasm";
 export const DEFAULT_STREAM_LIMITS: Readonly<
-  Required<StructuredStreamPoolOptions>
+  Required<Pick<StructuredStreamPoolOptions, "maxBytes" | "maxDepth" | "maxActiveStreams">>
 >;

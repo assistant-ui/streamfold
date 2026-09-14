@@ -20,8 +20,10 @@ event adapter from an integration subpath.
 | `maxBytes` | 16 MiB | One stream |
 | `maxDepth` | 128 | One stream |
 | `maxActiveStreams` | 256 | A pool |
+| `snapshots` | `"live"` | A scanner or every stream in a pool |
 
 Limits must be positive safe integers no greater than `4294967295`.
+`snapshots` accepts `"live"` or `"immutable"`; invalid modes throw `TypeError`.
 
 ## `IncrementalJsonScanner`
 
@@ -31,7 +33,7 @@ Limits must be positive safe integers no greater than `4294967295`.
 | `finish()` | Validate and finalize the JSON document |
 | `getFieldState(path)` | Return `"partial"` or `"complete"` for a path |
 | `dispose()` | Release the Wasm parser |
-| `value` | Current live partial value |
+| `value` | Current partial value, following the selected snapshot mode |
 | `state` | Current state with an empty `changes` list |
 | `backend` | Always `"rust-wasm"` |
 
@@ -60,7 +62,7 @@ Every update includes:
 
 | Field | Description |
 | --- | --- |
-| `partialValue` | Live partial JSON value, updated in place |
+| `partialValue` | Live partial JSON value by default; frozen snapshot in immutable mode |
 | `changes` | Patches emitted by the latest operation |
 | `bytesSeen` | UTF-8 bytes processed |
 | `depth` | Current parser depth |
@@ -79,6 +81,28 @@ Patches have one of three shapes:
 marks a path as structurally complete.
 
 ## Event integrations
+
+### Immutable snapshots
+
+```ts
+const stream = createStructuredStream({ snapshots: "immutable" });
+const first = stream.push('{"city":"San').partialValue;
+const second = stream.push(' Francisco"}').partialValue;
+// first: { city: "San" }, second: { city: "San Francisco" }
+stream.finish();
+stream.dispose();
+```
+
+Objects and arrays in `partialValue`, `scanner.value`, and pool completion
+`value` are deeply frozen in immutable mode. Earlier values never change.
+Changed paths get new containers; unchanged branches retain identity. An
+update containing only completion patches can retain the same root identity,
+so use `changes` or lifecycle updates when observing completion.
+
+Each affected container is copied at most once per parser operation, not once
+per patch. Wide arrays/objects still cost more to copy as they grow. Prefer
+default live mode plus `changes` when minimizing allocations matters. The
+snapshot setting does not freeze the update envelope or the patch list.
 
 ### Custom adapters
 
@@ -153,8 +177,13 @@ A disposed session cannot be pushed or finalized.
 Mapper, syntax, operation, and limit errors terminate the session and release all
 its active parsers. The failing call throws without returning a partial batch;
 subsequent `pushAll`/`finish` calls rethrow the failure. Disposal is still safe.
-Updates retain the core API's live `partialValue` semantics, including within a
-batch; consume `changes` for operation-by-operation reactive updates.
+Values are live by default, including within a batch. Pass
+`{ snapshots: "immutable" }` when calling a custom adapter factory to retain
+stable frozen values, or consume `changes` for reactive updates.
+
+The managed reader forwards the same option through `limits`, for either
+factory contract: `{ adapter: weatherAdapter, limits: { snapshots: "immutable" } }`
+or `{ integration: assistantUI, limits: { snapshots: "immutable" } }`.
 
 ### Managed consumption
 

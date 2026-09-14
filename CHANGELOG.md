@@ -7,6 +7,9 @@
 - Use the same lifecycle tags for custom adapters and managed consumption.
   Add managed SDK integration support with cleanup and no duplicate completions.
 
+- Add opt-in `snapshots: "immutable"` for deeply frozen partial and final
+  values with structural sharing; default live mode remains unchanged.
+
 ## 0.1.4
 
 - Add a practical migration guide for adopting Streamfold with existing SDKs.

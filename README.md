@@ -34,9 +34,11 @@ stream.finish();
 stream.dispose();
 ```
 
-`partialValue` is updated in place. Reactive stores can apply the compact
-`set`, `append`, and `complete` patches in `changes` instead of cloning the
-whole value.
+`partialValue` is updated in place by default. For stable values to pass to
+React or a store, opt into `createStructuredStream({ snapshots: "immutable" })`.
+Earlier snapshots stay unchanged, and unchanged branches keep their identity.
+Reactive stores can also apply the compact `set`, `append`, and `complete`
+patches in `changes`.
 
 Use a pool for interleaved tool calls:
 
@@ -71,9 +73,12 @@ Streamfold includes isolated adapters for decoded SDK events:
 | `streamfold/ag-ui` | AG-UI events |
 
 ```ts
+import { createStructuredStreamPool } from "streamfold";
 import { createStructuredStream } from "streamfold/assistant-ui";
 
-const toolInputs = createStructuredStream();
+const toolInputs = createStructuredStream(
+  createStructuredStreamPool({ snapshots: "immutable" }),
+);
 
 for await (const event of assistantStream) {
   for (const update of toolInputs.pushAll(event)) {
@@ -116,6 +121,8 @@ faster than rebuilding the partial value after every 16-character delta for a
 
 See the [benchmark report](benchmarks/SDK_ADAPTER_REPORT.md) for fixtures,
 methodology, raw commands, and crossover points.
+These results use default live values; immutable snapshots add copying and
+freezing costs, especially for wide, growing arrays or objects.
 
 ## Documentation
 

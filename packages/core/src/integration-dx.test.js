@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStructuredStream, createStructuredStreamPool } from "./index.js";
+import {
+  createStructuredStream,
+  createStructuredStreamPool,
+} from "./index.js";
 import { assistantUI } from "./assistant-ui.js";
 import { openAI } from "./openai.js";
 import { langchain } from "./langchain.js";
 import { gemini } from "./gemini.js";
 
 test("pushAll preserves every LangChain call and repeated updates in event order", () => {
-  const stream = langchain(createStructuredStreamPool());
+  const stream = langchain(
+    createStructuredStreamPool({ snapshots: "immutable" }),
+  );
   const updates = stream.pushAll({
     tool_call_chunks: [
       { index: 0, id: "a", args: '{"city":"San' },
@@ -25,6 +30,7 @@ test("pushAll preserves every LangChain call and repeated updates in event order
       ["update", "a"],
     ],
   );
+  assert.deepEqual(updates[1].partialValue, { city: "San" });
   assert.deepEqual(updates[4].partialValue, { city: "San Francisco" });
   assert.equal(updates[4].complete, true);
   assert.equal(updates[4].type, "update");
@@ -157,11 +163,11 @@ test("legacy push still returns the last update and can alternate with pushAll",
 });
 
 test("a failure midway through a batch throws and releases every call", () => {
-  const pool = createStructuredStreamPool();
+  const pool = createStructuredStreamPool({ snapshots: "immutable" });
   const stream = langchain(pool);
-  stream.pushAll({
+  const prior = stream.pushAll({
     tool_call_chunks: [{ index: 0, id: "a", args: '{"name":"a' }],
-  });
+  })[1];
   assert.throws(
     () =>
       stream.pushAll({
@@ -172,6 +178,7 @@ test("a failure midway through a batch throws and releases every call", () => {
       }),
     SyntaxError,
   );
+  assert.deepEqual(prior.partialValue, { name: "a" });
   assert.equal(pool.size, 0);
   assert.throws(() => stream.finish(), SyntaxError);
 });
