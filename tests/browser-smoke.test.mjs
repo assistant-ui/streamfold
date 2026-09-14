@@ -70,7 +70,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     const result = await page.evaluate(async () => {
-      const { createStructuredStream, STREAMFOLD_ENGINE } = await import(
+      const { createStructuredStream, defineAdapter, STREAMFOLD_ENGINE } = await import(
         "/src/index.js"
       );
       const stream = createStructuredStream();
@@ -90,7 +90,18 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         limitError = error.message;
       }
 
+      const adapter = defineAdapter((operations) => operations);
+      const customStream = adapter();
+      const customUpdates = customStream.pushAll([
+        { type: "start", id: "browser" },
+        { type: "delta", id: "browser", text: '{"ok":true}' },
+        { type: "end", id: "browser" },
+      ]);
+      const remaining = customStream.finish().length;
+      customStream.dispose();
+
       return {
+        custom: { value: customUpdates.at(-1).value, remaining },
         backend: STREAMFOLD_ENGINE,
         complete: final.complete,
         fieldState,
@@ -100,6 +111,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      custom: { value: { ok: true }, remaining: 0 },
       backend: "rust-wasm",
       complete: true,
       fieldState: "complete",

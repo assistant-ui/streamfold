@@ -1,8 +1,15 @@
 import {
   createStructuredStream,
   createStructuredStreamPool,
+  defineAdapter,
   DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
+} from "streamfold";
+import type {
+  BatchStructuredStream,
+  StructuredStreamAdapter,
+  StructuredStreamMapper,
+  StructuredStreamOperation,
 } from "streamfold";
 import {
   assistantUI,
@@ -70,3 +77,42 @@ vercelAi.push({
   type: "tool-input-end",
   id: "call-1",
 });
+
+type WeatherEvent =
+  | { kind: "begin" | "done"; id: number }
+  | { kind: "piece"; id: number; text: string }
+  | { kind: "ping" };
+
+const weatherMapper = ((event: WeatherEvent) => {
+  switch (event.kind) {
+    case "begin":
+      return [{ type: "start", id: event.id }];
+    case "piece":
+      return [{ type: "delta", id: event.id, text: event.text }];
+    case "done":
+      return [{ type: "end", id: event.id }];
+    default:
+      return [];
+  }
+}) satisfies StructuredStreamMapper<WeatherEvent, number>;
+
+const weatherAdapter = defineAdapter(weatherMapper);
+weatherAdapter satisfies StructuredStreamAdapter<WeatherEvent, number>;
+const weather = weatherAdapter({ maxActiveStreams: 4, maxBytes: 1024 });
+weather satisfies BatchStructuredStream<WeatherEvent, number>;
+for (const update of weather.pushAll({ kind: "begin", id: 1 })) {
+  update.id satisfies number;
+}
+weather.finish()[0]?.id satisfies number | undefined;
+weather.dispose();
+createStructuredStream(weatherAdapter).dispose();
+defineAdapter<WeatherEvent, number>(weatherMapper)();
+defineAdapter((event: WeatherEvent) => [{ type: "abort", id: 1 }])();
+[{ type: "start", id: "call" }] as const satisfies readonly StructuredStreamOperation[];
+
+// @ts-expect-error Events must match the mapper's input.
+weather.pushAll({ kind: "piece", id: "wrong", text: "{}" });
+// @ts-expect-error A delta operation requires text.
+defineAdapter((event: WeatherEvent) => [{ type: "delta", id: 1 }]);
+// @ts-expect-error Operation names are a closed union.
+defineAdapter((event: WeatherEvent) => [{ type: "piece", id: 1 }]);

@@ -34,6 +34,11 @@ Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event
 types and do not load provider SDKs.
 
+For custom protocols, import `defineAdapter` from `streamfold`. Translate each
+event into an array of `start`, `delta`, `end`, or `abort` operations. The returned
+factory creates an independent session with `pushAll(event)`, `finish()`, and
+`dispose()`. See the API reference for a complete switch-based example.
+
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),
 and [benchmarks](https://github.com/assistant-ui/streamfold#performance).

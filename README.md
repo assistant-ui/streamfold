@@ -84,6 +84,12 @@ for await (const event of assistantStream) {
 Adapters consume structural event shapes and do not install or load the
 provider SDKs.
 
+For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
+mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
+call creates its own parser pool; `pushAll(event)` returns all updates from an
+event, including multi-call batches. See [custom adapters](API.md#custom-adapters)
+for a switch-based example and lifecycle rules.
+
 ## Performance
 
 On the published `streamfold@0.1.1` benchmark, retaining state was 144–217×

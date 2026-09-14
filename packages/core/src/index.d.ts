@@ -74,6 +74,37 @@ export interface StructuredStreamIntegration<Event, Id = string> {
   ): EventStructuredStream<Event, Id>;
 }
 
+export type StructuredStreamOperation<Id = string> =
+  | { readonly type: "start"; readonly id: Id }
+  | { readonly type: "delta"; readonly id: Id; readonly text: string }
+  | { readonly type: "end"; readonly id: Id }
+  | { readonly type: "abort"; readonly id: Id };
+
+/** Translate one decoded event into zero or more ordered operations. */
+export type StructuredStreamMapper<Event, Id = string> = (
+  event: Event,
+) => readonly StructuredStreamOperation<Id>[];
+
+export interface BatchStructuredStream<Event, Id = string> {
+  pushAll(event: Event): readonly (
+    | ActiveStructuredStream<Id>
+    | CompletedStructuredStream<Id>
+  )[];
+  /** Finalize remaining calls only. Repeated successful calls return []. */
+  finish(): readonly CompletedStructuredStream<Id>[];
+  /** Release active parsers without finalizing their JSON. Idempotent. */
+  dispose(): void;
+}
+
+/** Calling the adapter creates an independent parser pool. */
+export interface StructuredStreamAdapter<Event, Id = string> {
+  (options?: StructuredStreamPoolOptions): BatchStructuredStream<Event, Id>;
+}
+
+export function defineAdapter<Event, Id = string>(
+  mapEvent: StructuredStreamMapper<Event, Id>,
+): StructuredStreamAdapter<Event, Id>;
+
 export class IncrementalJsonScanner {
   constructor(options?: StructuredStreamOptions);
   push(chunk: string): StreamState;
@@ -105,6 +136,9 @@ export function createStructuredStream(): IncrementalJsonScanner;
 export function createStructuredStream(
   options: StructuredStreamOptions,
 ): IncrementalJsonScanner;
+export function createStructuredStream<Event, Id = string>(
+  adapter: StructuredStreamAdapter<Event, Id>,
+): BatchStructuredStream<Event, Id>;
 export function createStructuredStream<Event, Id = string>(
   integration: StructuredStreamIntegration<Event, Id>,
 ): EventStructuredStream<Event, Id>;

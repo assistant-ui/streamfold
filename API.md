@@ -10,6 +10,7 @@ event adapter from an integration subpath.
 | `createStructuredStream(options?)` | `IncrementalJsonScanner` | Parse one JSON stream |
 | `createStructuredStream(integration)` | `EventStructuredStream` | Compose an event adapter |
 | `createStructuredStreamPool(options?)` | `StructuredStreamPool` | Track interleaved streams by ID |
+| `defineAdapter(mapEvent)` | `StructuredStreamAdapter` | Build an adapter for custom decoded events |
 
 ### Options
 
@@ -78,6 +79,81 @@ marks a path as structurally complete.
 
 ## Event integrations
 
+### Custom adapters
+
+`defineAdapter(mapEvent)` returns a factory. Calling that factory with optional
+pool limits creates an independent session with `pushAll`, `finish`, and
+`dispose`. `createStructuredStream(adapter)` also creates a session using the
+default limits.
+
+```ts
+import { defineAdapter } from "streamfold";
+
+type WeatherEvent =
+  | { kind: "begin" | "done"; id: string }
+  | { kind: "piece"; id: string; text: string }
+  | { kind: "ping" };
+
+const weatherAdapter = defineAdapter((event: WeatherEvent) => {
+  switch (event.kind) {
+    case "begin":
+      return [{ type: "start", id: event.id }];
+    case "piece":
+      return [{ type: "delta", id: event.id, text: event.text }];
+    case "done":
+      return [{ type: "end", id: event.id }];
+    default:
+      return [];
+  }
+});
+
+const stream = weatherAdapter({ maxActiveStreams: 8 });
+try {
+  for await (const event of events) {
+    for (const update of stream.pushAll(event)) {
+      renderToolInput(update.id, update.partialValue);
+      if ("value" in update) console.log("Final:", update.value);
+    }
+  }
+  for (const completed of stream.finish()) {
+    renderToolInput(completed.id, completed.value);
+  }
+} finally {
+  stream.dispose();
+}
+```
+
+The mapper is synchronous and returns an array of operations in source order.
+Return `[]` for ignored events, or multiple operations when an event contains
+several calls or both a start and a fragment. IDs may be strings, numbers, or
+another stable pool key. Keep mappers stateless: the factory isolates parser
+state, not mutable variables captured by your function.
+
+| Operation | Effect |
+| --- | --- |
+| `{ type: "start", id }` | Create a parser and emit its initial state |
+| `{ type: "delta", id, text }` | Feed a JSON fragment and emit partial state |
+| `{ type: "end", id }` | Validate JSON, emit a final `{ id, text, value, ...state }`, and release the parser |
+| `{ type: "abort", id }` | Release an active parser without an update; unknown IDs are ignored |
+
+`pushAll(event)` returns every update, in operation order. Start an ID before
+sending deltas or ending it; duplicate starts and unknown delta/end IDs throw.
+An ID can be reused after `end` or `abort`.
+
+`finish()` finalizes **only remaining active calls** in their start order; it
+does not repeat results already emitted by `end`. After successful finalization,
+further `finish()` calls return `[]` and `pushAll` throws. `dispose()` is
+idempotent and releases active parsers without validating their unfinished JSON.
+A disposed session cannot be pushed or finalized.
+
+Mapper, syntax, operation, and limit errors terminate the session and release all
+its active parsers. The failing call throws without returning a partial batch;
+subsequent `pushAll`/`finish` calls rethrow the failure. Disposal is still safe.
+Updates retain the core API's live `partialValue` semantics, including within a
+batch; consume `changes` for operation-by-operation reactive updates.
+
+### Built-in SDK adapters
+
 Each integration exports `createStructuredStream(pool?)`, its event type, and a
 composable integration value:
 
@@ -93,5 +169,7 @@ composable integration value:
 
 `push(event)` returns an update for handled events and `undefined` for unrelated
 events. `finish()` closes active calls and returns all completed calls.
+These existing single-update integrations are unchanged; custom adapters use
+the separate `pushAll(event)` batch API described above.
 
 See [MIGRATION.md](MIGRATION.md) for accepted event shapes and provider examples.
