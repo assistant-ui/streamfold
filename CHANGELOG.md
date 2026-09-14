@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add optional `AbortSignal` support to managed consumption, with immediate
+  parser cleanup, stalled-read cancellation, and explicit upstream boundaries.
+
 ## 0.1.5
 
 - Add `defineAdapter(mapEvent)` for custom streaming protocols, with ordered
