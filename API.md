@@ -185,6 +185,39 @@ The managed reader forwards the same option through `limits`, for either
 factory contract: `{ adapter: weatherAdapter, limits: { snapshots: "immutable" } }`
 or `{ integration: assistantUI, limits: { snapshots: "immutable" } }`.
 
+### Adapter contract tests
+
+The Node-only `streamfold/testing` entry exports `adapterContractTests` for
+custom factories created with `defineAdapter`. It does not import a test runner
+or add dependencies to the browser/runtime entry points.
+
+```js
+import test from "node:test"; // Or import { test } from "vitest".
+import { defineAdapter } from "streamfold";
+import { adapterContractTests } from "streamfold/testing";
+
+const adapter = defineAdapter((event) => event.operations);
+for (const { name, run } of adapterContractTests({
+  adapter,
+  encode: (operations) => [{ operations }],
+})) {
+  test(name, run);
+}
+```
+
+Replace `encode` with a translation from the supplied ordered operations into
+your protocol's decoded events. It returns an iterable of events, so a protocol
+can split operations across events or put several in one event. The mapper and
+encoder should be independently implemented; routing both through the same
+translation can hide mistakes.
+
+The nine cases check interleaved lifecycle updates, stable nested snapshots,
+EOF without duplicate completions, abort and ID reuse, malformed JSON, missing
+and duplicate calls, session isolation, limits, and managed early-exit cleanup.
+They target the custom-adapter contract, not built-in SDK adapters with legacy
+completion history. These are behavioral checks, not a memory-leak audit or a
+substitute for tests using real provider fixtures and malformed protocol events.
+
 ### Managed consumption
 
 `readStructured` drives the same adapter session as the manual example above.

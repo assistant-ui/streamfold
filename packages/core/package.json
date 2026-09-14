@@ -12,6 +12,10 @@
     "!src/**/*.test.js"
   ],
   "exports": {
+    "./testing": {
+      "types": "./src/testing.d.ts",
+      "default": "./src/testing.js"
+    },
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.js"

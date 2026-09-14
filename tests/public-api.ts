@@ -26,6 +26,7 @@ import { anthropic } from "streamfold/anthropic";
 import { gemini } from "streamfold/gemini";
 import { langchain } from "streamfold/langchain";
 import { openAI } from "streamfold/openai";
+import { adapterContractTests } from "streamfold/testing";
 
 const scanner = createStructuredStream();
 scanner.push('{"ok":');
@@ -228,6 +229,10 @@ weatherAdapter({ snapshots: "immutable", onDiagnostic });
 createVercelAiStream(pool, { onDiagnostic });
 readStructured(weatherEvents, { adapter: weatherAdapter, onDiagnostic });
 readStructured([], { integration: assistantUI, onDiagnostic });
+adapterContractTests({
+  adapter: defineAdapter((operations: readonly StructuredStreamOperation[]) => operations),
+  encode: (operations) => [operations],
+})[0]?.run() satisfies Promise<void> | undefined;
 readStructured(weatherEvents, { adapter: weatherAdapter, signal: new AbortController().signal });
 readStructured([], { integration: assistantUI, signal: new AbortController().signal });
 // @ts-expect-error cancellation requires an AbortSignal
