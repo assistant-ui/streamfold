@@ -58,6 +58,7 @@ test("preserves every update from a multi-call batch in operation order", () => 
     { type: "end", id: 1 },
   ]);
   assert.deepEqual(updates.map(({ id }) => id), [1, 2, 1, 2, 2, 1]);
+  assert.deepEqual(updates.map(({ type }) => type), ["start", "start", "update", "update", "complete", "complete"]);
   assert.equal(updates[4].value, "hello");
   assert.deepEqual(updates[5].value, { ok: true });
   assert.deepEqual(stream.finish(), []);

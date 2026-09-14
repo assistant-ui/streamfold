@@ -1,6 +1,6 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -32,11 +32,11 @@ export type GeminiToolCallEvent =
       readonly [key: string]: unknown;
     };
 
-export const gemini: StructuredStreamIntegration<
+export const gemini: BatchStructuredStreamIntegration<
   GeminiToolCallEvent,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<GeminiToolCallEvent, string>;
+): BatchEventStructuredStream<GeminiToolCallEvent, string>;

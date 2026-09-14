@@ -8,7 +8,7 @@ event adapter from an integration subpath.
 | API | Returns | Purpose |
 | --- | --- | --- |
 | `createStructuredStream(options?)` | `IncrementalJsonScanner` | Parse one JSON stream |
-| `createStructuredStream(integration)` | `EventStructuredStream` | Compose an event adapter |
+| `createStructuredStream(integration)` | Adapter's stream type | Compose an event adapter |
 | `createStructuredStreamPool(options?)` | `StructuredStreamPool` | Track interleaved streams by ID |
 | `defineAdapter(mapEvent)` | `StructuredStreamAdapter` | Build an adapter for custom decoded events |
 | `readStructured(events, { adapter, limits? })` | `AsyncGenerator` | Consume events with automatic finalization and cleanup |
@@ -137,7 +137,10 @@ state, not mutable variables captured by your function.
 | `{ type: "end", id }` | Validate JSON, emit a final `{ id, text, value, ...state }`, and release the parser |
 | `{ type: "abort", id }` | Release an active parser without an update; unknown IDs are ignored |
 
-`pushAll(event)` returns every update, in operation order. Start an ID before
+`pushAll(event)` returns every update, in operation order, with a lifecycle
+`type: "start" | "update" | "complete"`. Custom and SDK streams share this
+update shape. Custom `finish()` results also have `type: "complete"`.
+Start an ID before
 sending deltas or ending it; duplicate starts and unknown delta/end IDs throw.
 An ID can be reused after `end` or `abort`.
 
@@ -201,10 +204,28 @@ arbitrary pending source read or guarantee cancellation of the underlying networ
 request. Pass cancellation signals to your SDK or transport when needed; this
 helper does not accept an `AbortSignal`.
 
-`readStructured` accepts the batch-adapter contract (`pushAll`, `finish`,
-`dispose`). Existing single-update SDK integrations below are not directly
-compatible. You can map their decoded event protocol with `defineAdapter` while
-keeping the SDK outside Streamfold's dependencies.
+For a built-in SDK integration, use `integration` instead of `adapter`:
+
+```ts
+import { readStructured } from "streamfold";
+import { assistantUI } from "streamfold/assistant-ui";
+
+for await (const update of readStructured(assistantStream, {
+  integration: assistantUI,
+  limits: { maxActiveStreams: 8 },
+})) {
+  renderToolInput(update.id, update.partialValue);
+  if (update.type === "complete") console.log(update.value);
+}
+```
+
+Choose exactly one factory: `adapter` for a `defineAdapter` factory, or
+`integration` for a built-in SDK factory. Both return the same lifecycle update
+shape. The helper owns the integration's pool and finalizes only pending calls,
+without replaying SDK completion history, even when a call ID is reused.
+Cleanup and backpressure rules above apply to both paths. Custom integration
+factories must use the supplied pool and return completion history with newly
+finalized calls appended, matching the built-in contract.
 
 ### Built-in SDK adapters
 
@@ -221,9 +242,30 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
-`push(event)` returns an update for handled events and `undefined` for unrelated
-events. `finish()` closes active calls and returns all completed calls.
-These existing single-update integrations are unchanged; custom adapters use
-the separate `pushAll(event)` batch API described above.
+| Method | Returns |
+| --- | --- |
+| `pushAll(event)` | All lifecycle updates caused by this event, in order; `[]` for ignored events |
+| `push(event)` | Legacy single update or `undefined`; some multi-call events return only the last update |
+| `finish()` | Closes remaining calls and returns all completed calls, including those completed earlier |
+
+Choose **one** push method per event; calling both consumes it twice. `pushAll`
+is available on every built-in adapter (`BatchEventStructuredStream`). Existing
+custom implementations of `EventStructuredStream` need not implement it.
+
+Each `pushAll` result has `type: "start" | "update" | "complete"` in addition to
+the existing stream state and `id`. A `"start"` can already contain an initial
+value. A `"complete"` also has validated JSON `text` and final `value`.
+`complete: true` in stream state only means the JSON root is complete; it does
+not mean the provider has ended its arguments. No lifecycle update means that
+a tool has executed or its arguments satisfy a schema.
+
+LangChain has no per-call end event in this adapter, so its remaining calls
+are finalized by `finish()`. The returned completion history is not a new batch
+of lifecycle events; do not process already-seen completions twice.
+
+Failures remain terminal and abort all active calls in the adapter's pool.
+If an event changes several calls and then fails, `pushAll` throws without
+returning a partial batch. It does not roll back previously returned live views.
+Use a separate pool per response/session.
 
 See [MIGRATION.md](MIGRATION.md) for accepted event shapes and provider examples.

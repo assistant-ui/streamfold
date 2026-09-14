@@ -1,6 +1,6 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -33,11 +33,11 @@ export type AnthropicToolInputEvent =
       readonly [key: string]: unknown;
     };
 
-export const anthropic: StructuredStreamIntegration<
+export const anthropic: BatchStructuredStreamIntegration<
   AnthropicToolInputEvent,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<AnthropicToolInputEvent, string>;
+): BatchEventStructuredStream<AnthropicToolInputEvent, string>;

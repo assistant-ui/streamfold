@@ -38,7 +38,9 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const url = new URL(request.url ?? "/", "http://127.0.0.1");
       if (url.pathname === "/") {
         response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end("<!doctype html><title>Streamfold browser smoke test</title>");
+        response.end(
+          "<!doctype html><title>Streamfold browser smoke test</title>",
+        );
         return;
       }
 
@@ -70,9 +72,13 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     const result = await page.evaluate(async () => {
-      const { createStructuredStream, defineAdapter, readStructured, STREAMFOLD_ENGINE } = await import(
-        "/src/index.js"
-      );
+      const {
+        createStructuredStream,
+        createStructuredStreamPool,
+        defineAdapter,
+        readStructured,
+        STREAMFOLD_ENGINE,
+      } = await import("/src/index.js");
       const stream = createStructuredStream();
       stream.push('{"city":"Addis ');
       stream.push("\ud83d");
@@ -112,24 +118,52 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         if ("value" in update) managedValue = update.value;
       }
 
+      const { langchain } = await import("/src/langchain.js");
+      const calls = langchain(createStructuredStreamPool());
+      const batch = calls.pushAll({
+        tool_call_chunks: [
+          { index: 0, id: "a", args: '{"items":[' },
+          { index: 1, id: "b", args: "{}" },
+          { index: 0, args: "1,2]}" },
+        ],
+      });
+      const dx = {
+        lifecycle: batch.map(({ type }) => type),
+        final: calls.finish().map(({ value }) => value),
+      };
+      const managedSdk = [];
+      for await (const update of readStructured(
+        [{ tool_call_chunks: [{ index: 0, id: "sdk", args: "42" }] }],
+        { integration: langchain },
+      )) {
+        managedSdk.push(update.type);
+      }
+
       return {
         managedValue,
+        managedSdk,
         custom: { value: customUpdates.at(-1).value, remaining },
         backend: STREAMFOLD_ENGINE,
         complete: final.complete,
         fieldState,
         limitError,
         value,
+        dx,
       };
     });
 
     assert.deepEqual(result, {
+      managedSdk: ["start", "update", "complete"],
       managedValue: 42,
       custom: { value: { ok: true }, remaining: 0 },
       backend: "rust-wasm",
       complete: true,
       fieldState: "complete",
       limitError: "Structured stream exceeds maxDepth (1) at 10",
+      dx: {
+        lifecycle: ["start", "update", "start", "update", "update"],
+        final: [{ items: [1, 2] }, {}],
+      },
       value: {
         city: "Addis 🚀 Ababa",
         items: [1, 2],

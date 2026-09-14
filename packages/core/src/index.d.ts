@@ -68,10 +68,22 @@ export interface EventStructuredStream<Event, Id = string> {
   finish(): readonly CompletedStructuredStream<Id>[];
 }
 
+export type StructuredStreamLifecycleUpdate<Id = string> =
+  | (ActiveStructuredStream<Id> & { readonly type: "start" | "update" })
+  | (CompletedStructuredStream<Id> & { readonly type: "complete" });
+
+export interface BatchEventStructuredStream<Event, Id = string>
+  extends EventStructuredStream<Event, Id> {
+  /** Consume once and return every call update, in event order. */
+  pushAll(event: Event): readonly StructuredStreamLifecycleUpdate<Id>[];
+}
+
 export interface StructuredStreamIntegration<Event, Id = string> {
-  (
-    pool?: StructuredStreamPool<Id>,
-  ): EventStructuredStream<Event, Id>;
+  (pool?: StructuredStreamPool<Id>): EventStructuredStream<Event, Id>;
+}
+
+export interface BatchStructuredStreamIntegration<Event, Id = string> {
+  (pool?: StructuredStreamPool<Id>): BatchEventStructuredStream<Event, Id>;
 }
 
 export type StructuredStreamOperation<Id = string> =
@@ -86,12 +98,11 @@ export type StructuredStreamMapper<Event, Id = string> = (
 ) => readonly StructuredStreamOperation<Id>[];
 
 export interface BatchStructuredStream<Event, Id = string> {
-  pushAll(event: Event): readonly (
-    | ActiveStructuredStream<Id>
-    | CompletedStructuredStream<Id>
-  )[];
+  pushAll(event: Event): readonly StructuredStreamLifecycleUpdate<Id>[];
   /** Finalize remaining calls only. Repeated successful calls return []. */
-  finish(): readonly CompletedStructuredStream<Id>[];
+  finish(): readonly (CompletedStructuredStream<Id> & {
+    readonly type: "complete";
+  })[];
   /** Release active parsers without finalizing their JSON. Idempotent. */
   dispose(): void;
 }
@@ -107,18 +118,23 @@ export function defineAdapter<Event, Id = string>(
 
 export interface ReadStructuredOptions<Event, Id = string> {
   readonly adapter: StructuredStreamAdapter<Event, Id>;
+  readonly integration?: never;
+  readonly limits?: StructuredStreamPoolOptions;
+}
+
+export interface ReadStructuredIntegrationOptions<Event, Id = string> {
+  readonly integration: BatchStructuredStreamIntegration<Event, Id>;
+  readonly adapter?: never;
   readonly limits?: StructuredStreamPoolOptions;
 }
 
 /** Consume decoded events, finalizing at EOF and disposing on every exit. */
 export function readStructured<Event, Id = string>(
   events: AsyncIterable<Event> | Iterable<Event>,
-  options: ReadStructuredOptions<Event, Id>,
-): AsyncGenerator<
-  ActiveStructuredStream<Id> | CompletedStructuredStream<Id>,
-  void,
-  unknown
->;
+  options:
+    | ReadStructuredOptions<Event, Id>
+    | ReadStructuredIntegrationOptions<Event, Id>,
+): AsyncGenerator<StructuredStreamLifecycleUpdate<Id>, void, unknown>;
 
 export class IncrementalJsonScanner {
   constructor(options?: StructuredStreamOptions);
@@ -137,10 +153,7 @@ export class StructuredStreamPool<Id = string> {
   start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
   push(id: Id, delta: string): ActiveStructuredStream<Id>;
   finish(id: Id): CompletedStructuredStream<Id>;
-  getFieldState(
-    id: Id,
-    path: StructuredStreamPath,
-  ): StructuredStreamFieldState;
+  getFieldState(id: Id, path: StructuredStreamPath): StructuredStreamFieldState;
   abort(id: Id): boolean;
   has(id: Id): boolean;
   readonly activeIds: readonly Id[];
@@ -154,6 +167,9 @@ export function createStructuredStream(
 export function createStructuredStream<Event, Id = string>(
   adapter: StructuredStreamAdapter<Event, Id>,
 ): BatchStructuredStream<Event, Id>;
+export function createStructuredStream<Event, Id = string>(
+  integration: BatchStructuredStreamIntegration<Event, Id>,
+): BatchEventStructuredStream<Event, Id>;
 export function createStructuredStream<Event, Id = string>(
   integration: StructuredStreamIntegration<Event, Id>,
 ): EventStructuredStream<Event, Id>;

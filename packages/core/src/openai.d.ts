@@ -1,6 +1,6 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -27,11 +27,11 @@ export type OpenAiResponsesToolEvent =
       readonly [key: string]: unknown;
     };
 
-export const openAI: StructuredStreamIntegration<
+export const openAI: BatchStructuredStreamIntegration<
   OpenAiResponsesToolEvent,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<OpenAiResponsesToolEvent, string>;
+): BatchEventStructuredStream<OpenAiResponsesToolEvent, string>;

@@ -6,23 +6,23 @@ const pathKey = (path) => path.join("/");
 export const assistantUI = (pool = createStructuredStreamPool()) => {
   const idsByPath = new Map();
 
-  return createIntegration(pool, (event, complete) => {
+  return createIntegration(pool, (event, calls) => {
     const key = pathKey(event.path);
 
     if (event.type === "part-start" && event.part.type === "tool-call") {
       idsByPath.set(key, event.part.toolCallId);
-      return pool.start(event.part.toolCallId);
+      return calls.start(event.part.toolCallId);
     }
 
     const id = idsByPath.get(key);
     if (id === undefined) return undefined;
 
     if (event.type === "text-delta") {
-      return pool.push(id, event.textDelta);
+      return calls.push(id, event.textDelta);
     }
     if (event.type === "tool-call-args-text-finish") {
       idsByPath.delete(key);
-      return complete(id);
+      return calls.complete(id);
     }
     return undefined;
   });

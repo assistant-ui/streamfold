@@ -5,6 +5,8 @@ import {
   readStructured,
   DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
+  type JsonValue,
+  type StructuredStreamIntegration,
 } from "streamfold";
 import type {
   BatchStructuredStream,
@@ -18,6 +20,11 @@ import {
   createStructuredStream as createAssistantUiStream,
 } from "streamfold/assistant-ui";
 import { createStructuredStream as createVercelAiStream } from "streamfold/vercel-ai";
+import { agUI } from "streamfold/ag-ui";
+import { anthropic } from "streamfold/anthropic";
+import { gemini } from "streamfold/gemini";
+import { langchain } from "streamfold/langchain";
+import { openAI } from "streamfold/openai";
 
 const scanner = createStructuredStream();
 scanner.push('{"ok":');
@@ -62,6 +69,21 @@ assistantUi.push({
 });
 
 const composed = createStructuredStream(assistantUI);
+for (const update of composed.pushAll({
+  type: "text-delta",
+  path: [0],
+  textDelta: "text",
+})) {
+  update.id satisfies string;
+  update.partialValue satisfies JsonValue | undefined;
+  if (update.type === "complete") {
+    update.value satisfies JsonValue;
+    update.text satisfies string;
+  } else {
+    // @ts-expect-error final values exist only on lifecycle completion
+    update.value;
+  }
+}
 composed.finish();
 
 const vercelAi = createVercelAiStream();
@@ -110,7 +132,9 @@ weather.dispose();
 createStructuredStream(weatherAdapter).dispose();
 defineAdapter<WeatherEvent, number>(weatherMapper)();
 defineAdapter((event: WeatherEvent) => [{ type: "abort", id: 1 }])();
-[{ type: "start", id: "call" }] as const satisfies readonly StructuredStreamOperation[];
+[
+  { type: "start", id: "call" },
+] as const satisfies readonly StructuredStreamOperation[];
 
 // @ts-expect-error Events must match the mapper's input.
 weather.pushAll({ kind: "piece", id: "wrong", text: "{}" });
@@ -143,7 +167,36 @@ readStructured(new ReadableStream<WeatherEvent>(), { adapter: weatherAdapter });
 
 // @ts-expect-error The source must produce the mapper's input event type.
 readStructured([{ unrelated: true }], { adapter: weatherAdapter });
-// @ts-expect-error Existing single-update SDK integrations are not batch adapters.
+// @ts-expect-error SDK integrations use the explicit integration option.
 readStructured([], { adapter: assistantUI });
-// @ts-expect-error Limits must be numbers.
-readStructured(weatherEvents, { adapter: weatherAdapter, limits: { maxBytes: "10" } });
+for await (const update of readStructured(
+  [{ tool_call_chunks: [{ index: 0, id: "a", args: "{}" }] }],
+  { integration: langchain, limits: { maxBytes: 1024 } },
+)) {
+  if (update.type === "complete") update.value satisfies JsonValue;
+}
+// @ts-expect-error Choose one factory contract, not both.
+readStructured([], { adapter: weatherAdapter, integration: assistantUI });
+readStructured(weatherEvents, {
+  adapter: weatherAdapter,
+  // @ts-expect-error Limits must be numbers.
+  limits: { maxBytes: "10" },
+});
+
+createStructuredStream(agUI).pushAll({
+  type: "TOOL_CALL_END",
+  toolCallId: "a",
+});
+createStructuredStream(anthropic).pushAll({
+  type: "content_block_stop",
+  index: 0,
+});
+createStructuredStream(gemini).pushAll({ event_type: "interaction.completed" });
+createStructuredStream(langchain).pushAll({ tool_call_chunks: [] });
+createStructuredStream(openAI).pushAll({ type: "response.completed" });
+// Custom integrations written before pushAll remain source-compatible.
+const legacyIntegration: StructuredStreamIntegration<string> = () => ({
+  push: () => undefined,
+  finish: () => [],
+});
+createStructuredStream(legacyIntegration).push("custom");
