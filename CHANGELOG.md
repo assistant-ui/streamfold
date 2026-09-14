@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add runnable, SDK-typechecked assistant-ui, Vercel AI, and custom-protocol
+  examples, including cancellation and custom-adapter contract tests.
 - Add Node-only `streamfold/testing` contract cases for custom adapter authors,
   compatible with Node-based test runners and batched or split event protocols.
 - Add optional `AbortSignal` support to managed consumption, with immediate
