@@ -11,6 +11,7 @@ event adapter from an integration subpath.
 | `createStructuredStream(integration)` | `EventStructuredStream` | Compose an event adapter |
 | `createStructuredStreamPool(options?)` | `StructuredStreamPool` | Track interleaved streams by ID |
 | `defineAdapter(mapEvent)` | `StructuredStreamAdapter` | Build an adapter for custom decoded events |
+| `readStructured(events, { adapter, limits? })` | `AsyncGenerator` | Consume events with automatic finalization and cleanup |
 
 ### Options
 
@@ -151,6 +152,59 @@ its active parsers. The failing call throws without returning a partial batch;
 subsequent `pushAll`/`finish` calls rethrow the failure. Disposal is still safe.
 Updates retain the core API's live `partialValue` semantics, including within a
 batch; consume `changes` for operation-by-operation reactive updates.
+
+### Managed consumption
+
+`readStructured` drives the same adapter session as the manual example above.
+Pass the factory returned by `defineAdapter`, not an already-created session:
+
+```ts
+import { readStructured } from "streamfold";
+
+const events: WeatherEvent[] = [
+  { kind: "begin", id: "weather" },
+  { kind: "piece", id: "weather", text: '{"city":"San' },
+  { kind: "piece", id: "weather", text: ' Francisco"}' },
+  { kind: "done", id: "weather" },
+];
+
+// Reuses weatherAdapter from the custom-adapter example.
+for await (const update of readStructured(events, {
+  adapter: weatherAdapter,
+  limits: { maxActiveStreams: 8, maxBytes: 1024 },
+})) {
+  console.log(update.id, update.partialValue);
+  if ("value" in update) console.log("Final:", update.value);
+}
+```
+
+The source can be a synchronous iterable, an async iterable from an SDK, or an
+async-iterable `ReadableStream` of **decoded events**. Streamfold does not decode
+HTTP bytes or SSE frames and does not start network requests.
+
+| Situation | Behavior |
+| --- | --- |
+| Iteration starts | Create one fresh session with the supplied limits |
+| An event arrives | Yield every `pushAll(event)` update in order |
+| Source ends normally | Yield `finish()` results for any remaining calls, then dispose |
+| Source, mapper, parser, or finalization throws | Propagate the error and dispose active parsers |
+| Consumer breaks or throws | Close the source iterator and dispose without finalizing unfinished calls |
+
+The helper does not pull another source event until the current batch has been
+consumed. Results have the same live `partialValue` semantics as the manual API;
+they are not immutable snapshots. Use `changes` when applying individual
+updates to a reactive store. A final result has `value` and `text`; `complete`
+alone describes JSON parser state and does not mean a call has ended.
+
+Stopping iteration uses the source's iterator cleanup. It cannot interrupt an
+arbitrary pending source read or guarantee cancellation of the underlying network
+request. Pass cancellation signals to your SDK or transport when needed; this
+helper does not accept an `AbortSignal`.
+
+`readStructured` accepts the batch-adapter contract (`pushAll`, `finish`,
+`dispose`). Existing single-update SDK integrations below are not directly
+compatible. You can map their decoded event protocol with `defineAdapter` while
+keeping the SDK outside Streamfold's dependencies.
 
 ### Built-in SDK adapters
 

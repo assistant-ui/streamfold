@@ -105,6 +105,21 @@ export function defineAdapter<Event, Id = string>(
   mapEvent: StructuredStreamMapper<Event, Id>,
 ): StructuredStreamAdapter<Event, Id>;
 
+export interface ReadStructuredOptions<Event, Id = string> {
+  readonly adapter: StructuredStreamAdapter<Event, Id>;
+  readonly limits?: StructuredStreamPoolOptions;
+}
+
+/** Consume decoded events, finalizing at EOF and disposing on every exit. */
+export function readStructured<Event, Id = string>(
+  events: AsyncIterable<Event> | Iterable<Event>,
+  options: ReadStructuredOptions<Event, Id>,
+): AsyncGenerator<
+  ActiveStructuredStream<Id> | CompletedStructuredStream<Id>,
+  void,
+  unknown
+>;
+
 export class IncrementalJsonScanner {
   constructor(options?: StructuredStreamOptions);
   push(chunk: string): StreamState;

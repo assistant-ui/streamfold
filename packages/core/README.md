@@ -39,6 +39,11 @@ event into an array of `start`, `delta`, `end`, or `abort` operations. The retur
 factory creates an independent session with `pushAll(event)`, `finish()`, and
 `dispose()`. See the API reference for a complete switch-based example.
 
+For automatic lifecycle management, use
+`readStructured(events, { adapter, limits })` in a `for await` loop. It wraps the
+same batch adapter, finalizes remaining calls at the end of the source, and
+disposes on completion, failure, or early exit. `limits` is optional.
+
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),
 and [benchmarks](https://github.com/assistant-ui/streamfold#performance).

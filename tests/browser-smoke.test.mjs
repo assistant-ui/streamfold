@@ -70,7 +70,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     const result = await page.evaluate(async () => {
-      const { createStructuredStream, defineAdapter, STREAMFOLD_ENGINE } = await import(
+      const { createStructuredStream, defineAdapter, readStructured, STREAMFOLD_ENGINE } = await import(
         "/src/index.js"
       );
       const stream = createStructuredStream();
@@ -100,7 +100,20 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const remaining = customStream.finish().length;
       customStream.dispose();
 
+      let managedValue;
+      const eventSource = new ReadableStream({
+        start(controller) {
+          controller.enqueue([{ type: "start", id: "managed" }]);
+          controller.enqueue([{ type: "delta", id: "managed", text: "42" }]);
+          controller.close();
+        },
+      });
+      for await (const update of readStructured(eventSource, { adapter })) {
+        if ("value" in update) managedValue = update.value;
+      }
+
       return {
+        managedValue,
         custom: { value: customUpdates.at(-1).value, remaining },
         backend: STREAMFOLD_ENGINE,
         complete: final.complete,
@@ -111,6 +124,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      managedValue: 42,
       custom: { value: { ok: true }, remaining: 0 },
       backend: "rust-wasm",
       complete: true,

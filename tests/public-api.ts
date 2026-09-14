@@ -2,11 +2,13 @@ import {
   createStructuredStream,
   createStructuredStreamPool,
   defineAdapter,
+  readStructured,
   DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
 } from "streamfold";
 import type {
   BatchStructuredStream,
+  ReadStructuredOptions,
   StructuredStreamAdapter,
   StructuredStreamMapper,
   StructuredStreamOperation,
@@ -116,3 +118,32 @@ weather.pushAll({ kind: "piece", id: "wrong", text: "{}" });
 defineAdapter((event: WeatherEvent) => [{ type: "delta", id: 1 }]);
 // @ts-expect-error Operation names are a closed union.
 defineAdapter((event: WeatherEvent) => [{ type: "piece", id: 1 }]);
+
+const weatherEvents: WeatherEvent[] = [
+  { kind: "begin", id: 1 },
+  { kind: "piece", id: 1, text: "{}" },
+  { kind: "done", id: 1 },
+];
+const readOptions = {
+  adapter: weatherAdapter,
+  limits: { maxActiveStreams: 8 },
+} satisfies ReadStructuredOptions<WeatherEvent, number>;
+
+for await (const update of readStructured(weatherEvents, readOptions)) {
+  update.id satisfies number;
+  update.partialValue;
+  if ("value" in update) update.text satisfies string;
+}
+
+async function* asyncWeatherEvents() {
+  yield* weatherEvents;
+}
+readStructured(asyncWeatherEvents(), { adapter: weatherAdapter });
+readStructured(new ReadableStream<WeatherEvent>(), { adapter: weatherAdapter });
+
+// @ts-expect-error The source must produce the mapper's input event type.
+readStructured([{ unrelated: true }], { adapter: weatherAdapter });
+// @ts-expect-error Existing single-update SDK integrations are not batch adapters.
+readStructured([], { adapter: assistantUI });
+// @ts-expect-error Limits must be numbers.
+readStructured(weatherEvents, { adapter: weatherAdapter, limits: { maxBytes: "10" } });
