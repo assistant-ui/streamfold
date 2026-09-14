@@ -228,10 +228,17 @@ they are not immutable snapshots. Use `changes` when applying individual
 updates to a reactive store. A final result has `value` and `text`; `complete`
 alone describes JSON parser state and does not mean a call has ended.
 
-Stopping iteration uses the source's iterator cleanup. It cannot interrupt an
-arbitrary pending source read or guarantee cancellation of the underlying network
-request. Pass cancellation signals to your SDK or transport when needed; this
-helper does not accept an `AbortSignal`.
+Pass `signal: controller.signal` to stop a managed read, including a stalled
+source read. Aborting rejects with `signal.reason`, immediately disposes active
+parsers, and discards remaining batch updates without finalizing incomplete JSON.
+A pre-aborted signal does not create a session or acquire the source.
+
+For a `ReadableStream`, cancellation calls its reader's `cancel(reason)` and
+releases the lock. For other iterables it requests `iterator.return()`; arbitrary
+iterators may ignore that request or never settle. On abort, Streamfold does not
+wait for that cleanup, and observes late rejections without replacing the abort
+reason. Pass the same signal to the SDK or transport to stop network activity.
+Without a signal, the existing source-iterator cleanup behavior is unchanged.
 
 For a built-in SDK integration, use `integration` instead of `adapter`:
 

@@ -175,6 +175,8 @@ export function defineAdapter<Event, Id = string>(
 
 export interface ReadStructuredOptions<Event, Id = string>
   extends StructuredStreamIntegrationOptions {
+  /** Stop waiting and release parsers; pass the same signal to the transport. */
+  readonly signal?: AbortSignal;
   readonly adapter: StructuredStreamAdapter<Event, Id>;
   readonly integration?: never;
   readonly limits?: StructuredStreamPoolOptions;
@@ -182,6 +184,8 @@ export interface ReadStructuredOptions<Event, Id = string>
 
 export interface ReadStructuredIntegrationOptions<Event, Id = string>
   extends StructuredStreamIntegrationOptions {
+  /** Stop waiting and release parsers; pass the same signal to the transport. */
+  readonly signal?: AbortSignal;
   readonly integration: BatchStructuredStreamIntegration<Event, Id>;
   readonly adapter?: never;
   readonly limits?: StructuredStreamPoolOptions;

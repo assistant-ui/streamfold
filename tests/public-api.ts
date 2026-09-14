@@ -228,3 +228,7 @@ weatherAdapter({ snapshots: "immutable", onDiagnostic });
 createVercelAiStream(pool, { onDiagnostic });
 readStructured(weatherEvents, { adapter: weatherAdapter, onDiagnostic });
 readStructured([], { integration: assistantUI, onDiagnostic });
+readStructured(weatherEvents, { adapter: weatherAdapter, signal: new AbortController().signal });
+readStructured([], { integration: assistantUI, signal: new AbortController().signal });
+// @ts-expect-error cancellation requires an AbortSignal
+readStructured(weatherEvents, { adapter: weatherAdapter, signal: "stop" });

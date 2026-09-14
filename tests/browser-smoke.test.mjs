@@ -146,7 +146,22 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         managedSdk.push(update.type);
       }
 
+      const abortController = new AbortController();
+      let cancelled = false;
+      const stalled = new ReadableStream({
+        start(controller) { controller.enqueue([{ type: "start", id: "cancel" }]); },
+        cancel() { cancelled = true; },
+      });
+      const abortable = readStructured(stalled, { adapter, signal: abortController.signal });
+      await abortable.next();
+      const waiting = abortable.next();
+      abortController.abort();
+      let aborted = false;
+      try { await waiting; }
+      catch (error) { aborted = error === abortController.signal.reason; }
+
       return {
+        cancellation: { aborted, cancelled, locked: stalled.locked },
         managedValue,
         managedSdk,
         custom: { value: customUpdates.at(-1).value, remaining },
@@ -161,6 +176,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      cancellation: { aborted: true, cancelled: true, locked: false },
       managedSdk: ["start", "update", "complete"],
       managedValue: 42,
       custom: { value: { ok: true }, remaining: 0 },
