@@ -119,7 +119,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       }
 
       const { langchain } = await import("/src/langchain.js");
-      const calls = langchain(createStructuredStreamPool());
+      const calls = langchain(createStructuredStreamPool({ snapshots: "immutable" }));
       const batch = calls.pushAll({
         tool_call_chunks: [
           { index: 0, id: "a", args: '{"items":[' },
@@ -129,6 +129,8 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       });
       const dx = {
         lifecycle: batch.map(({ type }) => type),
+        earlier: batch[1].partialValue,
+        frozen: Object.isFrozen(batch[4].partialValue.items),
         final: calls.finish().map(({ value }) => value),
       };
       const managedSdk = [];
@@ -162,6 +164,8 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       limitError: "Structured stream exceeds maxDepth (1) at 10",
       dx: {
         lifecycle: ["start", "update", "start", "update", "update"],
+        earlier: { items: [] },
+        frozen: true,
         final: [{ items: [1, 2] }, {}],
       },
       value: {

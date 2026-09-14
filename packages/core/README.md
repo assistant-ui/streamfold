@@ -29,6 +29,11 @@ stream.finish();
 stream.dispose();
 ```
 
+Values are live by default. Use `createStructuredStream({ snapshots: "immutable" })`
+for frozen snapshots that preserve earlier values and share unchanged branches.
+Pools and custom adapter factories accept the same option; managed readers
+forward it through `limits`.
+
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event

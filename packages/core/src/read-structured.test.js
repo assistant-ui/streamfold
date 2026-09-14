@@ -324,3 +324,31 @@ test("managed consumption requires exactly one factory contract", async () => {
     await assert.rejects(collect(readStructured([], options)), /exactly one/);
   }
 });
+
+test("immutable snapshots stay stable in managed custom and SDK batches", async () => {
+  const customEvents = [[
+    { type: "start", id: "a" },
+    { type: "delta", id: "a", text: '{"city":"San' },
+    { type: "delta", id: "a", text: ' Francisco"}' },
+    { type: "end", id: "a" },
+  ]];
+  const sdkEvents = [{ tool_call_chunks: [
+    { index: 0, id: "a", args: '{"city":"San' },
+    { index: 0, args: ' Francisco"}' },
+  ] }];
+  for (const [source, factory] of [
+    [customEvents, { adapter }],
+    [sdkEvents, { integration: langchain }],
+  ]) {
+    const updates = [];
+    for await (const update of readStructured(source, {
+      ...factory, limits: { snapshots: "immutable" },
+    })) updates.push(update);
+    assert.deepEqual(updates.map(({ type }) => type), ["start", "update", "update", "complete"]);
+    assert.deepEqual(updates[1].partialValue, { city: "San" });
+    assert.deepEqual(updates[2].partialValue, { city: "San Francisco" });
+    assert.equal(Object.isFrozen(updates[1].partialValue), true);
+    assert.equal(Object.isFrozen(updates[3].value), true);
+    assert.throws(() => { updates[1].partialValue.city = "changed"; }, TypeError);
+  }
+});

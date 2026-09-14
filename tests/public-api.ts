@@ -36,6 +36,9 @@ STREAMFOLD_ENGINE satisfies "rust-wasm";
 scanner.dispose();
 
 createStructuredStream({ maxBytes: 1024, maxDepth: 8 }).dispose();
+createStructuredStream({ snapshots: "immutable" }).dispose();
+// @ts-expect-error Snapshot modes are checked at the public boundary.
+createStructuredStream({ snapshots: "typo" });
 DEFAULT_STREAM_LIMITS.maxBytes satisfies number;
 
 const pool = createStructuredStreamPool<string>({
@@ -200,3 +203,7 @@ const legacyIntegration: StructuredStreamIntegration<string> = () => ({
   finish: () => [],
 });
 createStructuredStream(legacyIntegration).push("custom");
+
+weatherAdapter({ snapshots: "immutable" });
+readStructured(weatherEvents, { adapter: weatherAdapter, limits: { snapshots: "immutable" } });
+readStructured([], { integration: assistantUI, limits: { snapshots: "immutable" } });

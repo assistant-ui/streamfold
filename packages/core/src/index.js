@@ -5,6 +5,7 @@ import {
   pushWasmParser,
   readWasmParser,
 } from "./internal/wasm-runtime.js";
+import { applyImmutableChanges, freezeJson } from "./internal/snapshots.js";
 
 export { defineAdapter } from "./adapter.js";
 export { readStructured } from "./read-structured.js";
@@ -26,9 +27,11 @@ export class IncrementalJsonScanner {
   #value;
   #completion = createCompletionNode();
   #error;
+  #immutable;
 
   constructor(options = {}) {
     const limits = normalizeStreamLimits(options);
+    this.#immutable = limits.snapshots === "immutable";
     this.#parser = createWasmParser(limits);
     parserFinalizer?.register(this, this.#parser, this);
   }
@@ -113,18 +116,20 @@ export class IncrementalJsonScanner {
   }
 
   #apply(changes) {
+    if (this.#immutable) this.#value = applyImmutableChanges(this.#value, changes);
     for (const change of changes) {
       if (change.op === "complete") {
         markFieldComplete(this.#completion, change.path);
       } else if (change.op === "set") {
         invalidateField(this.#completion, change.path);
+        if (this.#immutable) continue;
         const value = Array.isArray(change.value)
           ? []
           : change.value !== null && typeof change.value === "object"
             ? {}
             : change.value;
         this.#value = setAtPath(this.#value, change.path, value);
-      } else {
+      } else if (!this.#immutable) {
         const current = getAtPath(this.#value, change.path);
         this.#value = setAtPath(
           this.#value,
@@ -164,6 +169,7 @@ export class StructuredStreamPool {
     this.#streamOptions = {
       maxBytes: limits.maxBytes,
       maxDepth: limits.maxDepth,
+      snapshots: limits.snapshots,
     };
   }
 
@@ -210,6 +216,7 @@ export class StructuredStreamPool {
       const state = entry.scanner.finish();
       const text = entry.chunks.join("");
       const value = JSON.parse(text);
+      if (this.#streamOptions.snapshots === "immutable") freezeJson(value);
       return { id, text, value, ...state };
     } finally {
       this.#streams.delete(id);
@@ -326,6 +333,7 @@ const normalizeLimit = (value, fallback, name) => {
 };
 
 const normalizeStreamLimits = (options) => ({
+  snapshots: normalizeSnapshots(options.snapshots),
   maxBytes: normalizeLimit(
     options.maxBytes,
     DEFAULT_STREAM_LIMITS.maxBytes,
@@ -337,6 +345,13 @@ const normalizeStreamLimits = (options) => ({
     "maxDepth",
   ),
 });
+
+const normalizeSnapshots = (snapshots = "live") => {
+  if (snapshots !== "live" && snapshots !== "immutable") {
+    throw new TypeError('snapshots must be "live" or "immutable"');
+  }
+  return snapshots;
+};
 
 const normalizePoolLimits = (options) => ({
   ...normalizeStreamLimits(options),
