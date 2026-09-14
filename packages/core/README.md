@@ -43,6 +43,12 @@ For automatic lifecycle management, use
 `readStructured(events, { adapter, limits })` in a `for await` loop. It wraps the
 same batch adapter, finalizes remaining calls at the end of the source, and
 disposes on completion, failure, or early exit. `limits` is optional.
+For a built-in SDK factory, use `{ integration: assistantUI, limits }` instead.
+Both paths yield the same lifecycle updates without replaying completions.
+
+Every built-in adapter supports `pushAll(event)`, returning all ordered
+`start`, `update`, and `complete` updates, including multiple calls in one event.
+Existing `push(event)` remains available. Call `finish()` at the stream boundary.
 
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),

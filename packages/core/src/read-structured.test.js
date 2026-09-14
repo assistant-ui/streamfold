@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defineAdapter, IncrementalJsonScanner, readStructured } from "./index.js";
+import { langchain } from "./langchain.js";
+import { vercelAI } from "./vercel-ai.js";
 
 const adapter = defineAdapter((operations) => operations);
 const events = [
@@ -219,4 +221,106 @@ test("disposes even when iterator acquisition or source cleanup throws", async (
   await updates.next();
   await assert.rejects(updates.return(), (error) => error === failure);
   assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("SDK completion history does not duplicate reused IDs at EOF", async () => {
+  const updates = await collect(
+    readStructured(
+      [
+        { type: "tool-input-start", id: "same" },
+        { type: "tool-input-delta", id: "same", delta: "1" },
+        { type: "tool-input-end", id: "same" },
+        { type: "tool-input-start", id: "same" },
+        { type: "tool-input-delta", id: "same", delta: "2" },
+      ],
+      { integration: vercelAI },
+    ),
+  );
+  assert.deepEqual(
+    updates.filter(({ type }) => type === "complete").map(({ value }) => value),
+    [1, 2],
+  );
+  assert.deepEqual(
+    await collect(readStructured([], { integration: vercelAI })),
+    [],
+  );
+});
+
+test("managed SDK batches preserve backpressure and dispose on an early break", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let pulled = 0;
+  let closed = false;
+  async function* source() {
+    try {
+      pulled++;
+      yield {
+        tool_call_chunks: [
+          { index: 0, id: "a", args: "{" },
+          { index: 1, id: "b", args: "{" },
+        ],
+      };
+      pulled++;
+      yield { tool_call_chunks: [] };
+    } finally {
+      closed = true;
+    }
+  }
+  for await (const update of readStructured(source(), {
+    integration: langchain,
+  })) {
+    assert.equal(update.type, "start");
+    break;
+  }
+  assert.equal(pulled, 1);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("managed SDK sources, limits and factory failures release active parsers", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  const failure = new Error("source failed");
+  async function* broken() {
+    yield { type: "tool-input-start", id: "a" };
+    throw failure;
+  }
+  await assert.rejects(
+    collect(readStructured(broken(), { integration: vercelAI })),
+    (error) => error === failure,
+  );
+  assert.equal(dispose.mock.callCount(), 1);
+  await assert.rejects(
+    collect(
+      readStructured(
+        [
+          { type: "tool-input-start", id: "a" },
+          { type: "tool-input-delta", id: "a", delta: '"too long"' },
+        ],
+        { integration: vercelAI, limits: { maxBytes: 2 } },
+      ),
+    ),
+    /maxBytes/,
+  );
+  assert.equal(dispose.mock.callCount(), 2);
+  await assert.rejects(
+    collect(
+      readStructured([], {
+        integration(pool) {
+          pool.start("a");
+          throw failure;
+        },
+      }),
+    ),
+    (error) => error === failure,
+  );
+  assert.equal(dispose.mock.callCount(), 3);
+});
+
+test("managed consumption requires exactly one factory contract", async () => {
+  for (const options of [
+    {},
+    { adapter, integration: vercelAI },
+    { integration: {} },
+  ]) {
+    await assert.rejects(collect(readStructured([], options)), /exactly one/);
+  }
 });

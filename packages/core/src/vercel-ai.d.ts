@@ -1,6 +1,6 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -42,11 +42,11 @@ export type VercelAiToolInputEvent =
       readonly [key: string]: unknown;
     };
 
-export const vercelAI: StructuredStreamIntegration<
+export const vercelAI: BatchStructuredStreamIntegration<
   VercelAiToolInputEvent,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<VercelAiToolInputEvent, string>;
+): BatchEventStructuredStream<VercelAiToolInputEvent, string>;

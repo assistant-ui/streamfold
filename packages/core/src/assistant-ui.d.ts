@@ -1,6 +1,6 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -31,11 +31,11 @@ export type AssistantUiStreamEvent =
       readonly [key: string]: unknown;
     };
 
-export const assistantUI: StructuredStreamIntegration<
+export const assistantUI: BatchStructuredStreamIntegration<
   AssistantUiStreamEvent,
   string
 >;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<AssistantUiStreamEvent, string>;
+): BatchEventStructuredStream<AssistantUiStreamEvent, string>;

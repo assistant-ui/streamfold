@@ -6,7 +6,7 @@ export const gemini = (pool = createStructuredStreamPool()) => {
 
   return createIntegration(
     pool,
-    (event, complete) => {
+    (event, calls) => {
       if (
         event.event_type === "step.start" &&
         event.step.type === "function_call"
@@ -18,7 +18,7 @@ export const gemini = (pool = createStructuredStreamPool()) => {
             : event.step.arguments
               ? JSON.stringify(event.step.arguments)
               : "";
-        return pool.start(event.step.id, initial);
+        return calls.start(event.step.id, initial);
       }
 
       if (
@@ -27,7 +27,7 @@ export const gemini = (pool = createStructuredStreamPool()) => {
       ) {
         const id = idsByIndex.get(event.index);
         if (id !== undefined) {
-          return pool.push(id, event.delta.partial_arguments);
+          return calls.push(id, event.delta.partial_arguments);
         }
       }
 
@@ -35,7 +35,7 @@ export const gemini = (pool = createStructuredStreamPool()) => {
         event.event_type === "interaction.completed" ||
         event.event_type === "interaction.complete"
       ) {
-        for (const id of idsByIndex.values()) complete(id);
+        for (const id of idsByIndex.values()) calls.complete(id);
         idsByIndex.clear();
       }
       return undefined;

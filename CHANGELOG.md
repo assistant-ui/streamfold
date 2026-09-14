@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add `pushAll(event)` to every built-in adapter, returning all ordered
+  `start`, `update`, and `complete` lifecycle updates without changing `push()`.
+- Use the same lifecycle tags for custom adapters and managed consumption.
+  Add managed SDK integration support with cleanup and no duplicate completions.
+
 ## 0.1.4
 
 - Add a practical migration guide for adopting Streamfold with existing SDKs.

@@ -49,16 +49,16 @@ export function defineAdapter(mapEvent) {
             }
             switch (operation.type) {
               case "start":
-                updates.push(pool.start(operation.id));
+                updates.push({ type: "start", ...pool.start(operation.id) });
                 break;
               case "delta":
                 if (typeof operation.text !== "string") {
                   throw new TypeError("An adapter delta must include text");
                 }
-                updates.push(pool.push(operation.id, operation.text));
+                updates.push({ type: "update", ...pool.push(operation.id, operation.text) });
                 break;
               case "end":
-                updates.push(pool.finish(operation.id));
+                updates.push({ type: "complete", ...pool.finish(operation.id) });
                 break;
               case "abort":
                 pool.abort(operation.id);
@@ -78,7 +78,7 @@ export function defineAdapter(mapEvent) {
         if (status === "finished") return [];
         assertActive();
         try {
-          const completed = pool.activeIds.map((id) => pool.finish(id));
+          const completed = pool.activeIds.map((id) => ({ type: "complete", ...pool.finish(id) }));
           status = "finished";
           return completed;
         } catch (error) {

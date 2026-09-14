@@ -76,13 +76,19 @@ import { createStructuredStream } from "streamfold/assistant-ui";
 const toolInputs = createStructuredStream();
 
 for await (const event of assistantStream) {
-  const update = toolInputs.push(event);
-  if (update) renderToolInput(update.id, update.partialValue);
+  for (const update of toolInputs.pushAll(event)) {
+    renderToolInput(update.id, update.partialValue);
+    // update.type is "start", "update", or "complete".
+  }
 }
+
+const completedCalls = toolInputs.finish();
 ```
 
 Adapters consume structural event shapes and do not install or load the
-provider SDKs.
+provider SDKs. `pushAll()` returns every update when one event contains
+multiple calls; existing `push()` usage remains supported. Lifecycle
+completion means the arguments are finalized, not that a tool has executed.
 
 For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
 mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
@@ -95,6 +101,11 @@ Use `readStructured(events, { adapter })` to consume that custom adapter with a
 source ends, and disposes the session when the loop exits. See
 [managed consumption](API.md#managed-consumption) for examples and cancellation
 boundaries.
+
+For any built-in SDK integration, use
+`readStructured(events, { integration: assistantUI })` instead. Both paths yield
+the same lifecycle updates and clean up on early exit, without duplicate final
+results. See the API reference for factory options.
 
 ## Performance
 
