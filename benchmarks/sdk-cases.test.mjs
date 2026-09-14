@@ -65,7 +65,13 @@ test("every SDK adapter supports batch lifecycle updates with either snapshot mo
   });
   for (const snapshots of ["live", "immutable"]) {
     for (const sdkCase of createSdkCases(inputs)) {
-      const adapter = sdkCase.createAdapter(new StructuredStreamPool({ snapshots }));
+      const diagnostics = [];
+      const adapter = sdkCase.createAdapter(
+        new StructuredStreamPool({ snapshots }),
+        {
+          onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+        },
+      );
       const updates = sdkCase.events.flatMap((event) => adapter.pushAll(event));
       assert.equal(
         updates.filter(({ type }) => type === "start").length,
@@ -99,6 +105,7 @@ test("every SDK adapter supports batch lifecycle updates with either snapshot mo
         inputs.map(({ value }) => value),
         sdkCase.name,
       );
+      assert.deepEqual(diagnostics, [], sdkCase.name);
     }
   }
 });

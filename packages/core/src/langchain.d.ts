@@ -1,6 +1,7 @@
 import type {
   BatchEventStructuredStream,
   BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -23,4 +24,5 @@ export const langchain: BatchStructuredStreamIntegration<
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
+  options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<LangChainToolCallMessage, string>;

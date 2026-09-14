@@ -75,6 +75,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const {
         createStructuredStream,
         createStructuredStreamPool,
+        isStructuredStreamError,
         defineAdapter,
         readStructured,
         STREAMFOLD_ENGINE,
@@ -90,10 +91,12 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       stream.dispose();
 
       let limitError = "";
+      let errorCode;
       try {
         createStructuredStream({ maxDepth: 1 }).push('{"nested":{');
       } catch (error) {
         limitError = error.message;
+        if (isStructuredStreamError(error)) errorCode = error.code;
       }
 
       const adapter = defineAdapter((operations) => operations);
@@ -119,7 +122,9 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       }
 
       const { langchain } = await import("/src/langchain.js");
-      const calls = langchain(createStructuredStreamPool({ snapshots: "immutable" }));
+      const calls = langchain(
+        createStructuredStreamPool({ snapshots: "immutable" }),
+      );
       const batch = calls.pushAll({
         tool_call_chunks: [
           { index: 0, id: "a", args: '{"items":[' },
@@ -149,6 +154,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         complete: final.complete,
         fieldState,
         limitError,
+        errorCode,
         value,
         dx,
       };
@@ -162,6 +168,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       complete: true,
       fieldState: "complete",
       limitError: "Structured stream exceeds maxDepth (1) at 10",
+      errorCode: "MAX_DEPTH_EXCEEDED",
       dx: {
         lifecycle: ["start", "update", "start", "update", "update"],
         earlier: { items: [] },

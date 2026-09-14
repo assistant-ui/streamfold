@@ -113,6 +113,7 @@ import { createStructuredStream } from "streamfold/assistant-ui";
 
 const toolInputs = createStructuredStream(
   createStructuredStreamPool({ snapshots: "immutable" }),
+  { onDiagnostic: (diagnostic) => console.warn(diagnostic) },
 );
 
 for await (const event of decodedEvents) {

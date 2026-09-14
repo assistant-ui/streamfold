@@ -1,6 +1,7 @@
 import type {
   BatchEventStructuredStream,
   BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -39,4 +40,5 @@ export const gemini: BatchStructuredStreamIntegration<
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
+  options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<GeminiToolCallEvent, string>;

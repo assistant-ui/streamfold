@@ -1,7 +1,7 @@
 import { createStructuredStreamPool } from "./index.js";
 import { createIntegration } from "./internal/integration.js";
 
-export const gemini = (pool = createStructuredStreamPool()) => {
+export const gemini = (pool = createStructuredStreamPool(), options) => {
   const idsByIndex = new Map();
 
   return createIntegration(
@@ -29,6 +29,7 @@ export const gemini = (pool = createStructuredStreamPool()) => {
         if (id !== undefined) {
           return calls.push(id, event.delta.partial_arguments);
         }
+        calls.unmatched("Arguments delta has no matching function call index");
       }
 
       if (
@@ -44,6 +45,8 @@ export const gemini = (pool = createStructuredStreamPool()) => {
       for (const id of idsByIndex.values()) complete(id);
       idsByIndex.clear();
     },
+    "gemini",
+    options,
   );
 };
 

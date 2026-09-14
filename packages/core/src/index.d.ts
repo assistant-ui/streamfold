@@ -80,12 +80,63 @@ export interface BatchEventStructuredStream<Event, Id = string>
   pushAll(event: Event): readonly StructuredStreamLifecycleUpdate<Id>[];
 }
 
+export type StructuredStreamErrorCode =
+  | "UNEXPECTED_TOKEN"
+  | "MISMATCHED_CLOSING"
+  | "TRAILING_DATA"
+  | "EMPTY_INPUT"
+  | "INCOMPLETE_JSON"
+  | "INVALID_JSON"
+  | "PARSER_ERROR"
+  | "MAX_BYTES_EXCEEDED"
+  | "MAX_DEPTH_EXCEEDED"
+  | "MAX_ACTIVE_STREAMS_EXCEEDED"
+  | "DUPLICATE_STREAM"
+  | "UNKNOWN_STREAM"
+  | "STREAM_DISPOSED"
+  | "INVALID_CHUNK"
+  | "INVALID_OPTIONS"
+  | "INTEGRATION_ERROR";
+
+/** Metadata on the original SyntaxError, RangeError, TypeError, or Error. */
+export interface StructuredStreamError extends Error {
+  readonly streamfold: true;
+  readonly code: StructuredStreamErrorCode;
+  /** Zero-based UTF-8 byte offset, when supplied by the parser. */
+  readonly byteOffset?: number;
+  readonly id?: unknown;
+  readonly operation?: "start" | "push" | "finish" | "getFieldState";
+  readonly adapter?: string;
+  readonly eventType?: string;
+}
+
+export function isStructuredStreamError(
+  error: unknown,
+): error is StructuredStreamError;
+
+export interface StructuredStreamDiagnostic {
+  readonly code: "NO_TOOL_EVENTS" | "UNMATCHED_TOOL_EVENT" | "STREAM_ERROR";
+  readonly message: string;
+  readonly adapter: string;
+  readonly eventType?: string;
+  readonly id?: unknown;
+  readonly error?: Error;
+}
+
+export interface StructuredStreamIntegrationOptions {
+  /** Opt-in diagnostics. No logging by default. Callback exceptions are ignored. */
+  readonly onDiagnostic?: (diagnostic: StructuredStreamDiagnostic) => void;
+}
+
 export interface StructuredStreamIntegration<Event, Id = string> {
   (pool?: StructuredStreamPool<Id>): EventStructuredStream<Event, Id>;
 }
 
 export interface BatchStructuredStreamIntegration<Event, Id = string> {
-  (pool?: StructuredStreamPool<Id>): BatchEventStructuredStream<Event, Id>;
+  (
+    pool?: StructuredStreamPool<Id>,
+    options?: StructuredStreamIntegrationOptions,
+  ): BatchEventStructuredStream<Event, Id>;
 }
 
 export type StructuredStreamOperation<Id = string> =
@@ -109,22 +160,28 @@ export interface BatchStructuredStream<Event, Id = string> {
   dispose(): void;
 }
 
+export interface StructuredStreamAdapterOptions
+  extends StructuredStreamPoolOptions,
+    StructuredStreamIntegrationOptions {}
+
 /** Calling the adapter creates an independent parser pool. */
 export interface StructuredStreamAdapter<Event, Id = string> {
-  (options?: StructuredStreamPoolOptions): BatchStructuredStream<Event, Id>;
+  (options?: StructuredStreamAdapterOptions): BatchStructuredStream<Event, Id>;
 }
 
 export function defineAdapter<Event, Id = string>(
   mapEvent: StructuredStreamMapper<Event, Id>,
 ): StructuredStreamAdapter<Event, Id>;
 
-export interface ReadStructuredOptions<Event, Id = string> {
+export interface ReadStructuredOptions<Event, Id = string>
+  extends StructuredStreamIntegrationOptions {
   readonly adapter: StructuredStreamAdapter<Event, Id>;
   readonly integration?: never;
   readonly limits?: StructuredStreamPoolOptions;
 }
 
-export interface ReadStructuredIntegrationOptions<Event, Id = string> {
+export interface ReadStructuredIntegrationOptions<Event, Id = string>
+  extends StructuredStreamIntegrationOptions {
   readonly integration: BatchStructuredStreamIntegration<Event, Id>;
   readonly adapter?: never;
   readonly limits?: StructuredStreamPoolOptions;
@@ -181,5 +238,10 @@ export function createStructuredStreamPool<Id = string>(
 
 export const STREAMFOLD_ENGINE: "rust-wasm";
 export const DEFAULT_STREAM_LIMITS: Readonly<
-  Required<Pick<StructuredStreamPoolOptions, "maxBytes" | "maxDepth" | "maxActiveStreams">>
+  Required<
+    Pick<
+      StructuredStreamPoolOptions,
+      "maxBytes" | "maxDepth" | "maxActiveStreams"
+    >
+  >
 >;

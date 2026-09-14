@@ -1,24 +1,30 @@
 import { createStructuredStreamPool } from "./index.js";
+import { streamError } from "./internal/errors.js";
 
 export async function* readStructured(
   events,
-  { adapter, integration, limits },
+  { adapter, integration, limits, onDiagnostic },
 ) {
   if (
     (adapter === undefined) === (integration === undefined) ||
     (adapter !== undefined && typeof adapter !== "function") ||
     (integration !== undefined && typeof integration !== "function")
   ) {
-    throw new TypeError("Choose exactly one adapter or integration factory");
+    throw streamError(
+      new TypeError("Choose exactly one adapter or integration factory"),
+      "INVALID_OPTIONS",
+    );
   }
   let pool;
   let stream;
   try {
     if (integration !== undefined) {
       pool = createStructuredStreamPool(limits);
-      stream = integration(pool);
+      stream = integration(pool, { onDiagnostic });
     } else {
-      stream = adapter(limits);
+      stream = adapter(
+        onDiagnostic === undefined ? limits : { ...limits, onDiagnostic },
+      );
     }
     for await (const event of events) {
       for (const update of stream.pushAll(event)) yield update;

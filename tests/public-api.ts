@@ -3,6 +3,7 @@ import {
   createStructuredStreamPool,
   defineAdapter,
   readStructured,
+  isStructuredStreamError,
   DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
   type JsonValue,
@@ -205,5 +206,25 @@ const legacyIntegration: StructuredStreamIntegration<string> = () => ({
 createStructuredStream(legacyIntegration).push("custom");
 
 weatherAdapter({ snapshots: "immutable" });
-readStructured(weatherEvents, { adapter: weatherAdapter, limits: { snapshots: "immutable" } });
-readStructured([], { integration: assistantUI, limits: { snapshots: "immutable" } });
+readStructured(weatherEvents, {
+  adapter: weatherAdapter,
+  limits: { snapshots: "immutable" },
+});
+readStructured([], {
+  integration: assistantUI,
+  limits: { snapshots: "immutable" },
+});
+
+const onDiagnostic = (
+  diagnostic: import("streamfold").StructuredStreamDiagnostic,
+) => {
+  diagnostic.adapter satisfies string;
+  if (isStructuredStreamError(diagnostic.error)) {
+    diagnostic.error.code satisfies string;
+    diagnostic.error.byteOffset satisfies number | undefined;
+  }
+};
+weatherAdapter({ snapshots: "immutable", onDiagnostic });
+createVercelAiStream(pool, { onDiagnostic });
+readStructured(weatherEvents, { adapter: weatherAdapter, onDiagnostic });
+readStructured([], { integration: assistantUI, onDiagnostic });

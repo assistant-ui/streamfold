@@ -1,4 +1,5 @@
 import { wasmBinaryBase64 } from "./wasm-binary.js";
+import { streamError } from "./errors.js";
 
 const DEPTH_MASK = 0x00ff_ffff;
 const COMPLETE_FLAG = 1 << 24;
@@ -36,7 +37,7 @@ const getExports = () => {
   return exports;
 };
 
-const parserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
+const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
   const offset = wasm.streamfold_parser_error_offset(handle) >>> 0;
   const byte = wasm.streamfold_parser_error_byte(handle);
   if (code === 1) {
@@ -60,6 +61,28 @@ const parserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
   }
   return new SyntaxError(`Rust parser failed with error code ${code}`);
 };
+
+const parserErrorCodes = [
+  "PARSER_ERROR",
+  "UNEXPECTED_TOKEN",
+  "MISMATCHED_CLOSING",
+  "TRAILING_DATA",
+  "EMPTY_INPUT",
+  "INCOMPLETE_JSON",
+  "INVALID_JSON",
+  "MAX_BYTES_EXCEEDED",
+  "MAX_DEPTH_EXCEEDED",
+];
+
+const parserError = (parser, code) =>
+  streamError(
+    describeParserError(parser, code),
+    parserErrorCodes[code] ?? "PARSER_ERROR",
+    {
+      byteOffset:
+        parser.wasm.streamfold_parser_error_offset(parser.handle) >>> 0,
+    },
+  );
 
 const readState = (parser, encoded) => {
   const { wasm, handle } = parser;
@@ -190,6 +213,12 @@ const pushChunk = (parser, chunk) => {
 };
 
 export const pushWasmParser = (parser, chunk) => {
+  if (typeof chunk !== "string") {
+    throw streamError(
+      new TypeError("A structured stream chunk must be a string"),
+      "INVALID_CHUNK",
+    );
+  }
   let input = parser.pendingHighSurrogate + chunk;
   parser.pendingHighSurrogate = "";
 
@@ -217,10 +246,7 @@ export const finishWasmParser = (parser) => {
 };
 
 export const readWasmParser = (parser) =>
-  readState(
-    parser,
-    parser.wasm.streamfold_parser_state(parser.handle),
-  );
+  readState(parser, parser.wasm.streamfold_parser_state(parser.handle));
 
 export const freeWasmParser = ({ wasm, handle }) => {
   wasm.streamfold_parser_free(handle);

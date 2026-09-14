@@ -1,7 +1,7 @@
 import { createStructuredStreamPool } from "./index.js";
 import { createIntegration } from "./internal/integration.js";
 
-export const langchain = (pool = createStructuredStreamPool()) => {
+export const langchain = (pool = createStructuredStreamPool(), options) => {
   const idsByIndex = new Map();
 
   return createIntegration(
@@ -17,6 +17,8 @@ export const langchain = (pool = createStructuredStreamPool()) => {
         }
         if (id !== undefined && chunk.args) {
           update = calls.push(id, chunk.args);
+        } else if (id === undefined && chunk.args) {
+          calls.unmatched("Arguments delta has no matching tool call index");
         }
       }
       return update;
@@ -25,6 +27,8 @@ export const langchain = (pool = createStructuredStreamPool()) => {
       for (const id of idsByIndex.values()) complete(id);
       idsByIndex.clear();
     },
+    "langchain",
+    options,
   );
 };
 

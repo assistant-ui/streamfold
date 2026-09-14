@@ -95,6 +95,11 @@ provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle
 completion means the arguments are finalized, not that a tool has executed.
 
+Pass `{ onDiagnostic(diagnostic) { /* report diagnostic */ } }` as an adapter's
+second argument for opt-in event-matching and error diagnostics. Parser errors
+preserve their native `SyntaxError` or `RangeError` type and include a stable
+`code`, a UTF-8 `byteOffset`, and call/event context where available.
+
 For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
 mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
 call creates its own parser pool; `pushAll(event)` returns all updates from an

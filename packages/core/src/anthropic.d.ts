@@ -1,6 +1,7 @@
 import type {
   BatchEventStructuredStream,
   BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -40,4 +41,5 @@ export const anthropic: BatchStructuredStreamIntegration<
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
+  options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<AnthropicToolInputEvent, string>;

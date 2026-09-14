@@ -1,6 +1,7 @@
 import type {
   BatchEventStructuredStream,
   BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -49,4 +50,5 @@ export const vercelAI: BatchStructuredStreamIntegration<
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
+  options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<VercelAiToolInputEvent, string>;
