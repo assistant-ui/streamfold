@@ -243,8 +243,9 @@ for await (const update of readStructured(events, {
 }
 ```
 
-The source can be a synchronous iterable, an async iterable from an SDK, or an
-async-iterable `ReadableStream` of **decoded events**. Streamfold does not decode
+The source can be a synchronous iterable, an async iterable from an SDK, or a
+`ReadableStream` of **decoded events**, consumed through `getReader()` even when
+native async iteration is unavailable. Streamfold does not decode
 HTTP bytes or SSE frames and does not start network requests.
 
 | Situation | Behavior |
