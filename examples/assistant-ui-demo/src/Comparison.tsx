@@ -93,7 +93,7 @@ function ParserTiming({
           </strong>
           <span>ms</span>
         </div>
-        <small>Single run · includes startup</small>
+        <small>Single run · per-call setup included</small>
         <small className="timing-breakdown">
           Deltas {parser.deltaMs.toFixed(1)} ms · start / finish{" "}
           {parser.lifecycleMs.toFixed(1)} ms
@@ -425,8 +425,9 @@ function ComparisonSession({
           )}
           Playback clocks include the shared event delay, so both sides normally
           finish together. Live parser work measures event processing on both
-          sides, including startup and partial snapshots, excluding rendering
-          and tool execution. Tiny live readings are noisy and can favor either
+          sides, including per-call setup and partial snapshots, excluding
+          rendering and tool execution. Background engine setup is reported
+          separately above. Tiny live readings are noisy and can favor either
           side. Use the repeated benchmark above to compare warmed processing.
         </p>
       </div>

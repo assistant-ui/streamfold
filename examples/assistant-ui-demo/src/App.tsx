@@ -1,6 +1,7 @@
 import { Columns2, MessageSquare, CloudSun, PanelsTopLeft } from "lucide-react";
 import { Comparison } from "./Comparison.tsx";
 import { SingleDemo } from "./SingleDemo.tsx";
+import { EngineWarmupStatus } from "./EngineWarmupStatus.tsx";
 
 export function App() {
   const view =
@@ -48,6 +49,7 @@ export function App() {
           </a>
         </nav>
       </header>
+      <EngineWarmupStatus />
       {single || complex ? (
         <SingleDemo key={view} initialScenario={complex ? "trip" : "weather"} />
       ) : (

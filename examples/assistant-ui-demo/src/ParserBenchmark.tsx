@@ -137,9 +137,10 @@ export function ParserBenchmark({
           </table>
           <p>
             Time per full replay, including event handling, partial snapshots,
-            and finalization. First replay includes startup in a fresh worker.
-            Warm columns use batch averages and exclude initial engine startup.
-            No playback delays, rendering, or tool execution; either parser can
+            and finalization. First replay includes startup in a fresh worker;
+            the page's preloaded engine is not shared with that worker. Warm
+            columns use batch averages and exclude initial engine startup. No
+            playback delays, rendering, or tool execution; either parser can
             win.
           </p>
         </div>

@@ -1243,6 +1243,23 @@ select {
   margin: 9px 24px 20px;
   line-height: 1.5;
 }
+.engine-warmup-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin: 14px clamp(12px, 3vw, 40px) 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.engine-warmup-status strong {
+  font-weight: 500;
+}
+.engine-warmup-status[data-state="ready"] strong,
+.engine-warmup-status[data-state="ready"] > svg {
+  color: #257351;
+}
 .parser-timing {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

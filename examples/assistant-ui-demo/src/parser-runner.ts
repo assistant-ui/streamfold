@@ -6,6 +6,7 @@ import {
 } from "assistant-stream/utils";
 import { createStructuredStreamPool } from "streamfold";
 import { assistantUI } from "streamfold/assistant-ui";
+import { ensureStreamfoldReady } from "./engine-warmup.ts";
 
 export type ParserSide = "without" | "with";
 export type ParsedCall = {
@@ -39,6 +40,8 @@ export function createParserRunner(side: ParserSide) {
       const id = idsByPath.get(path)!;
       const delta = event.type === "text-delta" ? event.textDelta : "";
       if (adapter) {
+        if (event.type === "part-start" && event.part.type === "tool-call")
+          ensureStreamfoldReady();
         for (const update of adapter.pushAll(event)) {
           const previous = calls.get(update.id);
           calls.set(update.id, {

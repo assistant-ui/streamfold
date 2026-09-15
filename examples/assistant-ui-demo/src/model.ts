@@ -11,6 +11,7 @@ export {
   type WeatherResult,
 } from "./tool-data.ts";
 import { fixtureEvents, type Scenario } from "./fixtures.ts";
+import { ensureStreamfoldReady } from "./engine-warmup.ts";
 
 export type RunState =
   | "idle"
@@ -111,6 +112,7 @@ export async function* runFixture({
         await delay(interval, signal);
         const path = event.path.join("/");
         if (event.type === "part-start" && event.part.type === "tool-call") {
+          ensureStreamfoldReady();
           idsByPath.set(path, event.part.toolCallId);
           namesById.set(event.part.toolCallId, event.part.toolName);
         }

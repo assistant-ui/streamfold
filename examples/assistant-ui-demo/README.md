@@ -35,14 +35,33 @@ conversation show **Playback time** in seconds and **Live parser work** in
 milliseconds. A failed parser stops independently, so error cases can have
 counters covering different events.
 
+The page prepares Streamfold after the initial UI mounts, using
+`requestIdleCallback` with a one-second timeout, or a short timer fallback.
+`src/engine-warmup.ts` creates and immediately disposes an empty scanner through
+the published `createStructuredStream` API. This initializes the library's
+cached WASM module/instance in the same page context used by comparison,
+weather, and complex-tool playback. No fixture or tool runs during preparation.
+The header status reports the setup duration separately and says when the
+engine is cached. Resetting or starting more tool calls reuses it.
+
+The released initializer is synchronous and still occupies the page thread
+briefly; scheduling it during idle time moves that work ahead of playback.
+If playback wins the race, initialization happens on first use, is labeled
+accordingly, and the pending idle callback is cancelled. A failed background
+attempt does not stop the UI from loading; playback can retry normally.
+The instance cache lasts for this page context. A reload or another worker has
+its own engine; this adds no persistent storage or cross-page instance cache.
+
 Playback time starts at Play, updates every 50 ms, excludes pauses, and freezes
 at completion, cancellation, or error. Manual steps add their processing time
 without counting the wait between clicks. Reset or changing scenarios clears
 both clocks. Live parser work sums `performance.now()` measurements around
 the same `parser-runner.push(event)` boundary on both sides: event routing,
 argument-text accumulation, partial values, and finalization. Streamfold uses
-its event adapter and immutable snapshots. The first call in a browser context
-also includes lazy WASM compilation/instantiation. The breakdown separates
+its event adapter and immutable snapshots. When background preparation succeeds,
+engine setup is outside playback and reported in the page status. If the first
+event arrives before preparation, live timing includes that initialization.
+The breakdown separates
 text deltas from start/finish events. Execution order alternates each event.
 React rendering, inspector counters, schema validation, and tools are excluded.
 
@@ -67,6 +86,8 @@ noise; neither parser is guaranteed to win. The worker excludes playback delay,
 React rendering, and tool execution, and includes runner creation and teardown
 for every replay. Pause playback to run it; Cancel, Reset, or changing the
 scenario terminates the worker. Playback is disabled while measuring.
+The first replay intentionally starts cold in the new worker: preloading the
+page's engine does not share its instance with the benchmark worker.
 
 ### Why both sides finish together
 
