@@ -196,6 +196,16 @@ export const createWasmParser = ({ maxBytes, maxDepth }) => {
 };
 
 const pushChunk = (parser, chunk) => {
+  // In Unicode mode this range matches lone surrogate code units, not valid
+  // pairs. TextEncoder would silently replace them with U+FFFD, while the
+  // pool's final JSON.parse would preserve them, producing different values.
+  // A trailing high surrogate is buffered by pushWasmParser before this check.
+  if (/[\uD800-\uDFFF]/u.test(chunk)) {
+    throw streamError(
+      new TypeError("Unpaired UTF-16 surrogate; use a JSON Unicode escape"),
+      "INVALID_CHUNK",
+    );
+  }
   const { wasm, handle } = parser;
   const capacity = chunk.length * 3;
   const pointer = wasm.streamfold_parser_input(handle, capacity);
