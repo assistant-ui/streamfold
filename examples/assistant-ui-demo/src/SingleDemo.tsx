@@ -337,13 +337,17 @@ function Inspector({ trace }: { trace: Trace }) {
 
 function DemoSession({
   onReset,
-  initialScenario,
+  scenario,
+  onScenario,
+  interval,
+  onInterval,
 }: {
   onReset: () => void;
-  initialScenario: Scenario;
+  scenario: Scenario;
+  onScenario: (scenario: Scenario) => void;
+  interval: number;
+  onInterval: (interval: number) => void;
 }) {
-  const [scenario, setScenario] = useState<Scenario>(initialScenario);
-  const [interval, setInterval] = useState(110);
   const [trace, setTrace] = useState<Trace>(emptyTrace);
   const model = useMemo<ChatModelAdapter>(
     () => ({
@@ -373,7 +377,7 @@ function DemoSession({
             id="scenario"
             value={scenario}
             disabled={busy}
-            onChange={(event) => setScenario(event.target.value as Scenario)}
+            onChange={(event) => onScenario(event.target.value as Scenario)}
           >
             {Object.entries(scenarios).map(([key, value]) => (
               <option key={key} value={key}>
@@ -392,7 +396,7 @@ function DemoSession({
             step="10"
             value={interval}
             disabled={busy}
-            onChange={(event) => setInterval(Number(event.target.value))}
+            onChange={(event) => onInterval(Number(event.target.value))}
           />
           <output htmlFor="speed">{interval} ms</output>
         </div>
@@ -499,10 +503,15 @@ export function SingleDemo({
   initialScenario?: Scenario;
 }) {
   const [session, setSession] = useState(0);
+  const [scenario, setScenario] = useState<Scenario>(initialScenario);
+  const [interval, setInterval] = useState(110);
   return (
     <DemoSession
       key={session}
-      initialScenario={initialScenario}
+      scenario={scenario}
+      onScenario={setScenario}
+      interval={interval}
+      onInterval={setInterval}
       onReset={() => setSession((value) => value + 1)}
     />
   );
