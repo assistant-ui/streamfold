@@ -262,10 +262,11 @@ HTTP bytes or SSE frames and does not start network requests.
 | Consumer breaks or throws | Close the source iterator and dispose without finalizing unfinished calls |
 
 The helper does not pull another source event until the current batch has been
-consumed. Results have the same live `partialValue` semantics as the manual API;
-they are not immutable snapshots. Use `changes` when applying individual
-updates to a reactive store. A final result has `value` and `text`; `complete`
-alone describes JSON parser state and does not mean a call has ended.
+consumed. Results follow the same snapshot mode as the manual API: values are
+live by default; `limits: { snapshots: "immutable" }` preserves stable, frozen
+snapshots. Use `changes` when applying individual updates to a reactive store.
+A final result has `value` and `text`; `complete` alone describes JSON parser
+state and does not mean a call has ended.
 
 Pass `signal: controller.signal` to stop a managed read, including a stalled
 source read. Aborting rejects with `signal.reason`, immediately disposes active
