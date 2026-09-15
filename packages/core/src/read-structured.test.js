@@ -325,6 +325,33 @@ test("managed consumption requires exactly one factory contract", async () => {
   }
 });
 
+test("reader-only streams work without a signal and unlock at EOF or early exit", async () => {
+  for (const early of [false, true]) {
+    let cancelled = false;
+    const source = new ReadableStream({
+      start(controller) {
+        controller.enqueue([
+          { type: "start", id: "reader" },
+          { type: "delta", id: "reader", text: "42" },
+        ]);
+        if (!early) controller.close();
+      },
+      cancel() { cancelled = true; },
+    });
+    // Reader support must not depend on native async-iterator support.
+    Object.defineProperty(source, Symbol.asyncIterator, { value: undefined });
+    const updates = [];
+    for await (const update of readStructured(source, { adapter })) {
+      updates.push(update);
+      if (early) break;
+    }
+    assert.equal(source.locked, false);
+    assert.equal(updates.at(-1).type, early ? "start" : "complete");
+    if (!early) assert.equal(updates.at(-1).value, 42);
+    assert.equal(cancelled, early);
+  }
+});
+
 test("upstream next failures close the iterator once even without an abort signal", async (t) => {
   const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
   let sessions = 0;

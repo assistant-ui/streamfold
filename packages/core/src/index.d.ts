@@ -193,7 +193,7 @@ export interface ReadStructuredIntegrationOptions<Event, Id = string>
 
 /** Consume decoded events, finalizing at EOF and disposing on every exit. */
 export function readStructured<Event, Id = string>(
-  events: AsyncIterable<Event> | Iterable<Event>,
+  events: AsyncIterable<Event> | Iterable<Event> | ReadableStream<Event>,
   options:
     | ReadStructuredOptions<Event, Id>
     | ReadStructuredIntegrationOptions<Event, Id>,

@@ -68,7 +68,12 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
 
   let browser;
   try {
-    browser = await browserType.launch({ headless: true });
+    browser = await browserType.launch({
+      headless: true,
+      ...(browserName === "chromium" && process.env.CHROME_EXECUTABLE
+        ? { executablePath: process.env.CHROME_EXECUTABLE }
+        : {}),
+    });
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     const result = await page.evaluate(async () => {
@@ -121,6 +126,21 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         if ("value" in update) managedValue = update.value;
       }
 
+      let readerOnlyValue;
+      const readerOnlySource = new ReadableStream({
+        start(controller) {
+          controller.enqueue([
+            { type: "start", id: "reader-only" },
+            { type: "delta", id: "reader-only", text: "43" },
+          ]);
+          controller.close();
+        },
+      });
+      Object.defineProperty(readerOnlySource, Symbol.asyncIterator, { value: undefined });
+      for await (const update of readStructured(readerOnlySource, { adapter })) {
+        if ("value" in update) readerOnlyValue = update.value;
+      }
+
       const { langchain } = await import("/src/langchain.js");
       const calls = langchain(
         createStructuredStreamPool({ snapshots: "immutable" }),
@@ -163,6 +183,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       return {
         cancellation: { aborted, cancelled, locked: stalled.locked },
         managedValue,
+        readerOnly: { value: readerOnlyValue, locked: readerOnlySource.locked },
         managedSdk,
         custom: { value: customUpdates.at(-1).value, remaining },
         backend: STREAMFOLD_ENGINE,
@@ -179,6 +200,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       cancellation: { aborted: true, cancelled: true, locked: false },
       managedSdk: ["start", "update", "complete"],
       managedValue: 42,
+      readerOnly: { value: 43, locked: false },
       custom: { value: { ok: true }, remaining: 0 },
       backend: "rust-wasm",
       complete: true,
