@@ -181,6 +181,8 @@ and warmed measurements rather than applying Node numbers to browser playback.
 Choose **Weather assistant** for the conversation and live event
 inspector. In that view, Run sample streams the fixture through `readStructured`;
 Stop passes assistant-ui's AbortSignal to it and the source iterator.
+Reset conversation clears messages and inspector state while keeping the
+selected scenario and chunk delay.
 
 Choose **Complex tools** (`?view=complex`) for three interleaved tool calls:
 weather, an hourly forecast with a metric toggle, and a three-day itinerary with

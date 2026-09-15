@@ -75,6 +75,9 @@ test(
       );
 
       await page.getByRole("button", { name: "Reset conversation" }).click();
+      assert.equal(await page.getByLabel("Chunk delay").inputValue(), "350");
+      await page.getByLabel("Chunk delay").focus();
+      await page.keyboard.press("Home");
       await page
         .getByRole("button", { name: "Run sample", exact: true })
         .click();
@@ -139,6 +142,12 @@ test(
       );
 
       await page.getByRole("button", { name: "Reset conversation" }).click();
+      assert.equal(
+        await page.getByLabel("Scenario", { exact: true }).inputValue(),
+        "parallel",
+      );
+      assert.equal(await page.getByLabel("Chunk delay").inputValue(), "20");
+      assert.equal(await page.getByTestId("input-count").innerText(), "0");
       await page
         .getByLabel("Scenario", { exact: true })
         .selectOption("malformed");
@@ -162,6 +171,13 @@ test(
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole("button", { name: "Reset conversation" }).click();
+      assert.equal(
+        await page.getByLabel("Scenario", { exact: true }).inputValue(),
+        "malformed",
+      );
+      await page
+        .getByLabel("Scenario", { exact: true })
+        .selectOption("weather");
       await page
         .getByRole("textbox", { name: "Message", exact: true })
         .fill("Replay the forecast fixture");
