@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.1.7
+
+- Close failing upstream iterators and support reader-only `ReadableStream`
+  sources in `readStructured` whether or not an abort signal is supplied.
+- Accept browser readable streams in the public types without requiring
+  `DOM.AsyncIterable` in the consumer's TypeScript libraries.
+- Reject raw unpaired UTF-16 surrogates with `INVALID_CHUNK` instead of silently
+  producing different partial and final values. Split valid pairs and JSON
+  Unicode escapes remain supported.
+- Add the standalone assistant-ui weather, complex tools, and parser comparison
+  demo, including visible timing, idle preparation, and repeatable benchmarks.
+- Preserve the demo's selected scenario and speed when resetting a conversation,
+  and check its production build and browser flows in CI.
+
 ## 0.1.6
 
 - Add runnable, SDK-typechecked assistant-ui, Vercel AI, and custom-protocol
