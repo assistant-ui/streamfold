@@ -19,6 +19,12 @@ tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
 and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
 directory.
 
+The standalone assistant-ui demo has its own locked dependencies and CI job.
+From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
+Start a production preview on port 4173 and run `npm run test:browser` to check
+the UI. Set `CHROME_EXECUTABLE` to use an installed Chrome binary instead of
+Playwright's bundled Chromium; core browser tests accept the same override.
+
 ## Pull requests
 
 - Keep one concern per pull request.
@@ -39,20 +45,17 @@ Releases publish through `.github/workflows/release.yml` using npm trusted
 publishing. The npm trusted publisher must match this repository, the
 `release.yml` workflow, and the GitHub environment named `npm`.
 
-For the prepared 0.1.4 release, merge the cleanup into `main`, check out the
-updated `main`, and run:
+Start from a clean, up-to-date `main`. Update the **Unreleased** changelog for
+the version being prepared, then run the release checks:
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm release:check
 pnpm test:browser
-git tag v0.1.4
-git push origin v0.1.4
-pnpm release:await
 ```
 
-For subsequent releases, start from a clean, up-to-date `main` and use
-`pnpm release` (or `pnpm release:beta`). This bumps both package versions,
-checks the package, commits, tags, and pushes before waiting for publication.
-Update the changelog before releasing. A release tag must point to a commit
-contained in `origin/main`.
+When ready to publish, use `pnpm release` (or `pnpm release:beta`). This bumps
+both package versions, checks the package, commits, tags, and pushes before
+waiting for publication.
+A release tag must point to a commit contained in `origin/main`. To resume
+waiting for an already-pushed release, use `pnpm release:await` from its commit.

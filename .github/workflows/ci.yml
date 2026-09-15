@@ -46,3 +46,41 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:browser
+
+  assistant-ui-demo:
+    name: Assistant UI demo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/assistant-ui-demo
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          install: false
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Verify the production demo in Chromium
+        env:
+          DEMO_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          npm exec -- vite preview --host 127.0.0.1 --port 4173 --strictPort &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent "$DEMO_URL" >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            echo "Demo preview did not become ready."
+            exit 1
+          fi
+          node --test --test-concurrency=1 tests/*.test.mjs
