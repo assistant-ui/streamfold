@@ -2,61 +2,13 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { cpus } from "node:os";
 import { performance } from "node:perf_hooks";
-import {
-  getPartialJsonObjectMeta,
-  parsePartialJsonObject,
-} from "assistant-stream/utils";
-import { createStructuredStreamPool } from "streamfold";
-import { assistantUI } from "streamfold/assistant-ui";
 import { fixtureEvents } from "../src/fixtures.ts";
+import { runParser } from "../src/parser-benchmark.ts";
 
 // Match the demo's parser settings, including partial immutable snapshots.
 // Keep fixture generation, assertions, UI, validation, and delays out of timing.
-function runBaseline(events) {
-  const calls = new Map();
-  for (const event of events) {
-    const key = event.path.join("/");
-    if (event.type === "part-start") {
-      calls.set(key, { argsText: "", args: {} });
-    } else if (event.type === "text-delta") {
-      const previous = calls.get(key);
-      const argsText = previous.argsText + event.textDelta;
-      calls.set(key, {
-        argsText,
-        args: parsePartialJsonObject(argsText) ?? previous.args,
-      });
-    } else if (event.type === "tool-call-args-text-finish") {
-      if (getPartialJsonObjectMeta(calls.get(key).args)?.state !== "complete")
-        throw new Error("Incomplete baseline arguments");
-    }
-  }
-  return [...calls.values()].map((call) => call.args);
-}
-
-function runStreamfold(events) {
-  const pool = createStructuredStreamPool({ snapshots: "immutable" });
-  const stream = assistantUI(pool);
-  const calls = new Map();
-  let completed = 0;
-  try {
-    for (const event of events) {
-      const delta = event.type === "text-delta" ? event.textDelta : "";
-      for (const update of stream.pushAll(event)) {
-        const previous = calls.get(update.id);
-        calls.set(update.id, {
-          argsText: (previous?.argsText ?? "") + delta,
-          args: update.partialValue ?? {},
-        });
-        if (update.type === "complete") completed++;
-      }
-    }
-    if (pool.size || completed !== calls.size)
-      throw new Error("Incomplete Streamfold arguments");
-    return [...calls.values()].map((call) => call.args);
-  } finally {
-    for (const id of pool.activeIds) pool.abort(id);
-  }
-}
+const runBaseline = (events) => runParser("without", events);
+const runStreamfold = (events) => runParser("with", events);
 
 function largeEvents(targetBytes, chunkSize) {
   const rows = [];

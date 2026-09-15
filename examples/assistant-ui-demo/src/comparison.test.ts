@@ -55,16 +55,28 @@ test("parser timing counts measured calls, excludes idle gaps, and retains histo
   let time = 0;
   const comparison = createComparison("weather", { now: () => time++ });
   const start = comparison.next();
-  assert.equal(start.without.parserMs, 0);
+  assert.equal(start.without.parserMs, 1);
   assert.equal(start.with.parserMs, 1);
+  assert.equal(start.without.lifecycleMs, 1);
+  assert.equal(start.with.lifecycleMs, 1);
+  assert.equal(start.without.deltaMs, 0);
+  assert.equal(start.with.deltaMs, 0);
   time += 10_000;
   const partial = comparison.next();
-  assert.equal(partial.without.parserMs, 1);
+  assert.equal(partial.without.parserMs, 2);
   assert.equal(partial.with.parserMs, 2);
   while (comparison.snapshot().canStep) comparison.next();
   const complete = comparison.snapshot();
-  assert.equal(complete.without.parserMs, 19);
+  assert.equal(complete.without.parserMs, 21);
   assert.equal(complete.with.parserMs, 21);
+  for (const side of ["without", "with"] as const) {
+    assert.equal(complete[side].deltaMs, 19);
+    assert.equal(complete[side].lifecycleMs, 2);
+    assert.equal(
+      complete[side].parserMs,
+      complete[side].deltaMs + complete[side].lifecycleMs,
+    );
+  }
   assert.equal(partial.with.parserMs, 2);
   assert.equal(start.with.parserMs, 1);
   time += 10_000;

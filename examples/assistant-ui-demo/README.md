@@ -31,21 +31,42 @@ argument text accumulated so far. Streamfold's published assistant-ui adapter
 passes only each new text delta into the incremental scanner. The counters
 measure UTF-8 bytes passed to parsing calls; they do not measure execution time,
 memory usage, or an end-to-end UI speedup. Separate live timers above each
-conversation show **Playback time** in seconds and **Parser time** in milliseconds.
-A failed parser stops independently,
-so error cases can have counters covering different events.
+conversation show **Playback time** in seconds and **Live parser work** in
+milliseconds. A failed parser stops independently, so error cases can have
+counters covering different events.
 
 Playback time starts at Play, updates every 50 ms, excludes pauses, and freezes
 at completion, cancellation, or error. Manual steps add their processing time
 without counting the wait between clicks. Reset or changing scenarios clears
-both clocks. Parser time sums `performance.now()` measurements around
-`parsePartialJsonObject` on the baseline and `stream.pushAll` on Streamfold
-(including its event adapter, lifecycle events, and immutable snapshots).
-Those measurements exclude event delays, argument-text accumulation, React
-rendering, and tool execution. They are individual live observations affected
-by browser timer precision, startup, and garbage collection; tiny samples can
-show 0.00 ms or favor either side. Use the separate repeated benchmark below
-for a more stable comparison.
+both clocks. Live parser work sums `performance.now()` measurements around
+the same `parser-runner.push(event)` boundary on both sides: event routing,
+argument-text accumulation, partial values, and finalization. Streamfold uses
+its event adapter and immutable snapshots. The first call in a browser context
+also includes lazy WASM compilation/instantiation. The breakdown separates
+text deltas from start/finish events. Execution order alternates each event.
+React rendering, inspector counters, schema validation, and tools are excluded.
+
+These are individual live observations affected by timer precision, startup,
+and garbage collection. In the investigated Chrome session the clock advanced
+in approximately 0.1 ms steps; many individual parser calls were shorter than
+that. Totals can show 0.0 ms or favor either side. A cold 95-byte weather run
+measured 5.3 ms for Streamfold versus 1.5 ms for the baseline under the previous
+timer boundary. Startup is a real cost, and Streamfold is not guaranteed to
+be faster for small arguments. Those old live readings also timed
+only the baseline function versus the entire Streamfold adapter; both now
+use the same event-processing boundary.
+
+**Run repeated benchmark**, above the comparison, runs the selected valid
+fixture in a fresh worker using the same parser runners. It checks final values
+against `JSON.parse`, reports the first complete replay including startup,
+warms both parsers, then measures 15 alternating batches. Both use the same
+batch size, calibrated to at least 8 ms per batch when possible (up to 256
+replays). The warm median/p95 describe batch averages per complete replay and
+exclude initial engine startup. Timing a whole batch reduces clock rounding
+noise; neither parser is guaranteed to win. The worker excludes playback delay,
+React rendering, and tool execution, and includes runner creation and teardown
+for every replay. Pause playback to run it; Cancel, Reset, or changing the
+scenario terminates the worker. Playback is disabled while measuring.
 
 ### Why both sides finish together
 
@@ -89,16 +110,17 @@ assistant-stream 0.3.42 (2026-09-15 UTC):
 
 | Input | Baseline median | Streamfold median |
 | --- | ---: | ---: |
-| Weather, 95 bytes / 19 deltas | 0.069 ms | 0.030 ms |
-| Trip planner, 2,279 bytes / 65 deltas | 0.848 ms | 0.431 ms |
-| Nested JSON, 4,111 bytes / 129 deltas | 5.071 ms | 0.904 ms |
-| Nested JSON, 48,071 bytes / 1,503 deltas | 953.749 ms | 21.955 ms |
-| Same 48,071 bytes / 188 larger deltas | 88.265 ms | 9.459 ms |
+| Weather, 95 bytes / 19 deltas | 0.084 ms | 0.031 ms |
+| Trip planner, 2,279 bytes / 65 deltas | 0.828 ms | 0.426 ms |
+| Nested JSON, 4,111 bytes / 129 deltas | 5.281 ms | 0.942 ms |
+| Nested JSON, 48,071 bytes / 1,503 deltas | 663.375 ms | 17.461 ms |
+| Same 48,071 bytes / 188 larger deltas | 83.421 ms | 8.854 ms |
 
-The weather fixture saves roughly 0.04 ms across the entire argument stream.
+The weather fixture saves roughly 0.05 ms across the entire argument stream.
 That is far smaller than even one 180 ms playback tick. The larger synthetic
 case shows a processing-time opportunity, not a guaranteed response-time
-speedup: its baseline median varied from 644 to 954 ms across two local runs.
+speedup. Run the browser benchmark on your device to see first-run overhead
+and warmed measurements rather than applying Node numbers to browser playback.
 
 Choose **Weather assistant** for the conversation and live event
 inspector. In that view, Run sample streams the fixture through `readStructured`;
@@ -134,7 +156,9 @@ iterator with decoded assistant-stream events, map tool names/results from the
 provider, and handle non-tool message parts separately. The inspector's
 Integration tab displays the actual bridge source used by this demo.
 
-`src/comparison.ts` owns the two parsers and measures their inputs. The
+`src/parser-runner.ts` implements both parser paths and is shared by live
+playback, the browser worker, and the CLI benchmark. `src/comparison.ts`
+owns playback, tool validation, and input/timing counters. The
 comparison view maps its snapshots into two `useExternalStoreRuntime` instances,
 each rendered with the same message components as the single-stream view.
 Neither view replaces assistant-ui's internal parser.

@@ -2,14 +2,9 @@ import type {
   ThreadMessageLike,
   ToolCallMessagePart,
 } from "@assistant-ui/react";
-import {
-  getPartialJsonObjectMeta,
-  parsePartialJsonObject,
-} from "assistant-stream/utils";
-import { createStructuredStreamPool } from "streamfold";
-import { assistantUI } from "streamfold/assistant-ui";
 import { fixtureEvents, scenarios, type Scenario } from "./fixtures.ts";
 import { resultFor } from "./tool-data.ts";
+import { createParserRunner } from "./parser-runner.ts";
 
 export type Side = "without" | "with";
 type SideState = "idle" | "running" | "complete" | "cancelled" | "error";
@@ -19,6 +14,8 @@ export type ParserView = {
   parserBytes: number;
   parserCalls: number;
   parserMs: number;
+  deltaMs: number;
+  lifecycleMs: number;
   finishedAtMs?: number;
   lastInput: string;
   error?: string;
@@ -40,6 +37,8 @@ const emptyParser = (): ParserView => ({
   parserBytes: 0,
   parserCalls: 0,
   parserMs: 0,
+  deltaMs: 0,
+  lifecycleMs: 0,
   lastInput: "",
 });
 
@@ -48,10 +47,11 @@ export function createComparison(
   { now = () => performance.now() }: { now?: () => number } = {},
 ) {
   const events = fixtureEvents(scenario);
-  const pool = createStructuredStreamPool<string>({ snapshots: "immutable" });
-  const stream = assistantUI(pool);
+  const runners = {
+    without: createParserRunner("without"),
+    with: createParserRunner("with"),
+  };
   const idsByPath = new Map<string, string>();
-  const namesById = new Map<string, string>();
   const calls = {
     without: new Map<string, ToolCallMessagePart>(),
     with: new Map<string, ToolCallMessagePart>(),
@@ -75,7 +75,8 @@ export function createComparison(
     activeSince = undefined;
   };
   const release = () => {
-    for (const id of pool.activeIds) pool.abort(id);
+    runners.without.dispose();
+    runners.with.dispose();
   };
   const publish = (side: Side, change: Partial<ParserView>) => {
     frame = {
@@ -89,15 +90,19 @@ export function createComparison(
       parserCalls: frame[side].parserCalls + 1,
       lastInput: text,
     });
-  const measureParser = <T>(side: Side, run: () => T): T => {
+  const measureParser = <T>(side: Side, isDelta: boolean, run: () => T): T => {
     const started = now();
     try {
       return run();
     } finally {
-      // Count only the parser/adapter call, including failed calls. Publishing,
-      // argument accumulation, validation, rendering, and delays are outside it.
+      // The same event-processing boundary on both sides, including failures.
+      // React, inspector bookkeeping, schema validation, and delays are outside.
       const duration = Math.max(0, now() - started);
-      publish(side, { parserMs: frame[side].parserMs + duration });
+      const phase = isDelta ? "deltaMs" : "lifecycleMs";
+      publish(side, {
+        parserMs: frame[side].parserMs + duration,
+        [phase]: frame[side][phase] + duration,
+      });
     }
   };
 
@@ -118,7 +123,6 @@ export function createComparison(
       const path = event.path.join("/");
       if (event.type === "part-start" && event.part.type === "tool-call") {
         idsByPath.set(path, event.part.toolCallId);
-        namesById.set(event.part.toolCallId, event.part.toolName);
       }
       const id = idsByPath.get(path) ?? "unknown";
       const delta = event.type === "text-delta" ? event.textDelta : "";
@@ -131,66 +135,37 @@ export function createComparison(
       };
 
       // One provider event, two real parsers. A failed side stops independently.
-      for (const side of ["without", "with"] as const) {
+      const order: readonly Side[] =
+        frame.index % 2 ? ["without", "with"] : ["with", "without"];
+      for (const side of order) {
         if (frame[side].state === "error") continue;
         try {
-          if (side === "without") {
-            if (
-              event.type === "part-start" &&
-              event.part.type === "tool-call"
-            ) {
-              calls.without.set(id, {
-                type: "tool-call",
-                toolCallId: id,
-                toolName: event.part.toolName,
-                args: {},
-                argsText: "",
-              });
-            } else if (event.type === "text-delta") {
-              const call = calls.without.get(id)!;
-              const argsText = call.argsText + delta;
-              countInput(side, argsText);
-              const args = measureParser(side, () =>
-                parsePartialJsonObject(argsText),
-              );
-              calls.without.set(id, {
-                ...call,
-                argsText,
-                args: args ?? call.args,
-              });
-            } else if (event.type === "tool-call-args-text-finish") {
-              const call = calls.without.get(id)!;
-              if (getPartialJsonObjectMeta(call.args)?.state !== "complete")
-                throw new Error(
-                  "Argument stream ended without a complete JSON object.",
-                );
-              calls.without.set(id, {
-                ...call,
-                result: resultFor(call.toolName, call.args),
-              });
-            }
-          } else {
-            if (event.type === "text-delta") countInput(side, delta);
-            const updates = measureParser(side, () => stream.pushAll(event));
-            for (const update of updates) {
-              const previous = calls.with.get(update.id);
-              calls.with.set(update.id, {
-                type: "tool-call",
-                toolCallId: update.id,
-                toolName: namesById.get(update.id)!,
-                args: (update.partialValue ??
-                  {}) as ToolCallMessagePart["args"],
-                argsText: (previous?.argsText ?? "") + delta,
-                ...(update.type === "complete"
-                  ? {
-                      result: resultFor(
-                        namesById.get(update.id)!,
-                        update.value,
-                      ),
-                    }
-                  : {}),
-              });
-            }
+          const runner = runners[side];
+          if (event.type === "text-delta") {
+            countInput(
+              side,
+              side === "without"
+                ? (runner.calls.get(id)?.argsText ?? "") + delta
+                : delta,
+            );
+          }
+          measureParser(side, event.type === "text-delta", () =>
+            runner.push(event),
+          );
+          for (const call of runner.calls.values()) {
+            const previous = calls[side].get(call.id);
+            calls[side].set(call.id, {
+              type: "tool-call",
+              toolCallId: call.id,
+              toolName: call.name,
+              args: call.args,
+              argsText: call.argsText,
+              ...(call.complete
+                ? {
+                    result: previous?.result ?? resultFor(call.name, call.args),
+                  }
+                : {}),
+            });
           }
           publish(side, {
             state: frame.canStep ? "running" : "complete",
@@ -230,7 +205,7 @@ export function createComparison(
       frame = { ...frame, canStep: false };
     },
     get activeStreams() {
-      return pool.size;
+      return runners.with.activeStreams;
     },
   };
 }

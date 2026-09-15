@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AssistantMessage, UserMessage } from "./SingleDemo.tsx";
 import { scenarios, type Scenario } from "./fixtures.ts";
+import { ParserBenchmark } from "./ParserBenchmark.tsx";
 import {
   comparisonMessages,
   createComparison,
@@ -25,6 +26,7 @@ import {
   type ParserView,
 } from "./comparison.ts";
 import comparisonSource from "./comparison.ts?raw";
+import parserSource from "./parser-runner.ts?raw";
 
 const convertMessage = (message: ThreadMessageLike) => message;
 const noNewMessages = async () => {};
@@ -84,14 +86,18 @@ function ParserTiming({
         </small>
       </div>
       <div>
-        <span className="timing-label">Parser time</span>
+        <span className="timing-label">Live parser work</span>
         <div className="timing-value parser-time-value">
           <strong data-testid={`${side}-parser-time`} data-ms={parser.parserMs}>
-            {parser.parserMs.toFixed(2)}
+            {parser.parserMs.toFixed(1)}
           </strong>
           <span>ms</span>
         </div>
-        <small>Measured work · excludes delay</small>
+        <small>Single run · includes startup</small>
+        <small className="timing-breakdown">
+          Deltas {parser.deltaMs.toFixed(1)} ms · start / finish{" "}
+          {parser.lifecycleMs.toFixed(1)} ms
+        </small>
       </div>
     </div>
   );
@@ -248,6 +254,7 @@ function ComparisonSession({
   const [comparison] = useState(() => createComparison(scenario));
   const [frame, setFrame] = useState(comparison.snapshot);
   const [playing, setPlaying] = useState(false);
+  const [benchmarking, setBenchmarking] = useState(false);
   const [interval, setIntervalMs] = useState(180);
   useEffect(() => () => comparison.dispose(), [comparison]);
   useEffect(() => {
@@ -339,14 +346,14 @@ function ComparisonSession({
           <button
             className="secondary"
             onClick={step}
-            disabled={playing || !frame.canStep}
+            disabled={playing || benchmarking || !frame.canStep}
           >
             <StepForward size={15} />
             Step
           </button>
           <button
             className="primary"
-            disabled={!frame.canStep}
+            disabled={benchmarking || !frame.canStep}
             onClick={togglePlayback}
           >
             {playing ? (
@@ -358,6 +365,11 @@ function ComparisonSession({
           </button>
         </div>
       </div>
+      <ParserBenchmark
+        scenario={scenario}
+        playing={playing}
+        onBusy={setBenchmarking}
+      />
       <div className="shared-event">
         <span className="event-progress" data-testid="event-progress">
           Event {frame.index} / {frame.total}
@@ -412,9 +424,10 @@ function ComparisonSession({
             <strong>Play or step to compare the parser inputs. </strong>
           )}
           Playback clocks include the shared event delay, so both sides normally
-          finish together. Parser time totals only the parser or adapter calls,
-          excluding rendering and tool execution. Small live measurements are
-          noisy and can favor either side; they are not a repeated benchmark.
+          finish together. Live parser work measures event processing on both
+          sides, including startup and partial snapshots, excluding rendering
+          and tool execution. Tiny live readings are noisy and can favor either
+          side. Use the repeated benchmark above to compare warmed processing.
         </p>
       </div>
       <footer className="comparison-footer">
@@ -427,6 +440,10 @@ function ComparisonSession({
         <details>
           <summary>View the comparison source</summary>
           <pre>{comparisonSource}</pre>
+        </details>
+        <details>
+          <summary>View the shared parser implementation</summary>
+          <pre>{parserSource}</pre>
         </details>
       </footer>
     </main>

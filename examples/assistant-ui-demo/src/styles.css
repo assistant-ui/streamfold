@@ -1289,6 +1289,90 @@ select {
   font-size: 10px;
   line-height: 1.5;
 }
+.timing-breakdown {
+  margin-top: 5px;
+}
+.timing-benchmark {
+  min-width: 0;
+  padding: 16px 20px;
+  margin: 14px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.benchmark-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.benchmark-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 550;
+}
+.benchmark-heading p,
+.benchmark-status,
+.benchmark-results p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 5px;
+}
+.benchmark-heading button {
+  flex-shrink: 0;
+}
+.benchmark-status {
+  margin-top: 10px;
+}
+.benchmark-results {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+.benchmark-results table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+}
+.benchmark-results th,
+.benchmark-results td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+.benchmark-results th:first-child {
+  padding-left: 0;
+}
+.benchmark-results th {
+  font-weight: 500;
+}
+.benchmark-results thead {
+  color: var(--muted);
+  font-size: 11px;
+}
+.benchmark-results td {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  .timing-benchmark {
+    padding: 14px;
+  }
+  .benchmark-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .benchmark-heading button {
+    min-height: 40px;
+  }
+  .benchmark-results th,
+  .benchmark-results td {
+    padding: 8px;
+  }
+}
 .comparison-thread {
   height: 490px;
   border-top: 1px solid var(--border);
