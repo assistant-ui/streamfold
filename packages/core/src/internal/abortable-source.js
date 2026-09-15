@@ -8,7 +8,7 @@ export function abortableSource(events, signal, onAbort) {
   let closed = false;
   // Each read removes its listener; one shared pending promise would retain
   // a Promise.race reaction for every event until the session ends.
-  const waitFor = (promise) => new Promise((resolve, reject) => {
+  const waitFor = (promise) => signal === undefined ? Promise.resolve(promise) : new Promise((resolve, reject) => {
     let listening = true;
     const detach = () => {
       if (!listening) return;
@@ -44,16 +44,16 @@ export function abortableSource(events, signal, onAbort) {
     try { onAbort(); } catch { /* Cancellation preserves the signal's reason. */ }
     close(signal.reason).catch(() => {});
   };
-  signal.addEventListener("abort", abort, { once: true });
-  if (signal.aborted) abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
 
   return {
     [Symbol.asyncIterator]() { return this; },
     async next() {
-      signal.throwIfAborted();
+      signal?.throwIfAborted();
       const result = await waitFor(
         Promise.resolve().then(async () => {
-          signal.throwIfAborted();
+          signal?.throwIfAborted();
           const next = reader !== undefined ? await reader.read() : await iterator.next();
           if (next === null || typeof next !== "object") {
             throw new TypeError("Iterator result must be an object");
@@ -61,7 +61,7 @@ export function abortableSource(events, signal, onAbort) {
           return synchronous ? { done: next.done, value: await next.value } : next;
         }),
       );
-      signal.throwIfAborted();
+      signal?.throwIfAborted();
       if (result.done) {
         closed = true;
         reader?.releaseLock();
@@ -71,12 +71,12 @@ export function abortableSource(events, signal, onAbort) {
     async return() {
       const cleanup = close();
       cleanup.catch(() => {});
-      if (!signal.aborted) await waitFor(cleanup);
+      if (!signal?.aborted) await waitFor(cleanup);
       return { done: true, value: undefined };
     },
     async dispose() {
       try { await this.return(); }
-      finally { signal.removeEventListener("abort", abort); }
+      finally { signal?.removeEventListener("abort", abort); }
     },
   };
 }

@@ -35,8 +35,10 @@ export async function* readStructured(
       );
     }
     signal?.throwIfAborted();
-    source = signal === undefined ? undefined : abortableSource(events, signal, dispose);
-    for await (const event of source ?? events) {
+    // Own the source even without cancellation so a rejected next()
+    // still triggers upstream cleanup.
+    source = abortableSource(events, signal, dispose);
+    for await (const event of source) {
       signal?.throwIfAborted();
       for (const update of stream.pushAll(event)) {
         signal?.throwIfAborted();
