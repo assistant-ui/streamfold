@@ -6,6 +6,39 @@ import {
   StructuredStreamPool,
 } from "./index.js";
 
+test("rejects unpaired raw UTF-16 instead of returning inconsistent partial and final values", () => {
+  for (const units of [[0xd800], [0xdc00], [0xd800, 0xd800], [0xd800, 0x61]]) {
+    const value = String.fromCharCode(...units);
+    const pool = new StructuredStreamPool();
+    pool.start("raw");
+    assert.throws(() => pool.push("raw", '{"value":"' + value + '"}'), {
+      name: "TypeError",
+      code: "INVALID_CHUNK",
+    });
+    assert.equal(pool.size, 0);
+
+    // JSON Unicode escapes are lossless and remain valid, even when unpaired.
+    pool.start("escaped");
+    pool.push("escaped", JSON.stringify({ value }));
+    const result = pool.finish("escaped");
+    assert.deepEqual(result.partialValue, { value });
+    assert.deepEqual(result.partialValue, result.value);
+  }
+});
+
+test("validates a buffered high surrogate on the next chunk or finish", () => {
+  for (const finish of [false, true]) {
+    const pool = new StructuredStreamPool();
+    pool.start("split", '{"value":"');
+    pool.push("split", String.fromCharCode(0xd800));
+    assert.throws(() => finish ? pool.finish("split") : pool.push("split", '"}'), {
+      name: "TypeError",
+      code: "INVALID_CHUNK",
+    });
+    assert.equal(pool.size, 0);
+  }
+});
+
 test("runs the published scanner through the Rust WebAssembly backend", () => {
   const scanner = new IncrementalJsonScanner();
   assert.equal(STREAMFOLD_ENGINE, "rust-wasm");

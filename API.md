@@ -40,6 +40,11 @@ Limits must be positive safe integers no greater than `4294967295`.
 A path is an array of object keys and array indexes. Use `[]` for the root.
 Call `dispose()` when abandoning a scanner before completion.
 
+Chunks contain Unicode text and are encoded as UTF-8. Valid surrogate pairs
+can span pushes; raw unpaired UTF-16 code units throw `INVALID_CHUNK` rather
+than being replaced with U+FFFD. Encode unpaired code units as JSON Unicode
+escapes (for example, by using `JSON.stringify`) to preserve them losslessly.
+
 ## `StructuredStreamPool`
 
 | Member | Description |

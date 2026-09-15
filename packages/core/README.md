@@ -34,6 +34,11 @@ for frozen snapshots that preserve earlier values and share unchanged branches.
 Pools and custom adapter factories accept the same option; managed readers
 forward it through `limits`.
 
+Chunks must contain well-formed Unicode. Valid surrogate pairs may span chunks;
+raw unpaired UTF-16 code units fail with `INVALID_CHUNK` instead of being silently
+replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
+(as produced by `JSON.stringify`).
+
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event
