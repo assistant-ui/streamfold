@@ -1243,6 +1243,52 @@ select {
   margin: 9px 24px 20px;
   line-height: 1.5;
 }
+.parser-timing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 24px 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.parser-timing > div {
+  min-width: 0;
+}
+.timing-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.timing-value {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 7px 0 5px;
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.timing-value strong {
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.2;
+  letter-spacing: -1.2px;
+  font-weight: 500;
+}
+.timing-value > span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.with .parser-time-value strong {
+  color: #257351;
+}
+.parser-timing small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
 .comparison-thread {
   height: 490px;
   border-top: 1px solid var(--border);
@@ -1446,6 +1492,10 @@ summary:focus-visible {
     margin-right: 18px;
     min-height: 36px;
   }
+  .parser-timing {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
   .comparison-viewport,
   .parser-inspector {
     padding-left: 18px;
@@ -1572,6 +1622,11 @@ summary:focus-visible {
   .parser-description {
     margin-left: 14px;
     margin-right: 14px;
+  }
+  .parser-timing {
+    margin-left: 14px;
+    margin-right: 14px;
+    gap: 12px;
   }
   .parser-input-heading span {
     font-size: 9px;

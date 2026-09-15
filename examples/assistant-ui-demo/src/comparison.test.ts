@@ -3,6 +3,98 @@ import test from "node:test";
 import { comparisonMessages, createComparison } from "./comparison.ts";
 import { fixtureEvents } from "./fixtures.ts";
 
+test("playback clocks exclude pauses and freeze at completion", () => {
+  let time = 1_000;
+  const comparison = createComparison("weather", { now: () => time });
+  assert.equal(comparison.elapsedMs("with"), 0);
+  time += 5_000;
+  assert.equal(comparison.elapsedMs("with"), 0);
+  comparison.play();
+  time += 500;
+  assert.equal(comparison.elapsedMs("with"), 500);
+  comparison.next();
+  comparison.pause();
+  time += 10_000;
+  comparison.next(); // A manual step must not include time spent paused.
+  for (const side of ["without", "with"] as const) {
+    assert.equal(comparison.elapsedMs(side), 500);
+    assert.equal(comparison.snapshot()[side].parserMs, 0);
+  }
+  comparison.play();
+  time += 250;
+  while (comparison.snapshot().canStep) comparison.next();
+  time += 5_000;
+  for (const side of ["without", "with"] as const) {
+    assert.equal(comparison.elapsedMs(side), 750);
+    assert.equal(comparison.snapshot()[side].finishedAtMs, 750);
+  }
+  comparison.play();
+  time += 5_000;
+  assert.equal(comparison.elapsedMs("with"), 750);
+  comparison.dispose();
+});
+
+test("stop before the first event freezes both clocks without creating calls", () => {
+  let time = 0;
+  const comparison = createComparison("weather", { now: () => time });
+  comparison.play();
+  time = 80;
+  const stopped = comparison.cancel();
+  time = 10_000;
+  for (const side of ["without", "with"] as const) {
+    assert.equal(stopped[side].state, "cancelled");
+    assert.equal(comparison.elapsedMs(side), 80);
+    assert.equal(stopped[side].parserMs, 0);
+    assert.equal(stopped[side].calls.length, 0);
+  }
+  assert.equal(comparison.next(), stopped);
+  comparison.dispose();
+});
+
+test("parser timing counts measured calls, excludes idle gaps, and retains history", () => {
+  let time = 0;
+  const comparison = createComparison("weather", { now: () => time++ });
+  const start = comparison.next();
+  assert.equal(start.without.parserMs, 0);
+  assert.equal(start.with.parserMs, 1);
+  time += 10_000;
+  const partial = comparison.next();
+  assert.equal(partial.without.parserMs, 1);
+  assert.equal(partial.with.parserMs, 2);
+  while (comparison.snapshot().canStep) comparison.next();
+  const complete = comparison.snapshot();
+  assert.equal(complete.without.parserMs, 19);
+  assert.equal(complete.with.parserMs, 21);
+  assert.equal(partial.with.parserMs, 2);
+  assert.equal(start.with.parserMs, 1);
+  time += 10_000;
+  assert.equal(comparison.next(), complete);
+  comparison.dispose();
+});
+
+test("a parser error freezes its clock while the other side continues", () => {
+  let time = 0;
+  const comparison = createComparison("malformed", { now: () => time });
+  comparison.play();
+  while (comparison.snapshot().with.state !== "error") {
+    time += 180;
+    comparison.next();
+  }
+  const failed = comparison.snapshot().with;
+  const failedAt = comparison.elapsedMs("with");
+  assert.ok(comparison.snapshot().without.state !== "error");
+  time += 500;
+  assert.equal(comparison.elapsedMs("with"), failedAt);
+  assert.ok(comparison.elapsedMs("without") > failedAt);
+  while (comparison.snapshot().canStep) {
+    time += 180;
+    comparison.next();
+  }
+  assert.equal(comparison.snapshot().with, failed);
+  assert.equal(comparison.elapsedMs("with"), failedAt);
+  comparison.dispose();
+});
+
 for (const scenario of ["weather", "parallel"] as const) {
   test(`${scenario}: both real parsers complete the same calls, with measured input bytes`, () => {
     const comparison = createComparison(scenario);

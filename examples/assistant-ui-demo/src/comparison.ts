@@ -18,6 +18,8 @@ export type ParserView = {
   calls: readonly ToolCallMessagePart[];
   parserBytes: number;
   parserCalls: number;
+  parserMs: number;
+  finishedAtMs?: number;
   lastInput: string;
   error?: string;
   errorEvent?: number;
@@ -37,10 +39,14 @@ const emptyParser = (): ParserView => ({
   calls: [],
   parserBytes: 0,
   parserCalls: 0,
+  parserMs: 0,
   lastInput: "",
 });
 
-export function createComparison(scenario: Scenario) {
+export function createComparison(
+  scenario: Scenario,
+  { now = () => performance.now() }: { now?: () => number } = {},
+) {
   const events = fixtureEvents(scenario);
   const pool = createStructuredStreamPool<string>({ snapshots: "immutable" });
   const stream = assistantUI(pool);
@@ -60,6 +66,14 @@ export function createComparison(scenario: Scenario) {
     without: emptyParser(),
     with: emptyParser(),
   };
+  let playedMs = 0;
+  let activeSince: number | undefined;
+  const elapsed = () =>
+    playedMs + (activeSince === undefined ? 0 : now() - activeSince);
+  const pause = () => {
+    playedMs = elapsed();
+    activeSince = undefined;
+  };
   const release = () => {
     for (const id of pool.activeIds) pool.abort(id);
   };
@@ -75,11 +89,31 @@ export function createComparison(scenario: Scenario) {
       parserCalls: frame[side].parserCalls + 1,
       lastInput: text,
     });
+  const measureParser = <T>(side: Side, run: () => T): T => {
+    const started = now();
+    try {
+      return run();
+    } finally {
+      // Count only the parser/adapter call, including failed calls. Publishing,
+      // argument accumulation, validation, rendering, and delays are outside it.
+      const duration = Math.max(0, now() - started);
+      publish(side, { parserMs: frame[side].parserMs + duration });
+    }
+  };
 
   return {
     snapshot: () => frame,
+    play() {
+      if (frame.canStep && activeSince === undefined) activeSince = now();
+    },
+    pause,
+    elapsedMs: (side: Side) => frame[side].finishedAtMs ?? elapsed(),
     next(): ComparisonSnapshot {
       if (!frame.canStep) return frame;
+      // Manual steps include their processing time, never time spent paused.
+      const stepStarted = activeSince === undefined ? now() : undefined;
+      const eventElapsed = () =>
+        elapsed() + (stepStarted === undefined ? 0 : now() - stepStarted);
       const event = events[frame.index];
       const path = event.path.join("/");
       if (event.type === "part-start" && event.part.type === "tool-call") {
@@ -116,7 +150,9 @@ export function createComparison(scenario: Scenario) {
               const call = calls.without.get(id)!;
               const argsText = call.argsText + delta;
               countInput(side, argsText);
-              const args = parsePartialJsonObject(argsText);
+              const args = measureParser(side, () =>
+                parsePartialJsonObject(argsText),
+              );
               calls.without.set(id, {
                 ...call,
                 argsText,
@@ -135,7 +171,8 @@ export function createComparison(scenario: Scenario) {
             }
           } else {
             if (event.type === "text-delta") countInput(side, delta);
-            for (const update of stream.pushAll(event)) {
+            const updates = measureParser(side, () => stream.pushAll(event));
+            for (const update of updates) {
               const previous = calls.with.get(update.id);
               calls.with.set(update.id, {
                 type: "tool-call",
@@ -155,30 +192,40 @@ export function createComparison(scenario: Scenario) {
               });
             }
           }
-          publish(side, { state: frame.canStep ? "running" : "complete" });
+          publish(side, {
+            state: frame.canStep ? "running" : "complete",
+            ...(!frame.canStep ? { finishedAtMs: eventElapsed() } : {}),
+          });
         } catch (error) {
           if (side === "with") release();
           publish(side, {
             state: "error",
             errorEvent: frame.index,
             error: error instanceof Error ? error.message : String(error),
+            finishedAtMs: eventElapsed(),
           });
         }
       }
-      if (!frame.canStep) release();
+      if (stepStarted !== undefined) playedMs += now() - stepStarted;
+      if (!frame.canStep) {
+        pause();
+        release();
+      }
       return frame;
     },
     cancel(): ComparisonSnapshot {
-      if (frame.canStep && frame.index > 0) {
+      if (frame.canStep && (frame.index > 0 || activeSince !== undefined)) {
+        pause();
         for (const side of ["without", "with"] as const)
-          if (frame[side].state === "running")
-            publish(side, { state: "cancelled" });
+          if (frame[side].state === "running" || frame[side].state === "idle")
+            publish(side, { state: "cancelled", finishedAtMs: elapsed() });
         frame = { ...frame, canStep: false };
       }
       release();
       return frame;
     },
     dispose() {
+      pause();
       release();
       frame = { ...frame, canStep: false };
     },

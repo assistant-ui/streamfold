@@ -31,6 +31,21 @@ test(
         .getByRole("button", { name: "Play both", exact: true })
         .waitFor();
       const button = (name) => page.getByRole("button", { name, exact: true });
+      const timings = () =>
+        page.locator(".parser-timing").evaluateAll((panels) =>
+          panels.map((panel) => ({
+            elapsed: Number(
+              panel.querySelector('[data-testid$="-elapsed"]').dataset.ms,
+            ),
+            parser: Number(
+              panel.querySelector('[data-testid$="-parser-time"]').dataset.ms,
+            ),
+          })),
+        );
+      assert.deepEqual(await timings(), [
+        { elapsed: 0, parser: 0 },
+        { elapsed: 0, parser: 0 },
+      ]);
       const panes = [
         page.getByTestId("without-pane"),
         page.getByTestId("with-pane"),
@@ -55,7 +70,9 @@ test(
       assert.ok(leftInput.length > rightInput.length);
       assert.ok(leftInput.endsWith(rightInput));
       const progress = await page.getByTestId("event-progress").innerText();
+      const steppedTimings = await timings();
       await page.waitForTimeout(400);
+      assert.deepEqual(await timings(), steppedTimings);
       assert.equal(
         await page.getByTestId("event-progress").innerText(),
         progress,
@@ -72,9 +89,20 @@ test(
             .querySelector('[data-testid="event-progress"]')
             .textContent.startsWith("Event 8 /"),
       );
+      const counting = await timings();
+      await page.waitForFunction(
+        (previous) =>
+          [...document.querySelectorAll('[data-testid$="-elapsed"]')].every(
+            (element, index) =>
+              Number(element.dataset.ms) > previous[index].elapsed,
+          ),
+        counting,
+      );
       await button("Pause").click();
       const paused = await page.getByTestId("event-progress").innerText();
+      const pausedTimings = await timings();
       await page.waitForTimeout(400);
+      assert.deepEqual(await timings(), pausedTimings);
       assert.equal(
         await page.getByTestId("event-progress").innerText(),
         paused,
@@ -91,8 +119,15 @@ test(
           "--°",
         );
       assert.ok(await button("Step").isDisabled());
+      const stoppedTimings = await timings();
+      await page.waitForTimeout(200);
+      assert.deepEqual(await timings(), stoppedTimings);
 
       await button("Reset comparison").click();
+      assert.deepEqual(await timings(), [
+        { elapsed: 0, parser: 0 },
+        { elapsed: 0, parser: 0 },
+      ]);
       await page.getByLabel("Event delay").focus();
       await page.keyboard.press("Home");
       await button("Play both").click();
@@ -111,6 +146,18 @@ test(
         "950 B",
       );
       assert.equal(await page.getByTestId("with-bytes").innerText(), "95 B");
+      const completedTimings = await timings();
+      for (const timing of completedTimings) {
+        assert.ok(timing.elapsed > 0);
+        assert.ok(timing.parser >= 0 && timing.parser < timing.elapsed);
+      }
+      for (const side of ["without", "with"])
+        assert.match(
+          await page.getByTestId(`${side}-timing-status`).innerText(),
+          /Finished in/,
+        );
+      await page.waitForTimeout(200);
+      assert.deepEqual(await timings(), completedTimings);
       await page.screenshot({
         path: resolve(screenshots, "compare-complete.png"),
         fullPage: true,
@@ -119,6 +166,10 @@ test(
       await page
         .getByLabel("Scenario", { exact: true })
         .selectOption("parallel");
+      assert.deepEqual(await timings(), [
+        { elapsed: 0, parser: 0 },
+        { elapsed: 0, parser: 0 },
+      ]);
       assert.match(
         await page.getByTestId("event-progress").innerText(),
         /^Event 0 /,
@@ -165,6 +216,10 @@ test(
           "--°",
         );
       }
+      const failedTimings = await timings();
+      assert.ok(failedTimings[1].elapsed < failedTimings[0].elapsed);
+      await page.waitForTimeout(200);
+      assert.deepEqual(await timings(), failedTimings);
       assert.match(
         await page.locator(".comparison-takeaway").innerText(),
         /different events/,

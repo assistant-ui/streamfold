@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Square,
   StepForward,
+  Timer,
 } from "lucide-react";
 import { AssistantMessage, UserMessage } from "./SingleDemo.tsx";
 import { scenarios, type Scenario } from "./fixtures.ts";
@@ -21,6 +22,7 @@ import {
   createComparison,
   type ComparisonSnapshot,
   type Side,
+  type ParserView,
 } from "./comparison.ts";
 import comparisonSource from "./comparison.ts?raw";
 
@@ -28,14 +30,83 @@ const convertMessage = (message: ThreadMessageLike) => message;
 const noNewMessages = async () => {};
 const bytes = (value: number) => `${value.toLocaleString("en-US")} B`;
 
+function ParserTiming({
+  parser,
+  side,
+  playing,
+  elapsedMs,
+}: {
+  parser: ParserView;
+  side: Side;
+  playing: boolean;
+  elapsedMs: (side: Side) => number;
+}) {
+  // Only this small counter rerenders between chunks, not the tool components.
+  const [, tick] = useState(0);
+  const finished = parser.finishedAtMs !== undefined;
+  useEffect(() => {
+    if (!playing || finished) return;
+    const timer = window.setInterval(() => tick((value) => value + 1), 50);
+    return () => window.clearInterval(timer);
+  }, [playing, finished]);
+  const playbackMs = elapsedMs(side);
+  const caption =
+    parser.state === "complete"
+      ? "Finished in"
+      : parser.state === "error"
+        ? "Failed after"
+        : parser.state === "cancelled"
+          ? "Stopped at"
+          : playing
+            ? "Counting"
+            : parser.state === "idle"
+              ? "Ready"
+              : "Paused at";
+  return (
+    <div className="parser-timing" data-state={parser.state}>
+      <div>
+        <span className="timing-label">
+          <Timer size={13} /> Playback time
+        </span>
+        <div
+          className="timing-value"
+          role="timer"
+          aria-live="off"
+          aria-label="Playback seconds"
+        >
+          <strong data-testid={`${side}-elapsed`} data-ms={playbackMs}>
+            {(playbackMs / 1000).toFixed(2)}
+          </strong>
+          <span>s</span>
+        </div>
+        <small data-testid={`${side}-timing-status`}>
+          {caption} · excludes pauses
+        </small>
+      </div>
+      <div>
+        <span className="timing-label">Parser time</span>
+        <div className="timing-value parser-time-value">
+          <strong data-testid={`${side}-parser-time`} data-ms={parser.parserMs}>
+            {parser.parserMs.toFixed(2)}
+          </strong>
+          <span>ms</span>
+        </div>
+        <small>Measured work · excludes delay</small>
+      </div>
+    </div>
+  );
+}
+
 function ParserPane({
   frame,
   side,
   playing,
+  elapsedMs,
 }: {
   frame: ComparisonSnapshot;
   side: Side;
   playing: boolean;
+  elapsedMs: (side: Side) => number;
 }) {
   const parser = frame[side];
   const incremental = side === "with";
@@ -83,6 +154,12 @@ function ParserPane({
           ? "Each new chunk continues the existing parser."
           : "Each update parses the accumulated argument text."}
       </p>
+      <ParserTiming
+        parser={parser}
+        side={side}
+        playing={playing}
+        elapsedMs={elapsedMs}
+      />
       <AssistantRuntimeProvider runtime={runtime}>
         <ThreadPrimitive.Root className="comparison-thread">
           <ThreadPrimitive.Viewport
@@ -183,6 +260,11 @@ function ComparisonSession({
     return () => window.clearInterval(timer);
   }, [comparison, playing, interval]);
   const step = () => setFrame(comparison.next());
+  const togglePlayback = () => {
+    if (playing) comparison.pause();
+    else comparison.play();
+    setPlaying(!playing);
+  };
   const stop = () => {
     setPlaying(false);
     setFrame(comparison.cancel());
@@ -200,8 +282,8 @@ function ComparisonSession({
           <h1>Watch what changes inside the parser.</h1>
           <p>
             Both already stream partial arguments. Follow the same fixture
-            through two real parsers. Both finish together because they share
-            the event delay below; playback is not a speed benchmark.
+            through two real parsers. Watch playback seconds and measured parser
+            milliseconds on each side.
           </p>
         </div>
         <span className="fixture-badge">
@@ -249,7 +331,7 @@ function ComparisonSession({
           <button
             className="secondary"
             onClick={stop}
-            disabled={!frame.canStep || frame.index === 0}
+            disabled={!frame.canStep || (!playing && frame.index === 0)}
           >
             <Square size={13} />
             Stop
@@ -265,7 +347,7 @@ function ComparisonSession({
           <button
             className="primary"
             disabled={!frame.canStep}
-            onClick={() => setPlaying((value) => !value)}
+            onClick={togglePlayback}
           >
             {playing ? (
               <Pause size={14} />
@@ -298,8 +380,18 @@ function ComparisonSession({
         </span>
       </div>
       <div className="comparison-grid">
-        <ParserPane frame={frame} side="without" playing={playing} />
-        <ParserPane frame={frame} side="with" playing={playing} />
+        <ParserPane
+          frame={frame}
+          side="without"
+          playing={playing}
+          elapsedMs={comparison.elapsedMs}
+        />
+        <ParserPane
+          frame={frame}
+          side="with"
+          playing={playing}
+          elapsedMs={comparison.elapsedMs}
+        />
       </div>
       <div className="comparison-takeaway">
         <ArrowRight size={18} />
@@ -319,10 +411,10 @@ function ComparisonSession({
           ) : (
             <strong>Play or step to compare the parser inputs. </strong>
           )}
-          These counters measure bytes passed into parsing calls, not execution
-          time or UI speed. Less repeated parsing can reduce processing time,
-          especially for larger arguments, but it does not make source events
-          arrive sooner.
+          Playback clocks include the shared event delay, so both sides normally
+          finish together. Parser time totals only the parser or adapter calls,
+          excluding rendering and tool execution. Small live measurements are
+          noisy and can favor either side; they are not a repeated benchmark.
         </p>
       </div>
       <footer className="comparison-footer">

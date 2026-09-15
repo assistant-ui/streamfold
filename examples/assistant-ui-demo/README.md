@@ -30,8 +30,22 @@ baseline calls assistant-stream's published `parsePartialJsonObject` with all
 argument text accumulated so far. Streamfold's published assistant-ui adapter
 passes only each new text delta into the incremental scanner. The counters
 measure UTF-8 bytes passed to parsing calls; they do not measure execution time,
-memory usage, or an end-to-end UI speedup. A failed parser stops independently,
+memory usage, or an end-to-end UI speedup. Separate live timers above each
+conversation show **Playback time** in seconds and **Parser time** in milliseconds.
+A failed parser stops independently,
 so error cases can have counters covering different events.
+
+Playback time starts at Play, updates every 50 ms, excludes pauses, and freezes
+at completion, cancellation, or error. Manual steps add their processing time
+without counting the wait between clicks. Reset or changing scenarios clears
+both clocks. Parser time sums `performance.now()` measurements around
+`parsePartialJsonObject` on the baseline and `stream.pushAll` on Streamfold
+(including its event adapter, lifecycle events, and immutable snapshots).
+Those measurements exclude event delays, argument-text accumulation, React
+rendering, and tool execution. They are individual live observations affected
+by browser timer precision, startup, and garbage collection; tiny samples can
+show 0.00 ms or favor either side. Use the separate repeated benchmark below
+for a more stable comparison.
 
 ### Why both sides finish together
 
