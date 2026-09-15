@@ -252,7 +252,7 @@ HTTP bytes or SSE frames and does not start network requests.
 | Iteration starts | Create one fresh session with the supplied limits |
 | An event arrives | Yield every `pushAll(event)` update in order |
 | Source ends normally | Yield `finish()` results for any remaining calls, then dispose |
-| Source, mapper, parser, or finalization throws | Propagate the error and dispose active parsers |
+| Source, mapper, parser, or finalization throws | Preserve the original error, close the source, and dispose active parsers |
 | Consumer breaks or throws | Close the source iterator and dispose without finalizing unfinished calls |
 
 The helper does not pull another source event until the current batch has been
@@ -271,7 +271,8 @@ releases the lock. For other iterables it requests `iterator.return()`; arbitrar
 iterators may ignore that request or never settle. On abort, Streamfold does not
 wait for that cleanup, and observes late rejections without replacing the abort
 reason. Pass the same signal to the SDK or transport to stop network activity.
-Without a signal, the existing source-iterator cleanup behavior is unchanged.
+Without a signal, Streamfold still closes failed or abandoned sources and
+releases reader locks, but waits for cleanup to settle.
 
 For a built-in SDK integration, use `integration` instead of `adapter`:
 

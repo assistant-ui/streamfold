@@ -50,6 +50,8 @@ same batch adapter, finalizes remaining calls at the end of the source, and
 disposes on completion, failure, or early exit. `limits` is optional.
 For a built-in SDK factory, use `{ integration: assistantUI, limits }` instead.
 Both paths yield the same lifecycle updates without replaying completions.
+Upstream failures close the iterator or reader while preserving the original
+error, even when no abort signal is supplied.
 
 Every built-in adapter supports `pushAll(event)`, returning all ordered
 `start`, `update`, and `complete` updates, including multiple calls in one event.

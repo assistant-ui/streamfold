@@ -325,6 +325,27 @@ test("managed consumption requires exactly one factory contract", async () => {
   }
 });
 
+test("upstream next failures close the iterator once even without an abort signal", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let sessions = 0;
+  for (const signal of [undefined, new AbortController().signal]) {
+    const failure = new Error("connection lost");
+    let reads = 0;
+    const returned = t.mock.fn(() => { throw new Error("cleanup failed"); });
+    const source = {
+      [Symbol.asyncIterator]() { return this; },
+      next() {
+        if (reads++) throw failure;
+        return { value: [{ type: "start", id: "open" }], done: false };
+      },
+      return: returned,
+    };
+    await assert.rejects(collect(readStructured(source, { adapter, signal })), error => error === failure);
+    assert.equal(returned.mock.callCount(), 1);
+    assert.equal(dispose.mock.callCount(), ++sessions);
+  }
+});
+
 test("immutable snapshots stay stable in managed custom and SDK batches", async () => {
   const customEvents = [[
     { type: "start", id: "a" },
