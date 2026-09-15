@@ -426,9 +426,12 @@ function ComparisonSession({
           Playback clocks include the shared event delay, so both sides normally
           finish together. Live parser work measures event processing on both
           sides, including per-call setup and partial snapshots, excluding
-          rendering and tool execution. Background engine setup is reported
-          separately above. Tiny live readings are noisy and can favor either
-          side. Use the repeated benchmark above to compare warmed processing.
+          rendering and tool execution. Background parser preparation is
+          reported separately above. Preloading does not remove per-chunk work:
+          Streamfold still encodes text for WASM, decodes patches, and creates
+          immutable snapshots. This can cost more than reparsing small inputs.
+          Live readings are noisy; the repeated benchmark measures sustained
+          processing and does not predict this paced playback.
         </p>
       </div>
       <footer className="comparison-footer">

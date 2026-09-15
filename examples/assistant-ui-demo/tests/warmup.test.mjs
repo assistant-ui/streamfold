@@ -22,10 +22,34 @@ test(
       const instrument = async (page) =>
         page.addInitScript(() => {
           window.__wasmInstances = 0;
+          window.__wasmPushes = 0;
+          window.__wasmFinishes = 0;
+          window.__activeParsers = 0;
           WebAssembly.Instance = new Proxy(WebAssembly.Instance, {
             construct(target, args, newTarget) {
               window.__wasmInstances++;
-              return Reflect.construct(target, args, newTarget);
+              const instance = Reflect.construct(target, args, newTarget);
+              const exports = { ...instance.exports };
+              for (const [name, counter] of [
+                ["streamfold_parser_push", "__wasmPushes"],
+                ["streamfold_parser_finish", "__wasmFinishes"],
+                ["streamfold_parser_new", "__activeParsers"],
+                ["streamfold_parser_free", "__activeParsers"],
+              ]) {
+                const original = exports[name];
+                exports[name] = (...values) => {
+                  const result = original(...values);
+                  window[counter] += name.endsWith("_free") ? -1 : 1;
+                  return result;
+                };
+              }
+              return new Proxy(instance, {
+                get(target, key) {
+                  return key === "exports"
+                    ? exports
+                    : Reflect.get(target, key, target);
+                },
+              });
             },
           });
         });
@@ -45,6 +69,10 @@ test(
       assert.equal(await status.getAttribute("data-source"), "background");
       assert.equal(await status.getAttribute("data-attempts"), "1");
       assert.equal(await page.evaluate(() => window.__wasmInstances), 1);
+      assert.match(await status.innerText(), /Both parsers prepared/);
+      assert.ok(await page.evaluate(() => window.__wasmPushes > 0));
+      assert.equal(await page.evaluate(() => window.__wasmFinishes), 1);
+      assert.equal(await page.evaluate(() => window.__activeParsers), 0);
       assert.match(
         await page.getByTestId("event-progress").innerText(),
         /Event 0/,
@@ -65,6 +93,12 @@ test(
           ),
         );
         assert.equal(await page.evaluate(() => window.__wasmInstances), 1);
+        assert.equal(await page.evaluate(() => window.__activeParsers), 0);
+        // One preparation stream plus one real weather stream per replay.
+        assert.equal(
+          await page.evaluate(() => window.__wasmFinishes),
+          replay + 2,
+        );
         assert.equal(await status.getAttribute("data-ms"), setupMs);
         await button("Reset comparison").click();
       }
@@ -108,6 +142,9 @@ test(
         "first-use",
       );
       assert.equal(await early.evaluate(() => window.__wasmInstances), 1);
+      // Clicking before idle preparation must not run a synthetic stream.
+      assert.equal(await early.evaluate(() => window.__wasmPushes), 0);
+      assert.equal(await early.evaluate(() => window.__wasmFinishes), 0);
       await early
         .getByRole("button", { name: "Reset comparison", exact: true })
         .click();

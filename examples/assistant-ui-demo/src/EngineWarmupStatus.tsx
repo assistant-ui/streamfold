@@ -25,7 +25,7 @@ export function EngineWarmupStatus() {
     <div
       className="engine-warmup-status"
       role="status"
-      aria-label="Streamfold engine status"
+      aria-label="Parser preparation status"
       data-testid="engine-warmup"
       data-state={snapshot.state}
       data-source={snapshot.source}
@@ -37,7 +37,7 @@ export function EngineWarmupStatus() {
         <>
           <strong>
             {snapshot.source === "background"
-              ? "Streamfold preloaded"
+              ? "Both parsers prepared"
               : "Streamfold ready"}
           </strong>
           <span>
@@ -45,7 +45,8 @@ export function EngineWarmupStatus() {
             {snapshot.source === "background"
               ? "during idle time"
               : "on first use"}{" "}
-            · cached for this page
+            · Streamfold cached for this page
+            {snapshot.source === "background" && " · one sample per parser"}
           </span>
         </>
       ) : snapshot.state === "failed" ? (
@@ -53,7 +54,7 @@ export function EngineWarmupStatus() {
           Background warm-up unavailable · playback can retry initialization
         </span>
       ) : (
-        <span>Preparing Streamfold during idle time…</span>
+        <span>Preparing both parsers during idle time…</span>
       )}
     </div>
   );

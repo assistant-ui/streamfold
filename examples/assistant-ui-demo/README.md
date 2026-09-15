@@ -37,17 +37,21 @@ counters covering different events.
 
 The page prepares Streamfold after the initial UI mounts, using
 `requestIdleCallback` with a one-second timeout, or a short timer fallback.
-`src/engine-warmup.ts` creates and immediately disposes an empty scanner through
-the published `createStructuredStream` API. This initializes the library's
-cached WASM module/instance in the same page context used by comparison,
-weather, and complex-tool playback. No fixture or tool runs during preparation.
-The header status reports the setup duration separately and says when the
-engine is cached. Resetting or starting more tool calls reuses it.
+`src/engine-warmup.ts` sends one small, unrelated JSON stream through each of
+the same parser runners used by the comparison. Both receive identical chunks;
+all temporary parsers are disposed. This exercises parsing, patch decoding,
+immutable snapshots, and finalization, and initializes Streamfold's cached WASM
+module/instance. Creating an empty scanner alone did not exercise those paths.
+No demo fixture, schema validation, or tool executes during preparation, and no
+parsed result is cached. The header reports the combined preparation duration
+separately and identifies the one-sample warm-up. Resetting reuses the engine
+without repeating preparation. This does not guarantee fully optimized JIT code.
 
 The released initializer is synchronous and still occupies the page thread
 briefly; scheduling it during idle time moves that work ahead of playback.
-If playback wins the race, initialization happens on first use, is labeled
-accordingly, and the pending idle callback is cancelled. A failed background
+If playback wins the race, only engine initialization happens on first use;
+no synthetic preparation stream delays the click. It is labeled accordingly,
+and the pending idle callback is cancelled. A failed background
 attempt does not stop the UI from loading; playback can retry normally.
 The instance cache lasts for this page context. A reload or another worker has
 its own engine; this adds no persistent storage or cross-page instance cache.
@@ -65,15 +69,14 @@ The breakdown separates
 text deltas from start/finish events. Execution order alternates each event.
 React rendering, inspector counters, schema validation, and tools are excluded.
 
-These are individual live observations affected by timer precision, startup,
-and garbage collection. In the investigated Chrome session the clock advanced
-in approximately 0.1 ms steps; many individual parser calls were shorter than
-that. Totals can show 0.0 ms or favor either side. A cold 95-byte weather run
-measured 5.3 ms for Streamfold versus 1.5 ms for the baseline under the previous
-timer boundary. Startup is a real cost, and Streamfold is not guaranteed to
-be faster for small arguments. Those old live readings also timed
-only the baseline function versus the entire Streamfold adapter; both now
-use the same event-processing boundary.
+These are individual live observations affected by timer precision, first-use
+code execution, and garbage collection. In the investigated Chrome session the
+clock advanced in approximately 0.1 ms steps; many individual parser calls were
+shorter than that. Totals can show 0.0 ms or favor either side. Slower Streamfold
+readings are not necessarily just noise or engine startup: each delta still
+crosses the JS/WASM boundary, decodes patches, tracks field completion, and
+creates immutable snapshots. Reparsing a 95-byte object can cost less. Neither
+preparation nor fewer input bytes guarantees a lower live parser time.
 
 **Run repeated benchmark**, above the comparison, runs the selected valid
 fixture in a fresh worker using the same parser runners. It checks final values
@@ -88,6 +91,38 @@ for every replay. Pause playback to run it; Cancel, Reset, or changing the
 scenario terminates the worker. Playback is disabled while measuring.
 The first replay intentionally starts cold in the new worker: preloading the
 page's engine does not share its instance with the benchmark worker.
+The worker does not run the page's one-sample preparation. Its tight loops and
+repeated warmups measure sustained throughput, not paced playback latency.
+Do not use a warm worker win to dismiss a slower result in the live UI.
+
+To reproduce the live numbers with a running demo (prefer a production preview):
+
+```sh
+CHROME_EXECUTABLE='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run bench:playback
+```
+
+This opens three fresh pages per scenario, waits for the page's normal idle
+preparation, then plays weather and trip fixtures at the default 180 ms event
+delay. Each page records its first playback and a replay after Reset. It reads
+the actual displayed timing counters and checks both final results against the
+fixture JSON. It adds no hidden warmups and accepts results where either side
+is slower. `DEMO_URL`, `PLAYBACK_SAMPLES`, `PLAYBACK_SCENARIOS` (comma-separated),
+and `PLAYBACK_REPORT` override the defaults. Results are saved to
+`artifacts/assistant-ui-demo/paced-playback.json` at the repository root.
+
+One local Chrome production-build check with the one-sample preparation
+produced these medians across three pages per scenario (2026-09-15):
+
+| Paced playback | Baseline parser work | Streamfold parser work |
+| --- | ---: | ---: |
+| Weather, first playback | 1.9 ms | 1.6 ms |
+| Weather, replay after Reset | 1.3 ms | 1.9 ms |
+| Trip planner, first playback | 6.9 ms | 7.7 ms |
+| Trip planner, replay after Reset | 7.2 ms | 7.5 ms |
+
+Streamfold still lost in several cases despite preparation. These small
+samples show remaining overhead and variability; they are not a controlled
+estimate of the preparation's effect or a guarantee for other devices.
 
 ### Why both sides finish together
 

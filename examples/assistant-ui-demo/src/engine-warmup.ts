@@ -1,4 +1,5 @@
 import { createStructuredStream } from "streamfold";
+import { createParserRunner } from "./parser-runner.ts";
 
 export type EngineWarmupSnapshot = {
   state: "idle" | "scheduled" | "ready" | "failed";
@@ -8,12 +9,40 @@ export type EngineWarmupSnapshot = {
 };
 type IdleScheduler = (run: () => void) => () => void;
 
-function initializeEngine() {
-  // The published API lazily initializes and caches the page's WASM instance.
-  // Dispose the temporary parser, retaining only that shared engine. No fixture
-  // is parsed and no tool call or result is created by warm-up.
-  const scanner = createStructuredStream({ snapshots: "immutable" });
-  scanner.dispose();
+function initializeEngine(source: "background" | "first-use") {
+  if (source === "first-use") {
+    // An early click only initializes the engine. Do not delay playback with a
+    // synthetic stream; the real event exercises the parser itself.
+    const scanner = createStructuredStream({ snapshots: "immutable" });
+    scanner.dispose();
+    return;
+  }
+  // Creating an empty scanner does not exercise push(), patch decoding, or
+  // immutable snapshots. Prepare those paths once, for BOTH parsers, with the
+  // same small, unrelated JSON stream. No demo fixture, validation, or tool runs.
+  // This reduces first-use work, but does not guarantee optimized JIT code or
+  // change the published parser's per-event overhead.
+  const text =
+    '{"label":"Preparing parsers","count":2,"items":[{"ready":true},null,3.5],"nested":{"label":"ok"}}';
+  for (const side of ["without", "with"] as const) {
+    const runner = createParserRunner(side);
+    try {
+      runner.push({
+        type: "part-start",
+        path: [0],
+        part: { type: "tool-call", toolCallId: "prepare", toolName: "prepare" },
+      });
+      for (let offset = 0; offset < text.length; offset += 6)
+        runner.push({
+          type: "text-delta",
+          path: [0],
+          textDelta: text.slice(offset, offset + 6),
+        });
+      runner.push({ type: "tool-call-args-text-finish", path: [0] });
+    } finally {
+      runner.dispose();
+    }
+  }
 }
 
 export function createEngineWarmup(
@@ -33,7 +62,7 @@ export function createEngineWarmup(
     const started = now();
     const attempts = snapshot.attempts + 1;
     try {
-      initialize();
+      initialize(source);
       publish({
         state: "ready",
         source,

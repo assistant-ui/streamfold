@@ -5,6 +5,7 @@ import type {
 import { fixtureEvents, scenarios, type Scenario } from "./fixtures.ts";
 import { resultFor } from "./tool-data.ts";
 import { createParserRunner } from "./parser-runner.ts";
+import { ensureStreamfoldReady } from "./engine-warmup.ts";
 
 export type Side = "without" | "with";
 type SideState = "idle" | "running" | "complete" | "cancelled" | "error";
@@ -149,9 +150,11 @@ export function createComparison(
                 : delta,
             );
           }
-          measureParser(side, event.type === "text-delta", () =>
-            runner.push(event),
-          );
+          measureParser(side, event.type === "text-delta", () => {
+            if (side === "with" && event.type === "part-start")
+              ensureStreamfoldReady();
+            runner.push(event);
+          });
           for (const call of runner.calls.values()) {
             const previous = calls[side].get(call.id);
             calls[side].set(call.id, {

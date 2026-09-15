@@ -6,6 +6,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "bench:parsers": "node --experimental-strip-types scripts/benchmark-parsers.mjs",
+    "bench:playback": "node --experimental-strip-types scripts/benchmark-playback.mjs",
     "test": "node --experimental-strip-types --test src/*.test.ts",
     "test:browser": "node --test tests/*.test.mjs"
   },
