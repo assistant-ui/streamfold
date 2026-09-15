@@ -42,8 +42,18 @@ Keep schema validation, authorization, and tool execution in your application.
 
 Managed consumption finalizes pending calls at normal EOF and disposes on early
 exit or failure. Pass the same abort signal to your SDK/transport to cancel the
-network request too. The explicit signal and testing subpath require the current
-source branch; the three normal-consumption examples work with Streamfold 0.1.5.
+network request too. The explicit signal and testing subpath require Streamfold
+0.1.6 or newer; the three normal-consumption examples also work with 0.1.5.
 
 The assistant-ui adapter is an event translator. This example does not replace
 assistant-ui's internal parser or claim an end-to-end performance improvement.
+
+## Interactive assistant-ui demo
+
+The [standalone React demo](./assistant-ui-demo/README.md) consumes the published
+Streamfold package through real assistant-ui runtime and tool-rendering
+primitives and the existing WeatherWidget, Chart, Timeline, and DataTable UI.
+It includes a with/without comparison, a complex trip planner, a live event
+inspector, cancellation, concurrent tool calls, and malformed-JSON handling.
+All model events and weather data are
+fixtures; no API key is required.
