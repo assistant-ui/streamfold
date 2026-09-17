@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -38,8 +39,10 @@ jobs:
           components: clippy,rustfmt
           targets: wasm32-unknown-unknown
 
-      - name: Use npm with trusted publishing support
-        run: npm install --global npm@^11.15.0
+      - name: Install the npm publish client
+        run: |
+          pnpm add --global npm@11.15.0
+          npm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -69,10 +72,26 @@ jobs:
             exit 1
           fi
 
-          if [ "v$package_version" != "$GITHUB_REF_NAME" ]; then
+          release_tag="v$package_version"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "Manual release retries must run from main."
+              exit 1
+            fi
+
+            # Build the workflow's own commit so provenance describes the source
+            # actually used. A retry may only publish unchanged tagged inputs.
+            git rev-parse --verify "refs/tags/$release_tag^{commit}"
+            git merge-base --is-ancestor "$release_tag" HEAD
+            git diff --exit-code "$release_tag" HEAD -- \
+              packages/core crates scripts package.json pnpm-lock.yaml \
+              pnpm-workspace.yaml Cargo.toml Cargo.lock rust-toolchain.toml \
+              LICENSE .cargo .npmrc .pnpmfile.cjs .gitattributes
+          elif [ "$release_tag" != "$GITHUB_REF_NAME" ]; then
             echo "Tag $GITHUB_REF_NAME does not match package version $package_version."
             exit 1
           fi
+          echo "RELEASE_TAG=$release_tag" >> "$GITHUB_ENV"
 
           if npm view "streamfold@$package_version" version >/dev/null 2>&1; then
             echo "streamfold@$package_version is already published; npm publish will be skipped."
@@ -92,22 +111,32 @@ jobs:
 
       - name: Publish to npm
         if: env.NPM_ALREADY_PUBLISHED != 'true'
-        run: pnpm publish:npm --access public --tag "$NPM_DIST_TAG" --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/streamfold-publish.npmrc"
+            umask 077
+            printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > "$NPM_CONFIG_USERCONFIG"
+            trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
+          fi
+          pnpm publish:npm --access public --tag "$NPM_DIST_TAG" --provenance
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "GitHub release $GITHUB_REF_NAME already exists."
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub release $RELEASE_TAG already exists."
           else
             release_flags=()
             if [ "$NPM_DIST_TAG" = "beta" ]; then
               release_flags+=(--prerelease)
             fi
-            gh release create "$GITHUB_REF_NAME" \
+            gh release create "$RELEASE_TAG" \
               --verify-tag \
               --generate-notes \
-              --title "Streamfold $GITHUB_REF_NAME" \
+              --title "Streamfold $RELEASE_TAG" \
               "${release_flags[@]}"
           fi

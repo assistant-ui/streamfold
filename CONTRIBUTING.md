@@ -41,9 +41,12 @@ Rust changes must include the regenerated
 
 ## Maintainer releases
 
-Releases publish through `.github/workflows/release.yml` using npm trusted
-publishing. The npm trusted publisher must match this repository, the
-`release.yml` workflow, and the GitHub environment named `npm`.
+Releases publish through `.github/workflows/release.yml` with provenance.
+For token authentication, save a publishing token as the `NPM_TOKEN` secret
+in the GitHub environment named `npm`. The workflow exposes it only to the
+publish step through a temporary npm configuration. Never commit the token.
+Without that secret, npm can use trusted publishing; its configuration must
+match this repository, the `release.yml` workflow, and the `npm` environment.
 
 Start from a clean, up-to-date `main`. Update the **Unreleased** changelog for
 the version being prepared, then run the release checks:
@@ -59,3 +62,12 @@ both package versions, checks the package, commits, tags, and pushes before
 waiting for publication.
 A release tag must point to a commit contained in `origin/main`. To resume
 waiting for an already-pushed release, use `pnpm release:await` from its commit.
+
+If a tagged release failed and needs a workflow fix, merge the fix first,
+then run `gh workflow run release.yml --ref main`. This retry uses the
+current package version and requires its existing tag to be an ancestor of
+`main`, with identical package source and build inputs. It builds `main`
+so provenance identifies the actual build commit. It never moves the tag,
+and it skips npm publication if that version already exists. An existing
+GitHub release draft remains a draft until a maintainer publishes it after
+verifying the npm package.
