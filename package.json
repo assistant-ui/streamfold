@@ -27,7 +27,7 @@
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
-    "ai": "7.0.66",
+    "ai": "7.0.102",
     "assistant-stream": "0.3.39",
     "bumpp": "^12.2.1",
     "fast-check": "4.9.0",
