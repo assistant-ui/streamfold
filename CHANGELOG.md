@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.8
+
+- Enforce byte limits before allocating WebAssembly input memory, preventing
+  oversized chunks from unnecessarily growing the parser's linear memory.
 - Add `prepareStreamfold()` to compile and cache the WebAssembly module before
   first use.
 
