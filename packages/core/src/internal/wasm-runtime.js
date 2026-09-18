@@ -207,14 +207,16 @@ const pushChunk = (parser, chunk) => {
     );
   }
   const { wasm, handle } = parser;
-  const capacity = chunk.length * 3;
+  const remaining = parser.maxBytes - (wasm.streamfold_parser_bytes_seen(handle) >>> 0);
+  if (chunk.length > remaining) throw parserError(parser, 7);
+  const capacity = Math.min(chunk.length * 3, remaining);
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
   if (capacity > 0) {
     const input = new Uint8Array(wasm.memory.buffer, pointer, capacity);
     const result = encoder.encodeInto(chunk, input);
     if (result.read !== chunk.length) {
-      throw new Error("Unable to encode the complete stream fragment");
+      throw parserError(parser, 7);
     }
     length = result.written;
   }
