@@ -5,6 +5,7 @@ import {
   STREAMFOLD_ENGINE,
   StructuredStreamPool,
 } from "./index.js";
+import { createWasmParser, freeWasmParser } from "./internal/wasm-runtime.js";
 
 test("rejects unpaired raw UTF-16 instead of returning inconsistent partial and final values", () => {
   for (const units of [[0xd800], [0xdc00], [0xd800, 0xd800], [0xd800, 0x61]]) {
@@ -177,6 +178,48 @@ test("enforces byte and depth limits with terminal failures", () => {
     () => new IncrementalJsonScanner({ maxDepth: 0 }),
     /maxDepth must be an integer/,
   );
+});
+
+test("enforces the remaining UTF-8 byte budget before growing WASM memory", () => {
+  const probe = createWasmParser({ maxBytes: 8, maxDepth: 128 });
+  const before = probe.wasm.memory.buffer.byteLength;
+  const oversized = new IncrementalJsonScanner({ maxBytes: 8 });
+  try {
+    let failure;
+    assert.throws(
+      () => oversized.push('"' + "x".repeat(4 * 1024 * 1024) + '"'),
+      (error) => {
+        failure = error;
+        return error.code === "MAX_BYTES_EXCEEDED";
+      },
+    );
+    assert.equal(probe.wasm.memory.buffer.byteLength, before);
+    assert.throws(() => oversized.push("{}"), (error) => error === failure);
+  } finally {
+    oversized.dispose();
+    freeWasmParser(probe);
+  }
+
+  const multibyte = new IncrementalJsonScanner({ maxBytes: 8 });
+  try {
+    multibyte.push('"');
+    assert.throws(() => multibyte.push("éééé"), (error) => {
+      assert.equal(error.code, "MAX_BYTES_EXCEEDED");
+      assert.match(error.message, /maxBytes \(8\)/);
+      return true;
+    });
+  } finally {
+    multibyte.dispose();
+  }
+
+  const exact = new IncrementalJsonScanner({ maxBytes: 6 });
+  try {
+    exact.push('"');
+    exact.push("éé");
+    assert.equal(exact.push('"').complete, true);
+  } finally {
+    exact.dispose();
+  }
 });
 
 test("bounds active streams and cleans up failed pool entries", () => {
