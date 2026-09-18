@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.9
+
+- Keep one embedded WebAssembly payload in minified browser bundles when both
+  synchronous startup and asynchronous preparation are used, reducing download
+  size without changing parser behavior or public APIs.
+
 ## 0.1.8
 
 - Enforce byte limits before allocating WebAssembly input memory, preventing
