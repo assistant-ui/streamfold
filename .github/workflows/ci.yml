@@ -35,8 +35,12 @@ jobs:
       - run: git diff --exit-code -- packages/core/src/internal/wasm-binary.js
 
   browser:
-    name: Browser
+    name: Browser (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2
@@ -44,8 +48,29 @@ jobs:
           runtime: node@22
           install: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps "$STREAMFOLD_BROWSER"
+        env:
+          STREAMFOLD_BROWSER: ${{ matrix.browser }}
       - run: pnpm test:browser
+        env:
+          STREAMFOLD_BROWSER: ${{ matrix.browser }}
+
+  node-20:
+    name: Node.js 20 core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@22
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - uses: pnpm/setup@v2
+        with:
+          runtime: node@20
+          install: false
+      - run: node --test packages/core/src/*.test.js
 
   assistant-ui-demo:
     name: Assistant UI demo
