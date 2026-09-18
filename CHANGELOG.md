@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `prepareStreamfold()` to compile and cache the WebAssembly module before
+  first use.
+
 ## 0.1.7
 
 - Close failing upstream iterators and support reader-only `ReadableStream`
