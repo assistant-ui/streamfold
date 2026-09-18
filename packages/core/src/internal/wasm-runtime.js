@@ -17,6 +17,8 @@ const PATCH_COMPLETE = 8;
 
 const encoder = new TextEncoder();
 let exports;
+let compiledModule;
+let compiling;
 
 const decodeBase64 = (base64) => {
   const binary = globalThis.atob(base64);
@@ -32,9 +34,37 @@ const getExports = () => {
   if (typeof WebAssembly !== "object") {
     throw new Error("Streamfold requires WebAssembly support");
   }
-  const module = new WebAssembly.Module(decodeBase64(wasmBinaryBase64));
+  const module =
+    compiledModule ?? new WebAssembly.Module(decodeBase64(wasmBinaryBase64));
   exports = new WebAssembly.Instance(module, {}).exports;
   return exports;
+};
+
+export const prepareWasm = () => {
+  if (exports !== undefined || compiledModule !== undefined)
+    return Promise.resolve();
+  if (compiling !== undefined) return compiling;
+  if (
+    typeof WebAssembly !== "object" ||
+    typeof WebAssembly.compile !== "function"
+  ) {
+    return Promise.reject(new Error("Streamfold requires WebAssembly support"));
+  }
+  try {
+    compiling = WebAssembly.compile(decodeBase64(wasmBinaryBase64)).then(
+      (module) => {
+        compiledModule = module;
+        compiling = undefined;
+      },
+      (error) => {
+        compiling = undefined;
+        throw error;
+      },
+    );
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return compiling;
 };
 
 const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {

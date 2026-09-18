@@ -10,8 +10,12 @@ event adapter from an integration subpath.
 | `createStructuredStream(options?)` | `IncrementalJsonScanner` | Parse one JSON stream |
 | `createStructuredStream(integration)` | Adapter's stream type | Compose an event adapter |
 | `createStructuredStreamPool(options?)` | `StructuredStreamPool` | Track interleaved streams by ID |
+| `prepareStreamfold()` | `Promise<void>` | Compile and cache WebAssembly before first use |
 | `defineAdapter(mapEvent)` | `StructuredStreamAdapter` | Build an adapter for custom decoded events |
 | `readStructured(events, { adapter, limits? })` | `AsyncGenerator` | Consume events with automatic finalization and cleanup |
+
+Call `prepareStreamfold()` during idle time to compile the embedded module
+asynchronously. Scanner creation remains synchronous and uses the cached module.
 
 ### Options
 
