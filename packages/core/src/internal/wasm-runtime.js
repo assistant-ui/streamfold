@@ -20,8 +20,8 @@ let exports;
 let compiledModule;
 let compiling;
 
-const decodeBase64 = (base64) => {
-  const binary = globalThis.atob(base64);
+const decodeWasmBytes = () => {
+  const binary = globalThis.atob(wasmBinaryBase64);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) {
     bytes[index] = binary.charCodeAt(index);
@@ -35,7 +35,7 @@ const getExports = () => {
     throw new Error("Streamfold requires WebAssembly support");
   }
   const module =
-    compiledModule ?? new WebAssembly.Module(decodeBase64(wasmBinaryBase64));
+    compiledModule ?? new WebAssembly.Module(decodeWasmBytes());
   exports = new WebAssembly.Instance(module, {}).exports;
   return exports;
 };
@@ -51,7 +51,7 @@ export const prepareWasm = () => {
     return Promise.reject(new Error("Streamfold requires WebAssembly support"));
   }
   try {
-    compiling = WebAssembly.compile(decodeBase64(wasmBinaryBase64)).then(
+    compiling = WebAssembly.compile(decodeWasmBytes()).then(
       (module) => {
         compiledModule = module;
         compiling = undefined;
