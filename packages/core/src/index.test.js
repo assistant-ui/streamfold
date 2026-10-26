@@ -110,6 +110,42 @@ test("reports UTF-8 bytes for non-ASCII input", () => {
   scanner.dispose();
 });
 
+test("rejects non-JSON whitespace across chunk boundaries", () => {
+  for (const whitespace of ["\v", "\f"]) {
+    for (const input of [
+      `${whitespace}{}`,
+      `{"value":${whitespace}1}`,
+      `[1,${whitespace}2]`,
+      `{}${whitespace}`,
+      `1${whitespace}`,
+    ]) {
+      for (let split = 0; split <= input.length; split++) {
+        const scanner = new IncrementalJsonScanner();
+        try {
+          assert.throws(() => {
+            scanner.push(input.slice(0, split));
+            scanner.push(input.slice(split));
+            scanner.finish();
+          }, SyntaxError, `${JSON.stringify(input)} at split ${split}`);
+        } finally {
+          scanner.dispose();
+        }
+      }
+    }
+  }
+});
+
+test("accepts JSON whitespace and escaped form-feed values", () => {
+  const input = ' \t\r\n{ "value": "\\f" } \t\r\n';
+  const scanner = new IncrementalJsonScanner();
+  try {
+    for (const character of input) scanner.push(character);
+    assert.deepEqual(scanner.finish().partialValue, { value: "\f" });
+  } finally {
+    scanner.dispose();
+  }
+});
+
 test("translates Rust parser failures into JavaScript syntax errors", () => {
   const empty = new IncrementalJsonScanner();
   assert.throws(() => empty.finish(), /Empty JSON input/);

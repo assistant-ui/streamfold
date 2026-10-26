@@ -7,6 +7,10 @@ pub use partial::{PartialValueParser, StructuredJsonParser};
 pub const DEFAULT_MAX_BYTES: usize = 16 * 1024 * 1024;
 pub const DEFAULT_MAX_DEPTH: usize = 128;
 
+fn is_json_whitespace(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\n' | b'\r' | b'\t')
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Container {
     Object,
@@ -88,7 +92,7 @@ impl JsonStreamParser {
             self.bytes_seen += 1;
 
             if self.complete {
-                if !byte.is_ascii_whitespace() {
+                if !is_json_whitespace(byte) {
                     return Err(StreamError::TrailingData { offset });
                 }
                 continue;
@@ -143,7 +147,7 @@ impl JsonStreamParser {
             && self.stack.is_empty()
             && !self.in_string
             && self.primitive
-            && chunk.last().is_some_and(|b| b.is_ascii_whitespace())
+            && chunk.last().is_some_and(|b| is_json_whitespace(*b))
         {
             self.complete = true;
         }

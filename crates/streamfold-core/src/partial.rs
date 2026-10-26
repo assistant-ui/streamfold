@@ -1,4 +1,4 @@
-use crate::{JsonStreamParser, StreamError, StreamState};
+use crate::{JsonStreamParser, StreamError, StreamState, is_json_whitespace};
 
 const PATCH_SET_OBJECT: u8 = 0;
 const PATCH_SET_ARRAY: u8 = 1;
@@ -383,7 +383,7 @@ impl PartialValueParser {
     }
 
     fn consume_structural(&mut self, byte: u8, offset: usize) -> Result<(), StreamError> {
-        if byte.is_ascii_whitespace() {
+        if is_json_whitespace(byte) {
             return Ok(());
         }
 
