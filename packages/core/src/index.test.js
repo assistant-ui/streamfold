@@ -76,6 +76,26 @@ test("preserves surrogate pairs split across separate pushes", () => {
   scanner.dispose();
 });
 
+test("rejects raw controls after string runs at the original byte offset", () => {
+  for (let control = 0; control < 0x20; control++) {
+    for (const prefix of ['{"', '{"value":"']) {
+      const before = prefix + "é".repeat(128);
+      const input = before + String.fromCharCode(control) + 'tail"}';
+      for (const split of [0, prefix.length + 64, before.length]) {
+        const scanner = new IncrementalJsonScanner();
+        try {
+          assert.throws(() => {
+            scanner.push(input.slice(0, split));
+            scanner.push(input.slice(split));
+          }, { name: "SyntaxError", code: "INVALID_JSON", byteOffset: Buffer.byteLength(before) });
+        } finally {
+          scanner.dispose();
+        }
+      }
+    }
+  }
+});
+
 test("reports useful partial structural state", () => {
   const scanner = new IncrementalJsonScanner();
   const state = scanner.push('{"items":[{"name":"hel');

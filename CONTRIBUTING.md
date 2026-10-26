@@ -19,6 +19,11 @@ tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
 and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
 directory.
 
+For string-parser changes, run `pnpm bench:strings /path/to/baseline/src/index.js`
+against an unpacked baseline package. It alternates the two implementations on
+identical ASCII, Unicode, and escaped strings with live and immutable snapshots,
+checks final values, and records medians and p95s in `artifacts/string-runs.json`.
+
 The standalone assistant-ui demo has its own locked dependencies and CI job.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check
