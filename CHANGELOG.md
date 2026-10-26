@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reject form feeds outside JSON strings, keeping incremental acceptance consistent
+  with JSON.parse across chunk boundaries.
+
 ## 0.1.9
 
 - Keep one embedded WebAssembly payload in minified browser bundles when both
