@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Report the accepted UTF-8 byte offset when a chunk exceeds the byte limit
+  before entering the WASM parser.
+
 ## 0.1.12
 
 - Refresh development and assistant-ui demo dependencies, including security
