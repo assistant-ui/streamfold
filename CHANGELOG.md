@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Mark a replaced field partial as soon as a new negative number starts,
+  preserving the previous partial value until the first digit arrives.
+
 ## 0.1.12
 
 - Refresh development and assistant-ui demo dependencies, including security

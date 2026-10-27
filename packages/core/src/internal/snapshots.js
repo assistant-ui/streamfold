@@ -18,7 +18,7 @@ export const applyImmutableChanges = (previous, changes) => {
 
   let next = previous;
   for (const change of changes) {
-    if (change.op === "complete") continue;
+    if (change.op === "complete" || change.op === "invalidate") continue;
     const replacement = (current) => {
       if (change.op === "append") return current + change.value;
       return change.value !== null && typeof change.value === "object"

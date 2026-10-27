@@ -52,6 +52,28 @@ test("immutable duplicate keys replace values and invalidate field completion", 
   stream.dispose();
 });
 
+test("replacement negative numbers invalidate completion before their first digit", () => {
+  for (const snapshots of ["live", "immutable"]) {
+    for (const chunks of [['{"a":1,"a":-'], ['{"a":1,"a":', "-"]]) {
+      const stream = createStructuredStream({ snapshots });
+      try {
+        let update;
+        for (const chunk of chunks) update = stream.push(chunk);
+        assert.deepEqual(update.partialValue, { a: 1 });
+        assert.equal(stream.getFieldState(["a"]), "partial");
+        assert.equal(stream.getFieldState(["a", "child"]), "partial");
+        assert.equal(update.changes.every(({ op }) => ["set", "append", "complete"].includes(op)), true);
+        assert.deepEqual(stream.push("").changes, []);
+        stream.push("2}");
+        assert.deepEqual(stream.finish().partialValue, { a: -2 });
+        assert.equal(stream.getFieldState(["a"]), "complete");
+      } finally {
+        stream.dispose();
+      }
+    }
+  }
+});
+
 test("immutable snapshots handle special keys and every Unicode chunk boundary", () => {
   const text =
     '{"__proto__":{"polluted":true},"constructor":{"name":"x"},"items":[1,true,null,"\\uD83D\\uDE80","é\uD83D\uDE80"]}';

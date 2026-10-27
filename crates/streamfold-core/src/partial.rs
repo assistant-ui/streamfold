@@ -9,6 +9,7 @@ const PATCH_SET_TRUE: u8 = 5;
 const PATCH_SET_FALSE: u8 = 6;
 const PATCH_SET_NULL: u8 = 7;
 const PATCH_COMPLETE: u8 = 8;
+const PATCH_INVALIDATE: u8 = 9;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PathSegment {
@@ -671,6 +672,13 @@ impl PartialValueParser {
         };
         if let Some((path, delta)) = append {
             self.emit_string_append(&path, &delta);
+        }
+
+        if let Token::Number(number) = &self.token
+            && number.raw == b"-"
+        {
+            let path = number.path.clone();
+            self.emit_path_patch(PATCH_INVALIDATE, &path);
         }
 
         let number = if let Token::Number(number) = &self.token {
