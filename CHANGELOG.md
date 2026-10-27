@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.11
+
+- Copy frozen arrays by iteration when producing immutable snapshots, reducing
+  the cost of streaming dense arrays while retaining historical values.
+- Process unescaped string runs in batches, reducing Rust token-state handling
+  while preserving partial values, escapes, and invalid-input offsets.
+
+## 0.1.10
+
+- Reject form feeds outside JSON strings, keeping incremental acceptance consistent
+  with JSON.parse across chunk boundaries.
+
 ## 0.1.9
 
 - Keep one embedded WebAssembly payload in minified browser bundles when both

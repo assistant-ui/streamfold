@@ -1,6 +1,6 @@
 {
   "name": "streamfold-workspace",
-  "version": "0.1.9",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,8 @@
     "check": "pnpm build:wasm && pnpm check:syntax && pnpm typecheck && pnpm test && cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test",
     "pack:check": "cd packages/core && npm pack --dry-run",
     "bench": "node benchmarks/bench.mjs",
+    "bench:strings": "node benchmarks/string-runs.mjs",
+    "bench:snapshots": "node benchmarks/snapshots.mjs",
     "bench:sdk": "node benchmarks/sdk-adapters.mjs",
     "bench:published": "node scripts/benchmark-published.mjs",
     "dashboard": "node dashboard/server.mjs",
