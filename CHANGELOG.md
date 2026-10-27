@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Scan numeric prefixes once instead of repeatedly parsing them, avoiding
+  quadratic work on malformed numeric chunks.
+
 ## 0.1.12
 
 - Refresh development and assistant-ui demo dependencies, including security
