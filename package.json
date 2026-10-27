@@ -14,6 +14,7 @@
     "pack:check": "cd packages/core && npm pack --dry-run",
     "bench": "node benchmarks/bench.mjs",
     "bench:strings": "node benchmarks/string-runs.mjs",
+    "bench:snapshots": "node benchmarks/snapshots.mjs",
     "bench:sdk": "node benchmarks/sdk-adapters.mjs",
     "bench:published": "node scripts/benchmark-published.mjs",
     "dashboard": "node dashboard/server.mjs",

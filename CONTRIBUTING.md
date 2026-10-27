@@ -24,6 +24,10 @@ against an unpacked baseline package. It alternates the two implementations on
 identical ASCII, Unicode, and escaped strings with live and immutable snapshots,
 checks final values, and records medians and p95s in `artifacts/string-runs.json`.
 
+For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
+It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
+checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
+
 The standalone assistant-ui demo has its own locked dependencies and CI job.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check
