@@ -3,6 +3,7 @@ import {
   createStructuredStreamPool,
   defineAdapter,
   readStructured,
+  prepareStreamfold,
   isStructuredStreamError,
   DEFAULT_STREAM_LIMITS,
   STREAMFOLD_ENGINE,
@@ -29,6 +30,7 @@ import { openAI } from "streamfold/openai";
 import { adapterContractTests } from "streamfold/testing";
 
 const scanner = createStructuredStream();
+prepareStreamfold satisfies () => Promise<void>;
 scanner.push('{"ok":');
 scanner.push("true}");
 scanner.finish();

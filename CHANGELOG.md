@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+## 0.1.11
+
+- Copy frozen arrays by iteration when producing immutable snapshots, reducing
+  the cost of streaming dense arrays while retaining historical values.
+- Process unescaped string runs in batches, reducing Rust token-state handling
+  while preserving partial values, escapes, and invalid-input offsets.
+
+## 0.1.10
+
+- Reject form feeds outside JSON strings, keeping incremental acceptance consistent
+  with JSON.parse across chunk boundaries.
+
+## 0.1.9
+
+- Keep one embedded WebAssembly payload in minified browser bundles when both
+  synchronous startup and asynchronous preparation are used, reducing download
+  size without changing parser behavior or public APIs.
+
+## 0.1.8
+
+- Enforce byte limits before allocating WebAssembly input memory, preventing
+  oversized chunks from unnecessarily growing the parser's linear memory.
+- Add `prepareStreamfold()` to compile and cache the WebAssembly module before
+  first use.
+
+## 0.1.7
+
+- Close failing upstream iterators and support reader-only `ReadableStream`
+  sources in `readStructured` whether or not an abort signal is supplied.
+- Accept browser readable streams in the public types without requiring
+  `DOM.AsyncIterable` in the consumer's TypeScript libraries.
+- Reject raw unpaired UTF-16 surrogates with `INVALID_CHUNK` instead of silently
+  producing different partial and final values. Split valid pairs and JSON
+  Unicode escapes remain supported.
+- Add the standalone assistant-ui weather, complex tools, and parser comparison
+  demo, including visible timing, idle preparation, and repeatable benchmarks.
+- Preserve the demo's selected scenario and speed when resetting a conversation,
+  and check its production build and browser flows in CI.
+
 ## 0.1.6
 
 - Add runnable, SDK-typechecked assistant-ui, Vercel AI, and custom-protocol
