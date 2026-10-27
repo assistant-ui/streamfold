@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Preserve Vercel AI SDK tool inputs that arrive complete without argument deltas.
 - Scan numeric prefixes once instead of repeatedly parsing them, avoiding
   quadratic work on malformed numeric chunks.
 
