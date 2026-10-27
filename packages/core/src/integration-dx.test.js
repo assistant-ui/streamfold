@@ -352,6 +352,29 @@ test("normal text and repeated Vercel completion do not emit spurious diagnostic
   assert.deepEqual(diagnostics, []);
 });
 
+test("Vercel final-only inputs preserve lifecycle, limits, and duplicate completion", () => {
+  const event = {
+    type: "tool-input-available",
+    toolCallId: "a",
+    toolName: "weather",
+    input: { city: "Paris" },
+  };
+  const stream = vercelAI(createStructuredStreamPool({ snapshots: "immutable" }));
+  const updates = stream.pushAll(event);
+  assert.deepEqual(updates.map(({ type }) => type), ["start", "complete"]);
+  assert.deepEqual(updates[1].value, { city: "Paris" });
+  assert.equal(Object.isFrozen(updates[1].value), true);
+  assert.deepEqual(stream.pushAll(event), []);
+  assert.equal(stream.finish().length, 1);
+
+  const pool = createStructuredStreamPool({ maxBytes: 4 });
+  assert.throws(() => vercelAI(pool).push(event), {
+    code: "MAX_BYTES_EXCEEDED",
+    id: "a",
+  });
+  assert.equal(pool.size, 0);
+});
+
 test("diagnostic callback failures never mask parser errors or prevent cleanup", () => {
   const pool = createStructuredStreamPool();
   const stream = vercelAI(pool, {
