@@ -1,4 +1,5 @@
-import { Columns2, MessageSquare, CloudSun, PanelsTopLeft } from "lucide-react";
+import { Columns2, CloudSun, PanelsTopLeft } from "lucide-react";
+import assistantUiLogo from "./assets/assistant-ui-logo.svg";
 import { Comparison } from "./Comparison.tsx";
 import { SingleDemo } from "./SingleDemo.tsx";
 import { EngineWarmupStatus } from "./EngineWarmupStatus.tsx";
@@ -12,12 +13,17 @@ export function App() {
     <>
       <header className="app-header">
         <div className="brand">
-          <span className="brand-icon">
-            <MessageSquare size={20} />
-          </span>
-          <h1>assistant-ui</h1>
+          <h1>
+            <img
+              className="brand-logo"
+              src={assistantUiLogo}
+              alt="assistant-ui"
+              width={180}
+              height={30}
+            />
+          </h1>
           <span className="brand-divider">/</span>
-          <span className="lab-name">Streamfold</span>
+          <span className="lab-name">streamfold</span>
         </div>
         <nav className="view-nav" aria-label="Demo view">
           <a
