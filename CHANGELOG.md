@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.13
+
 - Report the accepted UTF-8 byte offset when a chunk exceeds the byte limit
   before entering the WASM parser.
 - Preserve Vercel AI SDK tool inputs that arrive complete without argument deltas.
