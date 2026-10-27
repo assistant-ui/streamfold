@@ -67,8 +67,7 @@ export const prepareWasm = () => {
   return compiling;
 };
 
-const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
-  const offset = wasm.streamfold_parser_error_offset(handle) >>> 0;
+const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code, offset) => {
   const byte = wasm.streamfold_parser_error_byte(handle);
   if (code === 1) {
     const kind = byte === 44 || byte === 58 ? "separator" : "closing";
@@ -104,14 +103,15 @@ const parserErrorCodes = [
   "MAX_DEPTH_EXCEEDED",
 ];
 
-const parserError = (parser, code) =>
+const parserError = (
+  parser,
+  code,
+  byteOffset = parser.wasm.streamfold_parser_error_offset(parser.handle) >>> 0,
+) =>
   streamError(
-    describeParserError(parser, code),
+    describeParserError(parser, code, byteOffset),
     parserErrorCodes[code] ?? "PARSER_ERROR",
-    {
-      byteOffset:
-        parser.wasm.streamfold_parser_error_offset(parser.handle) >>> 0,
-    },
+    { byteOffset },
   );
 
 const readState = (parser, encoded) => {
@@ -237,8 +237,9 @@ const pushChunk = (parser, chunk) => {
     );
   }
   const { wasm, handle } = parser;
-  const remaining = parser.maxBytes - (wasm.streamfold_parser_bytes_seen(handle) >>> 0);
-  if (chunk.length > remaining) throw parserError(parser, 7);
+  const bytesSeen = wasm.streamfold_parser_bytes_seen(handle) >>> 0;
+  const remaining = parser.maxBytes - bytesSeen;
+  if (chunk.length > remaining) throw parserError(parser, 7, bytesSeen);
   const capacity = Math.min(chunk.length * 3, remaining);
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
@@ -246,7 +247,7 @@ const pushChunk = (parser, chunk) => {
     const input = new Uint8Array(wasm.memory.buffer, pointer, capacity);
     const result = encoder.encodeInto(chunk, input);
     if (result.read !== chunk.length) {
-      throw parserError(parser, 7);
+      throw parserError(parser, 7, bytesSeen);
     }
     length = result.written;
   }

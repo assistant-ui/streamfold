@@ -278,6 +278,29 @@ test("enforces the remaining UTF-8 byte budget before growing WASM memory", () =
   }
 });
 
+test("byte-limit failures report the accepted UTF-8 offset and stay terminal", () => {
+  for (const [prefix, rejected, byteOffset] of [
+    ['"abc', 'def"', 4],
+    ['"é', 'éé"', 3],
+  ]) {
+    const scanner = new IncrementalJsonScanner({ maxBytes: 6 });
+    try {
+      assert.equal(scanner.push(prefix).bytesSeen, byteOffset);
+      let failure;
+      assert.throws(() => scanner.push(rejected), (error) => {
+        failure = error;
+        assert.equal(error.code, "MAX_BYTES_EXCEEDED");
+        assert.equal(error.byteOffset, byteOffset);
+        assert.equal(error.message, `Structured stream exceeds maxBytes (6) at ${byteOffset}`);
+        return true;
+      });
+      assert.throws(() => scanner.finish(), (error) => error === failure);
+    } finally {
+      scanner.dispose();
+    }
+  }
+});
+
 test("bounds active streams and cleans up failed pool entries", () => {
   const bounded = new StructuredStreamPool({ maxActiveStreams: 1 });
   bounded.start("first");
