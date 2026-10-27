@@ -1,4 +1,4 @@
-use crate::{JsonStreamParser, StreamError, StreamState};
+use crate::{JsonStreamParser, StreamError, StreamState, is_json_whitespace};
 
 const PATCH_SET_OBJECT: u8 = 0;
 const PATCH_SET_ARRAY: u8 = 1;
@@ -288,8 +288,26 @@ impl PartialValueParser {
 
     pub fn push(&mut self, chunk: &[u8]) -> Result<(), StreamError> {
         self.output.clear();
-        for &byte in chunk {
+        let mut index = 0;
+        while index < chunk.len() {
+            if let Token::String(string) = &mut self.token
+                && string.escape == EscapeState::None
+            {
+                let remaining = &chunk[index..];
+                let length = remaining
+                    .iter()
+                    .position(|&byte| byte == b'"' || byte == b'\\' || byte < 0x20)
+                    .unwrap_or(remaining.len());
+                string.raw_utf8.extend_from_slice(&remaining[..length]);
+                index += length;
+                self.bytes_seen += length;
+                if index == chunk.len() {
+                    break;
+                }
+            }
+            let byte = chunk[index];
             let offset = self.bytes_seen;
+            index += 1;
             self.bytes_seen += 1;
             self.consume(byte, offset)?;
         }
@@ -383,7 +401,7 @@ impl PartialValueParser {
     }
 
     fn consume_structural(&mut self, byte: u8, offset: usize) -> Result<(), StreamError> {
-        if byte.is_ascii_whitespace() {
+        if is_json_whitespace(byte) {
             return Ok(());
         }
 

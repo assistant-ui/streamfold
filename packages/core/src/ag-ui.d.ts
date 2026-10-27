@@ -1,6 +1,7 @@
 import type {
-  EventStructuredStream,
-  StructuredStreamIntegration,
+  BatchEventStructuredStream,
+  BatchStructuredStreamIntegration,
+  StructuredStreamIntegrationOptions,
   StructuredStreamPool,
 } from "./index.js";
 
@@ -24,8 +25,9 @@ export type AgUiToolCallEvent =
       readonly [key: string]: unknown;
     };
 
-export const agUI: StructuredStreamIntegration<AgUiToolCallEvent, string>;
+export const agUI: BatchStructuredStreamIntegration<AgUiToolCallEvent, string>;
 
 export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
-): EventStructuredStream<AgUiToolCallEvent, string>;
+  options?: StructuredStreamIntegrationOptions,
+): BatchEventStructuredStream<AgUiToolCallEvent, string>;

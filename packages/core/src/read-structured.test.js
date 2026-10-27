@@ -1,0 +1,402 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { defineAdapter, IncrementalJsonScanner, readStructured } from "./index.js";
+import { langchain } from "./langchain.js";
+import { vercelAI } from "./vercel-ai.js";
+
+const adapter = defineAdapter((operations) => operations);
+const events = [
+  [{ type: "start", id: "a" }, { type: "start", id: "b" }],
+  [{ type: "delta", id: "a", text: '{"city":"San' }],
+  [],
+  [
+    { type: "delta", id: "b", text: "42" },
+    { type: "delta", id: "a", text: ' Francisco"}' },
+    { type: "end", id: "a" },
+  ],
+];
+
+const collect = async (source) => {
+  const updates = [];
+  for await (const update of source) updates.push(structuredClone(update));
+  return updates;
+};
+
+test("managed consumption matches the manual API, including remaining calls at EOF", async () => {
+  const manual = adapter();
+  const expected = [];
+  try {
+    for (const event of events) {
+      expected.push(...structuredClone(manual.pushAll(event)));
+    }
+    expected.push(...manual.finish());
+  } finally {
+    manual.dispose();
+  }
+
+  async function* asyncEvents() {
+    yield* events;
+  }
+
+  for (const source of [events, asyncEvents()]) {
+    const actual = await collect(readStructured(source, { adapter }));
+    assert.deepEqual(actual, expected);
+    assert.deepEqual(actual.filter((update) => "value" in update).map(({ id }) => id), ["a", "b"]);
+    assert.deepEqual(actual[2].partialValue, { city: "San" });
+    assert.equal(actual.at(-1).value, 42);
+  }
+});
+
+test("ignores empty events and aborts calls without emitting completions", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  assert.deepEqual(await collect(readStructured([], { adapter })), []);
+  assert.deepEqual(await collect(readStructured([[], []], { adapter })), []);
+  const updates = await collect(readStructured([
+    [{ type: "start", id: 1 }],
+    [{ type: "abort", id: 1 }],
+  ], { adapter }));
+  assert.equal(updates.length, 1);
+  assert.equal(dispose.mock.callCount(), 1);
+});
+
+test("creates sessions lazily and gives concurrent reads separate parser pools", async (t) => {
+  const factory = t.mock.fn(adapter);
+  const first = readStructured(events, { adapter: factory });
+  const unused = readStructured(events, { adapter: factory });
+  assert.equal(factory.mock.callCount(), 0);
+  await unused.return();
+  assert.equal(factory.mock.callCount(), 0);
+
+  const second = readStructured(events, { adapter: factory });
+  const [a, b] = await Promise.all([collect(first), collect(second)]);
+  assert.deepEqual(a, b);
+  assert.equal(factory.mock.callCount(), 2);
+});
+
+test("an early break closes the source and disposes every active parser", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let pulled = 0;
+  let closed = false;
+  async function* source() {
+    try {
+      pulled++;
+      yield [{ type: "start", id: 1 }, { type: "start", id: 2 }];
+      pulled++;
+      yield [{ type: "delta", id: 1, text: "{}" }];
+    } finally {
+      closed = true;
+    }
+  }
+  for await (const update of readStructured(source(), { adapter })) {
+    assert.equal(update.id, 1);
+    break;
+  }
+  assert.equal(pulled, 1);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("consumer errors close synchronous sources and preserve the original error", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let closed = false;
+  function* source() {
+    try {
+      yield [{ type: "start", id: 1 }];
+    } finally {
+      closed = true;
+    }
+  }
+  const failure = new Error("render failed");
+  await assert.rejects(async () => {
+    for await (const update of readStructured(source(), { adapter })) {
+      assert.equal(update.id, 1);
+      throw failure;
+    }
+  }, (error) => error === failure);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 1);
+});
+
+test("source failures abandon incomplete calls without trying to finalize them", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  const finish = t.mock.method(IncrementalJsonScanner.prototype, "finish");
+  const failure = new Error("connection lost");
+  async function* source() {
+    yield [
+      { type: "start", id: 1 },
+      { type: "delta", id: 1, text: "{" },
+    ];
+    throw failure;
+  }
+  await assert.rejects(collect(readStructured(source(), { adapter })), (error) => error === failure);
+  assert.equal(finish.mock.callCount(), 0);
+  assert.equal(dispose.mock.callCount(), 1);
+});
+
+test("mapper failures close the source and release parser state", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  const failure = new Error("unrecognized envelope");
+  const failingAdapter = defineAdapter((event) => {
+    if (event === "fail") throw failure;
+    return event;
+  });
+  let closed = false;
+  async function* source() {
+    try {
+      yield [{ type: "start", id: 1 }];
+      yield "fail";
+    } finally {
+      closed = true;
+    }
+  }
+  await assert.rejects(collect(readStructured(source(), { adapter: failingAdapter })), (error) => error === failure);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 1);
+});
+
+test("invalid final JSON rejects and disposes all active calls", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  await assert.rejects(collect(readStructured([
+    [
+      { type: "start", id: 1 },
+      { type: "delta", id: 1, text: "{" },
+      { type: "start", id: 2 },
+    ],
+  ], { adapter })), SyntaxError);
+  assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("forwards pool limits and closes the source when they are exceeded", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let closed = false;
+  async function* source() {
+    try {
+      yield [{ type: "start", id: 1 }, { type: "start", id: 2 }];
+    } finally {
+      closed = true;
+    }
+  }
+  await assert.rejects(collect(readStructured(source(), {
+    adapter,
+    limits: { maxActiveStreams: 1 },
+  })), /maxActiveStreams/);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 1);
+});
+
+test("does not pull another source event until the current batch is consumed", async () => {
+  let pulled = 0;
+  async function* source() {
+    pulled++;
+    yield [{ type: "start", id: 1 }, { type: "start", id: 2 }];
+    pulled++;
+    yield [{ type: "abort", id: 1 }, { type: "abort", id: 2 }];
+  }
+  const updates = readStructured(source(), { adapter });
+  assert.equal((await updates.next()).value.id, 1);
+  assert.equal(pulled, 1);
+  assert.equal((await updates.next()).value.id, 2);
+  assert.equal(pulled, 1);
+  assert.equal((await updates.next()).done, true);
+  assert.equal(pulled, 2);
+});
+
+test("disposes even when iterator acquisition or source cleanup throws", async (t) => {
+  const dispose = t.mock.fn();
+  const session = { pushAll: () => [{}], finish: () => [], dispose };
+  const factory = () => session;
+  const failure = new Error("iterator unavailable");
+  const brokenSource = {
+    [Symbol.asyncIterator]() { throw failure; },
+  };
+  await assert.rejects(collect(readStructured(brokenSource, { adapter: factory })), (error) => error === failure);
+  assert.equal(dispose.mock.callCount(), 1);
+
+  const source = {
+    [Symbol.asyncIterator]() { return this; },
+    async next() { return { value: [], done: false }; },
+    async return() { throw failure; },
+  };
+  const updates = readStructured(source, { adapter: factory });
+  await updates.next();
+  await assert.rejects(updates.return(), (error) => error === failure);
+  assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("SDK completion history does not duplicate reused IDs at EOF", async () => {
+  const updates = await collect(
+    readStructured(
+      [
+        { type: "tool-input-start", id: "same" },
+        { type: "tool-input-delta", id: "same", delta: "1" },
+        { type: "tool-input-end", id: "same" },
+        { type: "tool-input-start", id: "same" },
+        { type: "tool-input-delta", id: "same", delta: "2" },
+      ],
+      { integration: vercelAI },
+    ),
+  );
+  assert.deepEqual(
+    updates.filter(({ type }) => type === "complete").map(({ value }) => value),
+    [1, 2],
+  );
+  assert.deepEqual(
+    await collect(readStructured([], { integration: vercelAI })),
+    [],
+  );
+});
+
+test("managed SDK batches preserve backpressure and dispose on an early break", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let pulled = 0;
+  let closed = false;
+  async function* source() {
+    try {
+      pulled++;
+      yield {
+        tool_call_chunks: [
+          { index: 0, id: "a", args: "{" },
+          { index: 1, id: "b", args: "{" },
+        ],
+      };
+      pulled++;
+      yield { tool_call_chunks: [] };
+    } finally {
+      closed = true;
+    }
+  }
+  for await (const update of readStructured(source(), {
+    integration: langchain,
+  })) {
+    assert.equal(update.type, "start");
+    break;
+  }
+  assert.equal(pulled, 1);
+  assert.equal(closed, true);
+  assert.equal(dispose.mock.callCount(), 2);
+});
+
+test("managed SDK sources, limits and factory failures release active parsers", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  const failure = new Error("source failed");
+  async function* broken() {
+    yield { type: "tool-input-start", id: "a" };
+    throw failure;
+  }
+  await assert.rejects(
+    collect(readStructured(broken(), { integration: vercelAI })),
+    (error) => error === failure,
+  );
+  assert.equal(dispose.mock.callCount(), 1);
+  await assert.rejects(
+    collect(
+      readStructured(
+        [
+          { type: "tool-input-start", id: "a" },
+          { type: "tool-input-delta", id: "a", delta: '"too long"' },
+        ],
+        { integration: vercelAI, limits: { maxBytes: 2 } },
+      ),
+    ),
+    /maxBytes/,
+  );
+  assert.equal(dispose.mock.callCount(), 2);
+  await assert.rejects(
+    collect(
+      readStructured([], {
+        integration(pool) {
+          pool.start("a");
+          throw failure;
+        },
+      }),
+    ),
+    (error) => error === failure,
+  );
+  assert.equal(dispose.mock.callCount(), 3);
+});
+
+test("managed consumption requires exactly one factory contract", async () => {
+  for (const options of [
+    {},
+    { adapter, integration: vercelAI },
+    { integration: {} },
+  ]) {
+    await assert.rejects(collect(readStructured([], options)), /exactly one/);
+  }
+});
+
+test("reader-only streams work without a signal and unlock at EOF or early exit", async () => {
+  for (const early of [false, true]) {
+    let cancelled = false;
+    const source = new ReadableStream({
+      start(controller) {
+        controller.enqueue([
+          { type: "start", id: "reader" },
+          { type: "delta", id: "reader", text: "42" },
+        ]);
+        if (!early) controller.close();
+      },
+      cancel() { cancelled = true; },
+    });
+    // Reader support must not depend on native async-iterator support.
+    Object.defineProperty(source, Symbol.asyncIterator, { value: undefined });
+    const updates = [];
+    for await (const update of readStructured(source, { adapter })) {
+      updates.push(update);
+      if (early) break;
+    }
+    assert.equal(source.locked, false);
+    assert.equal(updates.at(-1).type, early ? "start" : "complete");
+    if (!early) assert.equal(updates.at(-1).value, 42);
+    assert.equal(cancelled, early);
+  }
+});
+
+test("upstream next failures close the iterator once even without an abort signal", async (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let sessions = 0;
+  for (const signal of [undefined, new AbortController().signal]) {
+    const failure = new Error("connection lost");
+    let reads = 0;
+    const returned = t.mock.fn(() => { throw new Error("cleanup failed"); });
+    const source = {
+      [Symbol.asyncIterator]() { return this; },
+      next() {
+        if (reads++) throw failure;
+        return { value: [{ type: "start", id: "open" }], done: false };
+      },
+      return: returned,
+    };
+    await assert.rejects(collect(readStructured(source, { adapter, signal })), error => error === failure);
+    assert.equal(returned.mock.callCount(), 1);
+    assert.equal(dispose.mock.callCount(), ++sessions);
+  }
+});
+
+test("immutable snapshots stay stable in managed custom and SDK batches", async () => {
+  const customEvents = [[
+    { type: "start", id: "a" },
+    { type: "delta", id: "a", text: '{"city":"San' },
+    { type: "delta", id: "a", text: ' Francisco"}' },
+    { type: "end", id: "a" },
+  ]];
+  const sdkEvents = [{ tool_call_chunks: [
+    { index: 0, id: "a", args: '{"city":"San' },
+    { index: 0, args: ' Francisco"}' },
+  ] }];
+  for (const [source, factory] of [
+    [customEvents, { adapter }],
+    [sdkEvents, { integration: langchain }],
+  ]) {
+    const updates = [];
+    for await (const update of readStructured(source, {
+      ...factory, limits: { snapshots: "immutable" },
+    })) updates.push(update);
+    assert.deepEqual(updates.map(({ type }) => type), ["start", "update", "update", "complete"]);
+    assert.deepEqual(updates[1].partialValue, { city: "San" });
+    assert.deepEqual(updates[2].partialValue, { city: "San Francisco" });
+    assert.equal(Object.isFrozen(updates[1].partialValue), true);
+    assert.equal(Object.isFrozen(updates[3].value), true);
+    assert.throws(() => { updates[1].partialValue.city = "changed"; }, TypeError);
+  }
+});

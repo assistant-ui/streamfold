@@ -19,6 +19,21 @@ tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
 and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
 directory.
 
+For string-parser changes, run `pnpm bench:strings /path/to/baseline/src/index.js`
+against an unpacked baseline package. It alternates the two implementations on
+identical ASCII, Unicode, and escaped strings with live and immutable snapshots,
+checks final values, and records medians and p95s in `artifacts/string-runs.json`.
+
+For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
+It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
+checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
+
+The standalone assistant-ui demo has its own locked dependencies and CI job.
+From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
+Start a production preview on port 4173 and run `npm run test:browser` to check
+the UI. Set `CHROME_EXECUTABLE` to use an installed Chrome binary instead of
+Playwright's bundled Chromium; core browser tests accept the same override.
+
 ## Pull requests
 
 - Keep one concern per pull request.
@@ -35,24 +50,33 @@ Rust changes must include the regenerated
 
 ## Maintainer releases
 
-Releases publish through `.github/workflows/release.yml` using npm trusted
-publishing. The npm trusted publisher must match this repository, the
-`release.yml` workflow, and the GitHub environment named `npm`.
+Releases publish through `.github/workflows/release.yml` with provenance.
+For token authentication, save a publishing token as the `NPM_TOKEN` secret
+in the GitHub environment named `npm`. The workflow exposes it only to the
+publish step through a temporary npm configuration. Never commit the token.
+Without that secret, npm can use trusted publishing; its configuration must
+match this repository, the `release.yml` workflow, and the `npm` environment.
 
-For the prepared 0.1.4 release, merge the cleanup into `main`, check out the
-updated `main`, and run:
+Start from a clean, up-to-date `main`. Update the **Unreleased** changelog for
+the version being prepared, then run the release checks:
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm release:check
 pnpm test:browser
-git tag v0.1.4
-git push origin v0.1.4
-pnpm release:await
 ```
 
-For subsequent releases, start from a clean, up-to-date `main` and use
-`pnpm release` (or `pnpm release:beta`). This bumps both package versions,
-checks the package, commits, tags, and pushes before waiting for publication.
-Update the changelog before releasing. A release tag must point to a commit
-contained in `origin/main`.
+When ready to publish, use `pnpm release` (or `pnpm release:beta`). This bumps
+both package versions, checks the package, commits, tags, and pushes before
+waiting for publication.
+A release tag must point to a commit contained in `origin/main`. To resume
+waiting for an already-pushed release, use `pnpm release:await` from its commit.
+
+If a tagged release failed and needs a workflow fix, merge the fix first,
+then run `gh workflow run release.yml --ref main`. This retry uses the
+current package version and requires its existing tag to be an ancestor of
+`main`, with identical package source and build inputs. It builds `main`
+so provenance identifies the actual build commit. It never moves the tag,
+and it skips npm publication if that version already exists. An existing
+GitHub release draft remains a draft until a maintainer publishes it after
+verifying the npm package.

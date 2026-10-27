@@ -34,9 +34,22 @@ stream.finish();
 stream.dispose();
 ```
 
-`partialValue` is updated in place. Reactive stores can apply the compact
-`set`, `append`, and `complete` patches in `changes` instead of cloning the
-whole value.
+`partialValue` is updated in place by default. For stable values to pass to
+React or a store, opt into `createStructuredStream({ snapshots: "immutable" })`.
+Earlier snapshots stay unchanged, and unchanged branches keep their identity.
+Reactive stores can also apply the compact `set`, `append`, and `complete`
+patches in `changes`.
+
+Call `prepareStreamfold()` while the app is idle to compile and cache the
+embedded WebAssembly module asynchronously before first use. Scanner
+construction remains synchronous.
+
+```ts
+import { createStructuredStream, prepareStreamfold } from "streamfold";
+
+await prepareStreamfold();
+const stream = createStructuredStream();
+```
 
 Use a pool for interleaved tool calls:
 
@@ -71,18 +84,49 @@ Streamfold includes isolated adapters for decoded SDK events:
 | `streamfold/ag-ui` | AG-UI events |
 
 ```ts
+import { createStructuredStreamPool } from "streamfold";
 import { createStructuredStream } from "streamfold/assistant-ui";
 
-const toolInputs = createStructuredStream();
+const toolInputs = createStructuredStream(
+  createStructuredStreamPool({ snapshots: "immutable" }),
+);
 
 for await (const event of assistantStream) {
-  const update = toolInputs.push(event);
-  if (update) renderToolInput(update.id, update.partialValue);
+  for (const update of toolInputs.pushAll(event)) {
+    renderToolInput(update.id, update.partialValue);
+    // update.type is "start", "update", or "complete".
+  }
 }
+
+const completedCalls = toolInputs.finish();
 ```
 
 Adapters consume structural event shapes and do not install or load the
-provider SDKs.
+provider SDKs. `pushAll()` returns every update when one event contains
+multiple calls; existing `push()` usage remains supported. Lifecycle
+completion means the arguments are finalized, not that a tool has executed.
+
+Pass `{ onDiagnostic(diagnostic) { /* report diagnostic */ } }` as an adapter's
+second argument for opt-in event-matching and error diagnostics. Parser errors
+preserve their native `SyntaxError` or `RangeError` type and include a stable
+`code`, a UTF-8 `byteOffset`, and call/event context where available.
+
+For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
+mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
+call creates its own parser pool; `pushAll(event)` returns all updates from an
+event, including multi-call batches. See [custom adapters](API.md#custom-adapters)
+for a switch-based example and lifecycle rules.
+
+Use `readStructured(events, { adapter })` to consume that custom adapter with a
+`for await` loop. It yields every update, finalizes remaining calls when the
+source ends, and disposes the session when the loop exits. See
+[managed consumption](API.md#managed-consumption) for examples and cancellation
+boundaries.
+
+For any built-in SDK integration, use
+`readStructured(events, { integration: assistantUI })` instead. Both paths yield
+the same lifecycle updates and clean up on early exit, without duplicate final
+results. See the API reference for factory options.
 
 ## Performance
 
@@ -93,9 +137,12 @@ faster than rebuilding the partial value after every 16-character delta for a
 
 See the [benchmark report](benchmarks/SDK_ADAPTER_REPORT.md) for fixtures,
 methodology, raw commands, and crossover points.
+These results use default live values; immutable snapshots add copying and
+freezing costs, especially for wide, growing arrays or objects.
 
 ## Documentation
 
+- [Runnable integration examples](examples/README.md)
 - [API reference](API.md)
 - [Integration and migration guide](MIGRATION.md)
 - [Architecture](ARCHITECTURE.md)

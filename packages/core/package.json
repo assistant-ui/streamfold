@@ -1,6 +1,6 @@
 {
   "name": "streamfold",
-  "version": "0.1.4",
+  "version": "0.1.11",
   "description": "Protocol-neutral incremental state for structured AI streams",
   "type": "module",
   "license": "MIT",
@@ -12,6 +12,10 @@
     "!src/**/*.test.js"
   ],
   "exports": {
+    "./testing": {
+      "types": "./src/testing.d.ts",
+      "default": "./src/testing.js"
+    },
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.js"

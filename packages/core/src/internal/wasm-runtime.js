@@ -1,4 +1,5 @@
 import { wasmBinaryBase64 } from "./wasm-binary.js";
+import { streamError } from "./errors.js";
 
 const DEPTH_MASK = 0x00ff_ffff;
 const COMPLETE_FLAG = 1 << 24;
@@ -16,9 +17,11 @@ const PATCH_COMPLETE = 8;
 
 const encoder = new TextEncoder();
 let exports;
+let compiledModule;
+let compiling;
 
-const decodeBase64 = (base64) => {
-  const binary = globalThis.atob(base64);
+const decodeWasmBytes = () => {
+  const binary = globalThis.atob(wasmBinaryBase64);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) {
     bytes[index] = binary.charCodeAt(index);
@@ -31,12 +34,40 @@ const getExports = () => {
   if (typeof WebAssembly !== "object") {
     throw new Error("Streamfold requires WebAssembly support");
   }
-  const module = new WebAssembly.Module(decodeBase64(wasmBinaryBase64));
+  const module =
+    compiledModule ?? new WebAssembly.Module(decodeWasmBytes());
   exports = new WebAssembly.Instance(module, {}).exports;
   return exports;
 };
 
-const parserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
+export const prepareWasm = () => {
+  if (exports !== undefined || compiledModule !== undefined)
+    return Promise.resolve();
+  if (compiling !== undefined) return compiling;
+  if (
+    typeof WebAssembly !== "object" ||
+    typeof WebAssembly.compile !== "function"
+  ) {
+    return Promise.reject(new Error("Streamfold requires WebAssembly support"));
+  }
+  try {
+    compiling = WebAssembly.compile(decodeWasmBytes()).then(
+      (module) => {
+        compiledModule = module;
+        compiling = undefined;
+      },
+      (error) => {
+        compiling = undefined;
+        throw error;
+      },
+    );
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return compiling;
+};
+
+const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
   const offset = wasm.streamfold_parser_error_offset(handle) >>> 0;
   const byte = wasm.streamfold_parser_error_byte(handle);
   if (code === 1) {
@@ -60,6 +91,28 @@ const parserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
   }
   return new SyntaxError(`Rust parser failed with error code ${code}`);
 };
+
+const parserErrorCodes = [
+  "PARSER_ERROR",
+  "UNEXPECTED_TOKEN",
+  "MISMATCHED_CLOSING",
+  "TRAILING_DATA",
+  "EMPTY_INPUT",
+  "INCOMPLETE_JSON",
+  "INVALID_JSON",
+  "MAX_BYTES_EXCEEDED",
+  "MAX_DEPTH_EXCEEDED",
+];
+
+const parserError = (parser, code) =>
+  streamError(
+    describeParserError(parser, code),
+    parserErrorCodes[code] ?? "PARSER_ERROR",
+    {
+      byteOffset:
+        parser.wasm.streamfold_parser_error_offset(parser.handle) >>> 0,
+    },
+  );
 
 const readState = (parser, encoded) => {
   const { wasm, handle } = parser;
@@ -173,15 +226,27 @@ export const createWasmParser = ({ maxBytes, maxDepth }) => {
 };
 
 const pushChunk = (parser, chunk) => {
+  // In Unicode mode this range matches lone surrogate code units, not valid
+  // pairs. TextEncoder would silently replace them with U+FFFD, while the
+  // pool's final JSON.parse would preserve them, producing different values.
+  // A trailing high surrogate is buffered by pushWasmParser before this check.
+  if (/[\uD800-\uDFFF]/u.test(chunk)) {
+    throw streamError(
+      new TypeError("Unpaired UTF-16 surrogate; use a JSON Unicode escape"),
+      "INVALID_CHUNK",
+    );
+  }
   const { wasm, handle } = parser;
-  const capacity = chunk.length * 3;
+  const remaining = parser.maxBytes - (wasm.streamfold_parser_bytes_seen(handle) >>> 0);
+  if (chunk.length > remaining) throw parserError(parser, 7);
+  const capacity = Math.min(chunk.length * 3, remaining);
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
   if (capacity > 0) {
     const input = new Uint8Array(wasm.memory.buffer, pointer, capacity);
     const result = encoder.encodeInto(chunk, input);
     if (result.read !== chunk.length) {
-      throw new Error("Unable to encode the complete stream fragment");
+      throw parserError(parser, 7);
     }
     length = result.written;
   }
@@ -190,6 +255,12 @@ const pushChunk = (parser, chunk) => {
 };
 
 export const pushWasmParser = (parser, chunk) => {
+  if (typeof chunk !== "string") {
+    throw streamError(
+      new TypeError("A structured stream chunk must be a string"),
+      "INVALID_CHUNK",
+    );
+  }
   let input = parser.pendingHighSurrogate + chunk;
   parser.pendingHighSurrogate = "";
 
@@ -217,10 +288,7 @@ export const finishWasmParser = (parser) => {
 };
 
 export const readWasmParser = (parser) =>
-  readState(
-    parser,
-    parser.wasm.streamfold_parser_state(parser.handle),
-  );
+  readState(parser, parser.wasm.streamfold_parser_state(parser.handle));
 
 export const freeWasmParser = ({ wasm, handle }) => {
   wasm.streamfold_parser_free(handle);

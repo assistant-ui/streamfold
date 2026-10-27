@@ -29,10 +29,44 @@ stream.finish();
 stream.dispose();
 ```
 
+Values are live by default. Use `createStructuredStream({ snapshots: "immutable" })`
+for frozen snapshots that preserve earlier values and share unchanged branches.
+Pools and custom adapter factories accept the same option; managed readers
+forward it through `limits`.
+
+Chunks must contain well-formed Unicode. Valid surrogate pairs may span chunks;
+raw unpaired UTF-16 code units fail with `INVALID_CHUNK` instead of being silently
+replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
+(as produced by `JSON.stringify`).
+
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event
 types and do not load provider SDKs.
+
+For custom protocols, import `defineAdapter` from `streamfold`. Translate each
+event into an array of `start`, `delta`, `end`, or `abort` operations. The returned
+factory creates an independent session with `pushAll(event)`, `finish()`, and
+`dispose()`. See the API reference for a complete switch-based example.
+
+For automatic lifecycle management, use
+`readStructured(events, { adapter, limits })` in a `for await` loop. It wraps the
+same batch adapter, finalizes remaining calls at the end of the source, and
+disposes on completion, failure, or early exit. `limits` is optional.
+For a built-in SDK factory, use `{ integration: assistantUI, limits }` instead.
+Both paths yield the same lifecycle updates without replaying completions.
+Readable streams are consumed through `getReader()` even without an abort
+signal or native async-iterator support.
+Upstream failures close the iterator or reader while preserving the original
+error, even when no abort signal is supplied.
+
+Every built-in adapter supports `pushAll(event)`, returning all ordered
+`start`, `update`, and `complete` updates, including multiple calls in one event.
+Existing `push(event)` remains available. Call `finish()` at the stream boundary.
+
+Pass `onDiagnostic` in a custom factory's options, as an SDK factory's second
+argument, or beside the factory in `readStructured`. Errors preserve their
+native categories and include structured codes and call context where known.
 
 See the repository for the [API reference](https://github.com/assistant-ui/streamfold/blob/main/API.md),
 [integration guide](https://github.com/assistant-ui/streamfold/blob/main/MIGRATION.md),
