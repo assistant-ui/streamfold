@@ -5,6 +5,7 @@ import {
   STREAMFOLD_ENGINE,
   StructuredStreamPool,
 } from "./index.js";
+import { createWasmParser, freeWasmParser } from "./internal/wasm-runtime.js";
 
 test("rejects unpaired raw UTF-16 instead of returning inconsistent partial and final values", () => {
   for (const units of [[0xd800], [0xdc00], [0xd800, 0xd800], [0xd800, 0x61]]) {
@@ -75,6 +76,26 @@ test("preserves surrogate pairs split across separate pushes", () => {
   scanner.dispose();
 });
 
+test("rejects raw controls after string runs at the original byte offset", () => {
+  for (let control = 0; control < 0x20; control++) {
+    for (const prefix of ['{"', '{"value":"']) {
+      const before = prefix + "é".repeat(128);
+      const input = before + String.fromCharCode(control) + 'tail"}';
+      for (const split of [0, prefix.length + 64, before.length]) {
+        const scanner = new IncrementalJsonScanner();
+        try {
+          assert.throws(() => {
+            scanner.push(input.slice(0, split));
+            scanner.push(input.slice(split));
+          }, { name: "SyntaxError", code: "INVALID_JSON", byteOffset: Buffer.byteLength(before) });
+        } finally {
+          scanner.dispose();
+        }
+      }
+    }
+  }
+});
+
 test("reports useful partial structural state", () => {
   const scanner = new IncrementalJsonScanner();
   const state = scanner.push('{"items":[{"name":"hel');
@@ -107,6 +128,42 @@ test("reports UTF-8 bytes for non-ASCII input", () => {
   assert.equal(state.bytesSeen, Buffer.byteLength(input));
   assert.equal(state.complete, true);
   scanner.dispose();
+});
+
+test("rejects non-JSON whitespace across chunk boundaries", () => {
+  for (const whitespace of ["\v", "\f"]) {
+    for (const input of [
+      `${whitespace}{}`,
+      `{"value":${whitespace}1}`,
+      `[1,${whitespace}2]`,
+      `{}${whitespace}`,
+      `1${whitespace}`,
+    ]) {
+      for (let split = 0; split <= input.length; split++) {
+        const scanner = new IncrementalJsonScanner();
+        try {
+          assert.throws(() => {
+            scanner.push(input.slice(0, split));
+            scanner.push(input.slice(split));
+            scanner.finish();
+          }, SyntaxError, `${JSON.stringify(input)} at split ${split}`);
+        } finally {
+          scanner.dispose();
+        }
+      }
+    }
+  }
+});
+
+test("accepts JSON whitespace and escaped form-feed values", () => {
+  const input = ' \t\r\n{ "value": "\\f" } \t\r\n';
+  const scanner = new IncrementalJsonScanner();
+  try {
+    for (const character of input) scanner.push(character);
+    assert.deepEqual(scanner.finish().partialValue, { value: "\f" });
+  } finally {
+    scanner.dispose();
+  }
 });
 
 test("translates Rust parser failures into JavaScript syntax errors", () => {
@@ -177,6 +234,48 @@ test("enforces byte and depth limits with terminal failures", () => {
     () => new IncrementalJsonScanner({ maxDepth: 0 }),
     /maxDepth must be an integer/,
   );
+});
+
+test("enforces the remaining UTF-8 byte budget before growing WASM memory", () => {
+  const probe = createWasmParser({ maxBytes: 8, maxDepth: 128 });
+  const before = probe.wasm.memory.buffer.byteLength;
+  const oversized = new IncrementalJsonScanner({ maxBytes: 8 });
+  try {
+    let failure;
+    assert.throws(
+      () => oversized.push('"' + "x".repeat(4 * 1024 * 1024) + '"'),
+      (error) => {
+        failure = error;
+        return error.code === "MAX_BYTES_EXCEEDED";
+      },
+    );
+    assert.equal(probe.wasm.memory.buffer.byteLength, before);
+    assert.throws(() => oversized.push("{}"), (error) => error === failure);
+  } finally {
+    oversized.dispose();
+    freeWasmParser(probe);
+  }
+
+  const multibyte = new IncrementalJsonScanner({ maxBytes: 8 });
+  try {
+    multibyte.push('"');
+    assert.throws(() => multibyte.push("éééé"), (error) => {
+      assert.equal(error.code, "MAX_BYTES_EXCEEDED");
+      assert.match(error.message, /maxBytes \(8\)/);
+      return true;
+    });
+  } finally {
+    multibyte.dispose();
+  }
+
+  const exact = new IncrementalJsonScanner({ maxBytes: 6 });
+  try {
+    exact.push('"');
+    exact.push("éé");
+    assert.equal(exact.push('"').complete, true);
+  } finally {
+    exact.dispose();
+  }
 });
 
 test("bounds active streams and cleans up failed pool entries", () => {

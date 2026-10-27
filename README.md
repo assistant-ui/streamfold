@@ -40,6 +40,17 @@ Earlier snapshots stay unchanged, and unchanged branches keep their identity.
 Reactive stores can also apply the compact `set`, `append`, and `complete`
 patches in `changes`.
 
+Call `prepareStreamfold()` while the app is idle to compile and cache the
+embedded WebAssembly module asynchronously before first use. Scanner
+construction remains synchronous.
+
+```ts
+import { createStructuredStream, prepareStreamfold } from "streamfold";
+
+await prepareStreamfold();
+const stream = createStructuredStream();
+```
+
 Use a pool for interleaved tool calls:
 
 ```ts

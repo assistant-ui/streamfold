@@ -17,9 +17,11 @@ const PATCH_COMPLETE = 8;
 
 const encoder = new TextEncoder();
 let exports;
+let compiledModule;
+let compiling;
 
-const decodeBase64 = (base64) => {
-  const binary = globalThis.atob(base64);
+const decodeWasmBytes = () => {
+  const binary = globalThis.atob(wasmBinaryBase64);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) {
     bytes[index] = binary.charCodeAt(index);
@@ -32,9 +34,37 @@ const getExports = () => {
   if (typeof WebAssembly !== "object") {
     throw new Error("Streamfold requires WebAssembly support");
   }
-  const module = new WebAssembly.Module(decodeBase64(wasmBinaryBase64));
+  const module =
+    compiledModule ?? new WebAssembly.Module(decodeWasmBytes());
   exports = new WebAssembly.Instance(module, {}).exports;
   return exports;
+};
+
+export const prepareWasm = () => {
+  if (exports !== undefined || compiledModule !== undefined)
+    return Promise.resolve();
+  if (compiling !== undefined) return compiling;
+  if (
+    typeof WebAssembly !== "object" ||
+    typeof WebAssembly.compile !== "function"
+  ) {
+    return Promise.reject(new Error("Streamfold requires WebAssembly support"));
+  }
+  try {
+    compiling = WebAssembly.compile(decodeWasmBytes()).then(
+      (module) => {
+        compiledModule = module;
+        compiling = undefined;
+      },
+      (error) => {
+        compiling = undefined;
+        throw error;
+      },
+    );
+  } catch (error) {
+    return Promise.reject(error);
+  }
+  return compiling;
 };
 
 const describeParserError = ({ wasm, handle, maxBytes, maxDepth }, code) => {
@@ -207,14 +237,16 @@ const pushChunk = (parser, chunk) => {
     );
   }
   const { wasm, handle } = parser;
-  const capacity = chunk.length * 3;
+  const remaining = parser.maxBytes - (wasm.streamfold_parser_bytes_seen(handle) >>> 0);
+  if (chunk.length > remaining) throw parserError(parser, 7);
+  const capacity = Math.min(chunk.length * 3, remaining);
   const pointer = wasm.streamfold_parser_input(handle, capacity);
   let length = 0;
   if (capacity > 0) {
     const input = new Uint8Array(wasm.memory.buffer, pointer, capacity);
     const result = encoder.encodeInto(chunk, input);
     if (result.read !== chunk.length) {
-      throw new Error("Unable to encode the complete stream fragment");
+      throw parserError(parser, 7);
     }
     length = result.written;
   }
