@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Process unescaped string runs in batches, reducing Rust token-state handling
+  while preserving partial values, escapes, and invalid-input offsets.
+
 ## 0.1.10
 
 - Reject form feeds outside JSON strings, keeping incremental acceptance consistent
