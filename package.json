@@ -30,10 +30,10 @@
   },
   "devDependencies": {
     "ai": "7.0.102",
-    "assistant-stream": "0.3.39",
+    "assistant-stream": "0.3.42",
     "bumpp": "^12.3.0",
     "fast-check": "4.10.0",
-    "playwright": "^1.62.1",
+    "playwright": "^1.63.0",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2"
   },
