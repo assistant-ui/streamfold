@@ -42,10 +42,10 @@ export class IncrementalJsonScanner {
   push(chunk) {
     try {
       const update = pushWasmParser(this.#getParser(), chunk);
-      this.#apply(update.changes);
+      const changes = this.#apply(update.changes);
       return {
         ...update.state,
-        changes: update.changes,
+        changes,
         partialValue: this.#value,
       };
     } catch (error) {
@@ -56,10 +56,10 @@ export class IncrementalJsonScanner {
   finish() {
     try {
       const update = finishWasmParser(this.#getParser());
-      this.#apply(update.changes);
+      const changes = this.#apply(update.changes);
       return {
         ...update.state,
-        changes: update.changes,
+        changes,
         partialValue: this.#value,
       };
     } catch (error) {
@@ -121,10 +121,14 @@ export class IncrementalJsonScanner {
   }
 
   #apply(changes) {
+    let invalidated = false;
     if (this.#immutable)
       this.#value = applyImmutableChanges(this.#value, changes);
     for (const change of changes) {
-      if (change.op === "complete") {
+      if (change.op === "invalidate") {
+        invalidateField(this.#completion, change.path);
+        invalidated = true;
+      } else if (change.op === "complete") {
         markFieldComplete(this.#completion, change.path);
       } else if (change.op === "set") {
         invalidateField(this.#completion, change.path);
@@ -144,6 +148,7 @@ export class IncrementalJsonScanner {
         );
       }
     }
+    return invalidated ? changes.filter(({ op }) => op !== "invalidate") : changes;
   }
 }
 

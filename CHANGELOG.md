@@ -7,6 +7,8 @@
 - Preserve Vercel AI SDK tool inputs that arrive complete without argument deltas.
 - Scan numeric prefixes once instead of repeatedly parsing them, avoiding
   quadratic work on malformed numeric chunks.
+- Mark a replaced field partial as soon as a new negative number starts,
+  preserving the previous partial value until the first digit arrives.
 
 ## 0.1.12
 
