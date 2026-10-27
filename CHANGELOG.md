@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.11
+
 - Copy frozen arrays by iteration when producing immutable snapshots, reducing
   the cost of streaming dense arrays while retaining historical values.
 - Process unescaped string runs in batches, reducing Rust token-state handling
