@@ -105,6 +105,8 @@ Adapters consume structural event shapes and do not install or load the
 provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle
 completion means the arguments are finalized, not that a tool has executed.
+The Vercel AI SDK adapter also accepts `tool-input-available` events without
+preceding argument deltas and emits their completed input once.
 
 Pass `{ onDiagnostic(diagnostic) { /* report diagnostic */ } }` as an adapter's
 second argument for opt-in event-matching and error diagnostics. Parser errors
