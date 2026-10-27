@@ -4,7 +4,7 @@ Live demo: [weather assistant](https://streamfold-assistant-ui-demo.vercel.app/?
 [complex tools](https://streamfold-assistant-ui-demo.vercel.app/?view=complex),
 and [with/without comparison](https://streamfold-assistant-ui-demo.vercel.app/?view=compare).
 
-A standalone, local demo of the published `streamfold@0.1.6` adapter feeding
+A standalone, local demo of the published `streamfold@0.1.7` adapter feeding
 real `@assistant-ui/react` runtime and tool-rendering primitives. It does not
 modify assistant-ui or depend on the separate internal-reader prototype.
 

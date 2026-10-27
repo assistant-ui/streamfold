@@ -80,11 +80,13 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const {
         createStructuredStream,
         createStructuredStreamPool,
+        prepareStreamfold,
         isStructuredStreamError,
         defineAdapter,
         readStructured,
         STREAMFOLD_ENGINE,
       } = await import("/src/index.js");
+      await prepareStreamfold();
       const stream = createStructuredStream();
       stream.push('{"city":"Addis ');
       stream.push("\ud83d");
