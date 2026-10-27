@@ -11,7 +11,7 @@ export const applyImmutableChanges = (previous, changes) => {
   const owned = new Set();
   const copy = (value) => {
     if (owned.has(value)) return value;
-    const result = Array.isArray(value) ? value.slice() : { ...value };
+    const result = Array.isArray(value) ? [...value] : { ...value };
     owned.add(result);
     return result;
   };

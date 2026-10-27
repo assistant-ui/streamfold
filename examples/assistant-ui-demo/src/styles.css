@@ -122,29 +122,29 @@ pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   border-bottom: 1px solid var(--border);
   background: #fff;
 }
 .brand {
   display: flex;
-  gap: 13px;
+  gap: 12px;
   align-items: center;
-  font-size: 14px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 16px;
   color: var(--muted);
 }
 .brand h1 {
-  font-size: 21px;
-  font-weight: 650;
-  color: #25292f;
+  line-height: 1;
 }
-.brand-icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  background: #242a32;
-  color: white;
-  border-radius: 8px;
+.brand-logo {
+  display: block;
+  width: 180px;
+  height: 30px;
+}
+.lab-name {
+  font-weight: 500;
 }
 .brand-divider {
   margin: 0 4px;
@@ -943,14 +943,11 @@ select {
   }
   .brand {
     gap: 8px;
-    font-size: 11px;
+    font-size: 14px;
   }
-  .brand h1 {
-    font-size: 18px;
-  }
-  .brand-icon {
-    width: 28px;
-    height: 28px;
+  .brand-logo {
+    width: 150px;
+    height: 25px;
   }
   .brand-divider {
     margin: 0 1px;
@@ -1670,9 +1667,21 @@ summary:focus-visible {
   .view-nav a {
     padding: 10px;
   }
-  .brand .lab-name,
-  .brand-divider {
+  .view-nav a span {
     display: none;
+  }
+}
+@media (max-width: 480px) {
+  .app-header {
+    height: auto;
+    padding-top: 14px;
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .view-nav {
+    flex-basis: 100%;
+    justify-content: flex-end;
   }
 }
 @media (max-width: 420px) {

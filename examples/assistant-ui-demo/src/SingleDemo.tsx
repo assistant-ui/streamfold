@@ -27,6 +27,7 @@ import {
   Terminal,
   TriangleAlert,
 } from "lucide-react";
+import { dependencies } from "../package.json";
 import { scenarios, type Scenario } from "./fixtures.ts";
 import { emptyTrace, runFixture, type Trace } from "./model.ts";
 import integrationCode from "./model.ts?raw";
@@ -245,7 +246,7 @@ function Inspector({ trace }: { trace: Trace }) {
               </div>
               <div>
                 <dt>Package</dt>
-                <dd>streamfold@0.1.6</dd>
+                <dd>streamfold@{dependencies.streamfold}</dd>
               </div>
               <div>
                 <dt>Event source</dt>
@@ -305,7 +306,7 @@ function Inspector({ trace }: { trace: Trace }) {
             <pre className="integration-code">{integrationCode}</pre>
             <a
               className="source-link"
-              href="https://github.com/assistant-ui/streamfold/blob/v0.1.6/examples/assistant-ui.mjs"
+              href={`https://github.com/assistant-ui/streamfold/blob/v${dependencies.streamfold}/examples/assistant-ui.mjs`}
               target="_blank"
               rel="noreferrer"
             >
