@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve Vercel AI SDK tool inputs that arrive complete without argument deltas.
+
 ## 0.1.12
 
 - Refresh development and assistant-ui demo dependencies, including security
