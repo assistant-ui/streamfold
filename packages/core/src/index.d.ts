@@ -240,6 +240,9 @@ export function createStructuredStreamPool<Id = string>(
   options?: StructuredStreamPoolOptions,
 ): StructuredStreamPool<Id>;
 
+/** Compile and cache the embedded WebAssembly module before creating scanners. */
+export function prepareStreamfold(): Promise<void>;
+
 export const STREAMFOLD_ENGINE: "rust-wasm";
 export const DEFAULT_STREAM_LIMITS: Readonly<
   Required<

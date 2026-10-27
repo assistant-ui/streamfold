@@ -9,6 +9,7 @@ import { applyImmutableChanges, freezeJson } from "./internal/snapshots.js";
 import { annotateError, streamError } from "./internal/errors.js";
 
 export { isStructuredStreamError } from "./internal/errors.js";
+export { prepareWasm as prepareStreamfold } from "./internal/wasm-runtime.js";
 export { defineAdapter } from "./adapter.js";
 export { readStructured } from "./read-structured.js";
 
