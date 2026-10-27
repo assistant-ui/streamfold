@@ -320,3 +320,27 @@ test("bounds active streams and cleans up failed pool entries", () => {
   assert.throws(() => incomplete.finish("broken"), SyntaxError);
   assert.equal(incomplete.size, 0);
 });
+
+test("keeps numeric prefixes while validating their completed grammar", () => {
+  for (const [input, value, valid] of [
+    ["-", undefined, false],
+    ["-0", -0, true],
+    ["01", 0, false],
+    ["-12.", -12, false],
+    ["-12.5", -12.5, true],
+    ["-12.5e", -12.5, false],
+    ["-12.5e+", -12.5, false],
+    ["-12.5e+2", -1250, true],
+    ["1e-2e+4", 0.01, false],
+    ["1" + "0".repeat(8000) + "e".repeat(8000), Infinity, false],
+  ]) {
+    const scanner = new IncrementalJsonScanner();
+    try {
+      assert.equal(scanner.push(input).partialValue, value);
+      if (valid) assert.equal(scanner.finish().partialValue, value);
+      else assert.throws(() => scanner.finish(), { code: "INVALID_JSON" });
+    } finally {
+      scanner.dispose();
+    }
+  }
+});

@@ -798,13 +798,6 @@ fn is_number_byte(byte: u8) -> bool {
 }
 
 fn longest_valid_number_prefix(input: &[u8]) -> Option<&[u8]> {
-    (1..=input.len())
-        .rev()
-        .map(|length| &input[..length])
-        .find(|prefix| valid_json_number(prefix))
-}
-
-fn valid_json_number(input: &[u8]) -> bool {
     let mut index = 0;
     if input.get(index) == Some(&b'-') {
         index += 1;
@@ -818,9 +811,10 @@ fn valid_json_number(input: &[u8]) -> bool {
                 index += 1;
             }
         }
-        _ => return false,
+        _ => return None,
     }
 
+    let integer_end = index;
     if input.get(index) == Some(&b'.') {
         index += 1;
         let start = index;
@@ -828,10 +822,11 @@ fn valid_json_number(input: &[u8]) -> bool {
             index += 1;
         }
         if index == start {
-            return false;
+            return Some(&input[..integer_end]);
         }
     }
 
+    let mantissa_end = index;
     if matches!(input.get(index), Some(b'e' | b'E')) {
         index += 1;
         if matches!(input.get(index), Some(b'+' | b'-')) {
@@ -842,11 +837,15 @@ fn valid_json_number(input: &[u8]) -> bool {
             index += 1;
         }
         if index == start {
-            return false;
+            return Some(&input[..mantissa_end]);
         }
     }
 
-    index == input.len()
+    Some(&input[..index])
+}
+
+fn valid_json_number(input: &[u8]) -> bool {
+    longest_valid_number_prefix(input).is_some_and(|prefix| prefix.len() == input.len())
 }
 
 #[cfg(test)]

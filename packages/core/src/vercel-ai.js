@@ -24,12 +24,10 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) =>
       if (event.type === "tool-input-delta") {
         return calls.push(id, event.delta ?? event.inputTextDelta);
       }
-      if (
-        event.type === "tool-input-end" ||
-        event.type === "tool-input-available"
-      ) {
-        return calls.complete(id);
+      if (event.type === "tool-input-available") {
+        return calls.complete(id, () => JSON.stringify(event.input));
       }
+      if (event.type === "tool-input-end") return calls.complete(id);
       return undefined;
     },
     undefined,

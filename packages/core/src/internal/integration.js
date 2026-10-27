@@ -13,6 +13,7 @@ export const createIntegration = (
   options = {},
 ) => {
   const completed = [];
+  const completedIds = new Set();
   let failure;
   let batch;
   let eventType;
@@ -39,19 +40,19 @@ export const createIntegration = (
     return true;
   };
 
-  const complete = (id) => {
+  const complete = (id, initialChunk) => {
     if (missingId(id)) return undefined;
     if (!pool.has(id)) {
-      if (
-        options.onDiagnostic &&
-        !completed.some((result) => result.id === id)
-      ) {
+      if (completedIds.has(id)) return undefined;
+      if (initialChunk === undefined) {
         unmatched("Tool completion has no matching active call", id);
+        return undefined;
       }
-      return undefined;
+      record("start", pool.start(id, initialChunk()));
     }
     const result = pool.finish(id);
     completed.push(result);
+    completedIds.add(id);
     return record("complete", result);
   };
   const operations = {
