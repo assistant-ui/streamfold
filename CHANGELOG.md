@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.12
+
+- Refresh development and assistant-ui demo dependencies, including security
+  patches, and group React and React DOM updates to keep their versions aligned.
+- Update CI and release setup tooling.
+
+The published parser source and public API are unchanged from 0.1.11.
+
 ## 0.1.11
 
 - Copy frozen arrays by iteration when producing immutable snapshots, reducing
