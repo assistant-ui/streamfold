@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep LangChain tool calls without indexes separate by their IDs and accept
+  SDK message chunk types directly.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 

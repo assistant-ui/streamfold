@@ -113,6 +113,9 @@ second argument for opt-in event-matching and error diagnostics. Parser errors
 preserve their native `SyntaxError` or `RangeError` type and include a stable
 `code`, a UTF-8 `byteOffset`, and call/event context where available.
 
+LangChain chunks can identify a call by index or, when the index is absent,
+by call ID. Each unindexed fragment must carry its call ID.
+
 For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
 mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
 call creates its own parser pool; `pushAll(event)` returns all updates from an
