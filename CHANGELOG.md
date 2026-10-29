@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Avoid redundant parent-link writes within immutable snapshot batches while
+  preserving frozen historical values and structural sharing.
+
 ## 0.1.13
 
 - Report the accepted UTF-8 byte offset when a chunk exceeds the byte limit

@@ -52,6 +52,35 @@ test("immutable duplicate keys replace values and invalidate field completion", 
   stream.dispose();
 });
 
+test("batched immutable updates preserve history across nested replacements", () => {
+  const stream = createStructuredStream({ snapshots: "immutable" });
+  try {
+    const first = stream.push(
+      '{"stable":{"ok":true},"rows":[{"nested":{"old":1',
+    ).partialValue;
+    const second = stream.push(
+      ',"added":2},"nested":{"value":3,"other":4}},{"nested":{"value":5,"other":6}}]}',
+    ).partialValue;
+
+    assert.deepEqual(first, { stable: { ok: true }, rows: [{ nested: { old: 1 } }] });
+    assert.deepEqual(second, {
+      stable: { ok: true },
+      rows: [
+        { nested: { value: 3, other: 4 } },
+        { nested: { value: 5, other: 6 } },
+      ],
+    });
+    assert.equal(first.stable, second.stable);
+    assert.notEqual(first.rows, second.rows);
+    assert.notEqual(first.rows[0].nested, second.rows[0].nested);
+    assertFrozen(first);
+    assertFrozen(second);
+    assert.equal(stream.finish().partialValue, second);
+  } finally {
+    stream.dispose();
+  }
+});
+
 test("replacement negative numbers invalidate completion before their first digit", () => {
   for (const snapshots of ["live", "immutable"]) {
     for (const chunks of [['{"a":1,"a":-'], ['{"a":1,"a":', "-"]]) {
