@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep LangChain tool calls without indexes separate by their IDs and accept
+  SDK message chunk types directly.
+
 ## 0.1.14
 
 - Reuse string append buffers and borrow their paths between streamed chunks,

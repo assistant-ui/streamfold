@@ -7,7 +7,7 @@ import type {
 
 export interface LangChainToolCallChunk {
   readonly type?: string;
-  readonly index: number | string;
+  readonly index?: number | string;
   readonly id?: string;
   readonly name?: string;
   readonly args?: string;
