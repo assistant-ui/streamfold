@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse string append buffers and borrow their paths between streamed chunks,
+  avoiding repeated delta allocations and path copies.
 - Decode streamed UTF-8 directly into the existing key and value buffers,
   avoiding temporary UTF-16 allocations.
 - Avoid redundant parent-link writes within immutable snapshot batches while
