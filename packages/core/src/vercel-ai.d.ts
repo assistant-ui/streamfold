@@ -31,7 +31,7 @@ export type VercelAiToolInputEvent =
       readonly id: string;
     }
   | {
-      readonly type: "tool-input-available";
+      readonly type: "tool-input-available" | "tool-call";
       readonly toolCallId: string;
       readonly toolName: string;
       readonly input: unknown;

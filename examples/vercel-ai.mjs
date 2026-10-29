@@ -12,7 +12,7 @@ export const events = [
 ];
 
 /**
- * @param {AsyncIterable<import('ai').UIMessageChunk> | Iterable<import('ai').UIMessageChunk>} source
+ * @param {AsyncIterable<import('ai').UIMessageChunk | import('ai').TextStreamPart<import('ai').ToolSet>> | Iterable<import('ai').UIMessageChunk | import('ai').TextStreamPart<import('ai').ToolSet>>} source
  * @param {{ signal?: AbortSignal }} [options]
  */
 export function readToolInputs(source = events, options = {}) {

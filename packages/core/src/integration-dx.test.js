@@ -353,26 +353,53 @@ test("normal text and repeated Vercel completion do not emit spurious diagnostic
 });
 
 test("Vercel final-only inputs preserve lifecycle, limits, and duplicate completion", () => {
-  const event = {
-    type: "tool-input-available",
-    toolCallId: "a",
-    toolName: "weather",
-    input: { city: "Paris" },
-  };
-  const stream = vercelAI(createStructuredStreamPool({ snapshots: "immutable" }));
-  const updates = stream.pushAll(event);
-  assert.deepEqual(updates.map(({ type }) => type), ["start", "complete"]);
-  assert.deepEqual(updates[1].value, { city: "Paris" });
-  assert.equal(Object.isFrozen(updates[1].value), true);
-  assert.deepEqual(stream.pushAll(event), []);
-  assert.equal(stream.finish().length, 1);
+  for (const type of ["tool-input-available", "tool-call"]) {
+    const event = {
+      type,
+      toolCallId: "a",
+      toolName: "weather",
+      input: { city: "Paris" },
+    };
+    const stream = vercelAI(createStructuredStreamPool({ snapshots: "immutable" }));
+    const updates = stream.pushAll(event);
+    assert.deepEqual(updates.map(({ type }) => type), ["start", "complete"]);
+    assert.deepEqual(updates[1].value, { city: "Paris" });
+    assert.equal(Object.isFrozen(updates[1].value), true);
+    assert.deepEqual(stream.pushAll(event), []);
+    assert.equal(stream.finish().length, 1);
 
-  const pool = createStructuredStreamPool({ maxBytes: 4 });
-  assert.throws(() => vercelAI(pool).push(event), {
-    code: "MAX_BYTES_EXCEEDED",
-    id: "a",
-  });
-  assert.equal(pool.size, 0);
+    const pool = createStructuredStreamPool({ maxBytes: 4 });
+    assert.throws(() => vercelAI(pool).push(event), {
+      code: "MAX_BYTES_EXCEEDED",
+      id: "a",
+    });
+    assert.equal(pool.size, 0);
+  }
+});
+
+test("Vercel steps wait for final inputs and close remaining calls at the step boundary", () => {
+  const stream = vercelAI();
+  stream.pushAll({ type: "start-step" });
+  for (const id of ["a", "b"]) {
+    stream.pushAll({ type: "tool-input-start", id });
+    stream.pushAll({ type: "tool-input-delta", id, delta: '{"city":"Paris"}' });
+    assert.deepEqual(stream.pushAll({ type: "tool-input-end", id }), []);
+  }
+  const final = { type: "tool-call", toolCallId: "a", input: { location: "Paris" } };
+  assert.deepEqual(stream.pushAll(final).map(({ type, id, value }) => ({ type, id, value })), [
+    { type: "complete", id: "a", value: { location: "Paris" } },
+  ]);
+  assert.deepEqual(stream.pushAll(final), []);
+  assert.deepEqual(stream.pushAll({ type: "finish-step" }).map(({ type, id, value }) => ({ type, id, value })), [
+    { type: "complete", id: "b", value: { city: "Paris" } },
+  ]);
+
+  stream.pushAll({ type: "tool-input-start", id: "a" });
+  stream.pushAll({ type: "tool-input-delta", id: "a", delta: "42" });
+  assert.equal(stream.pushAll({ type: "tool-input-end", id: "a" })[0].value, 42);
+  assert.deepEqual(stream.finish().map(({ value }) => value), [
+    { location: "Paris" }, { city: "Paris" }, 42,
+  ]);
 });
 
 test("diagnostic callback failures never mask parser errors or prevent cleanup", () => {

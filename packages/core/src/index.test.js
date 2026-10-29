@@ -48,6 +48,58 @@ test("runs the published scanner through the Rust WebAssembly backend", () => {
   assert.throws(() => scanner.push("{}"), /disposed/);
 });
 
+test("authoritative final text replaces streamed values and emits replacement patches", () => {
+  for (const snapshots of ["live", "immutable"]) {
+    const pool = new StructuredStreamPool({ snapshots, maxActiveStreams: 1 });
+    const prior = pool.start("a", '{"city":"Paris","extra":true}').partialValue;
+    const text = '{"location":"Paris"}';
+    const result = pool.finish("a", text);
+    assert.equal(result.text, text);
+    assert.deepEqual(result.value, { location: "Paris" });
+    assert.deepEqual(result.partialValue, result.value);
+    assert.equal(result.bytesSeen, Buffer.byteLength(text));
+    assert.equal(result.complete, true);
+    assert.deepEqual(result.changes, [
+      { op: "set", path: [], value: {} },
+      { op: "set", path: ["location"], value: "" },
+      { op: "append", path: ["location"], value: "Paris" },
+      { op: "complete", path: ["location"] },
+      { op: "complete", path: [] },
+    ]);
+    assert.deepEqual(prior, { city: "Paris", extra: true });
+    if (snapshots === "immutable") {
+      assert.equal(Object.isFrozen(result.partialValue), true);
+      assert.equal(Object.isFrozen(result.value), true);
+    }
+    assert.equal(pool.size, 0);
+  }
+});
+
+test("matching final text keeps the existing immutable value and completion patches", () => {
+  const pool = new StructuredStreamPool({ snapshots: "immutable" });
+  const text = '{"city":"Paris"}';
+  const prior = pool.start("a", text).partialValue;
+  const result = pool.finish("a", text);
+  assert.equal(result.partialValue, prior);
+  assert.deepEqual(result.changes, []);
+});
+
+test("authoritative final text validates replacements and releases failed calls", () => {
+  for (const [options, text, code] of [
+    [{ maxBytes: 4 }, '"long"', "MAX_BYTES_EXCEEDED"],
+    [{ maxDepth: 1 }, "[[]]", "MAX_DEPTH_EXCEEDED"],
+    [{}, "{]", "MISMATCHED_CLOSING"],
+  ]) {
+    const pool = new StructuredStreamPool(options);
+    pool.start("a", "{}");
+    assert.throws(() => pool.finish("a", text), { code, id: "a", operation: "finish" });
+    assert.equal(pool.size, 0);
+  }
+  const pool = new StructuredStreamPool();
+  pool.start("a", '{"city":"Pa');
+  assert.deepEqual(pool.finish("a", '{"city":"Paris"}').value, { city: "Paris" });
+});
+
 test("incrementally scans every possible two-part split", () => {
   const input =
     '{"query":"a \\"quoted\\" 👋 value","items":[1,true,null,{"ok":false}]}';
