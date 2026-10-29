@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.14
+
 - Reuse string append buffers and borrow their paths between streamed chunks,
   avoiding repeated delta allocations and path copies.
 - Decode streamed UTF-8 directly into the existing key and value buffers,
