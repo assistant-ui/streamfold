@@ -6,7 +6,7 @@ import { z } from "zod";
 import { readStructured } from "../packages/core/src/index.js";
 import { vercelAI } from "../packages/core/src/vercel-ai.js";
 
-async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string() })) {
+async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string() }), format = "ui") {
   const input = '{"city":"Paris"}';
   const chunks = [
     { type: "stream-start", warnings: [] },
@@ -33,7 +33,8 @@ async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string
     tools: { weather: tool({ description: "Get weather", inputSchema }) },
   });
   const updates = [];
-  for await (const update of readStructured(result.toUIMessageStream(), { integration: vercelAI })) {
+  const source = format === "full" ? result.fullStream : result.toUIMessageStream();
+  for await (const update of readStructured(source, { integration: vercelAI })) {
     if (update.type === "complete") updates.push({ id: update.id, value: update.value });
   }
   return updates;
@@ -42,6 +43,20 @@ async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string
 test("streamed SDK arguments produce a completed tool input", async () => {
   assert.deepEqual(await readSdkToolCall(true), [{ id: "weather-1", value: { city: "Paris" } }]);
 });
+
+for (const streamed of [false, true]) {
+  test(`fullStream preserves final inputs ${streamed ? "after" : "without"} deltas`, async () => {
+    assert.deepEqual(await readSdkToolCall(streamed, z.object({
+      city: z.string(),
+      units: z.string().default("celsius"),
+    }), "full"), [{ id: "weather-1", value: { city: "Paris", units: "celsius" } }]);
+    assert.deepEqual(await readSdkToolCall(streamed, z.object({
+      city: z.string(),
+    }).transform(({ city }) => ({ location: city })), "full"), [
+      { id: "weather-1", value: { location: "Paris" } },
+    ]);
+  });
+}
 
 test("completed SDK input survives when no argument deltas were emitted", async () => {
   assert.deepEqual(await readSdkToolCall(false), [{ id: "weather-1", value: { city: "Paris" } }]);

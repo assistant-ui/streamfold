@@ -355,6 +355,15 @@ If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
 Use a separate pool per response/session.
 
+The Vercel adapter accepts both `streamText(...).fullStream` and
+`toUIMessageStream()`. Within SDK step boundaries (`start-step` / `finish-step`),
+`tool-input-end` ends the deltas; the subsequent `tool-call` supplies the final
+input, including schema defaults and transforms. Calls still pending at
+`finish-step` or EOF finalize from their streamed arguments. Outside SDK step
+boundaries, `tool-input-end` continues to complete a call immediately.
+`tool-call` and UI `tool-input-available` events also work without preceding
+deltas. Repeated completion events do not emit duplicate results.
+
 ### Errors and diagnostics
 
 ```ts

@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Preserve Vercel AI SDK schema defaults and transforms in completed tool inputs,
-  with replacement patches when the final input differs from streamed arguments.
+  including `fullStream` calls without argument deltas, with replacement patches
+  when the final input differs from streamed arguments.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 
