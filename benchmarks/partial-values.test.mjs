@@ -80,6 +80,52 @@ test("emits compact path patches instead of complete replacement values", () => 
   stream.dispose();
 });
 
+test("string append patches contain only new text across chunks and fields", () => {
+  const firstPath = ["items", 0, "text"];
+  const siblingPath = ["items", 0, "other"];
+  const secondPath = ["items", 1, "text"];
+
+  for (const snapshots of ["live", "immutable"]) {
+    const stream = createStructuredStream({ snapshots });
+    const appendHistory = [];
+    const snapshotHistory = [];
+    try {
+      stream.push('{"items":[{"text":"');
+      for (const [chunk, path, value] of [
+        ["a", firstPath, "a"],
+        ["", null],
+        ["b", firstPath, "b"],
+        ["\\", null],
+        ["n", firstPath, "\n"],
+        ["\\uD83E", firstPath, "\uD83E"],
+        ["", null],
+        ["\\uDD80", firstPath, "\uDD80"],
+        ['"', null],
+        [',"other":"x', siblingPath, "x"],
+        ["y", siblingPath, "y"],
+        ['"},{"text":"z', secondPath, "z"],
+        ['\\t"}]}', secondPath, "\t"],
+      ]) {
+        const update = stream.push(chunk);
+        const appends = update.changes.filter(({ op }) => op === "append");
+        assert.deepEqual(appends, path ? [{ op: "append", path, value }] : []);
+        appendHistory.push([appends, structuredClone(appends)]);
+        if (snapshots === "immutable") {
+          snapshotHistory.push([update.partialValue, structuredClone(update.partialValue)]);
+        }
+      }
+
+      assert.deepEqual(stream.finish().partialValue, {
+        items: [{ text: "ab\n🦀", other: "xy" }, { text: "z\t" }],
+      });
+      for (const [appends, saved] of appendHistory) assert.deepEqual(appends, saved);
+      for (const [snapshot, saved] of snapshotHistory) assert.deepEqual(snapshot, saved);
+    } finally {
+      stream.dispose();
+    }
+  }
+});
+
 test("tracks field completion without cloning the partial value", () => {
   const stream = createStructuredStream();
 

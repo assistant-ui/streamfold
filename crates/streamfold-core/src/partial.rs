@@ -669,19 +669,14 @@ impl PartialValueParser {
 
     fn flush_partial(&mut self, chunk_length: usize) -> Result<(), StreamError> {
         let offset = self.bytes_seen.saturating_sub(chunk_length);
-        let append = if let Token::String(string) = &mut self.token {
+        if let Token::String(string) = &mut self.token {
             string.flush_chunk(offset)?;
-            match &string.role {
-                StringRole::Value(path) if !string.delta.is_empty() => {
-                    Some((path.clone(), std::mem::take(&mut string.delta)))
-                }
-                _ => None,
+            if let StringRole::Value(path) = &string.role
+                && !string.delta.is_empty()
+            {
+                emit_string_append(&mut self.output, path, &string.delta);
+                string.delta.clear();
             }
-        } else {
-            None
-        };
-        if let Some((path, delta)) = append {
-            self.emit_string_append(&path, &delta);
         }
 
         if let Token::Number(number) = &self.token
@@ -720,11 +715,7 @@ impl PartialValueParser {
     }
 
     fn emit_string_append(&mut self, path: &[PathSegment], units: &[u16]) {
-        self.emit_path_patch(PATCH_APPEND_STRING, path);
-        write_u32(&mut self.output, units.len());
-        for &unit in units {
-            self.output.extend_from_slice(&unit.to_le_bytes());
-        }
+        emit_string_append(&mut self.output, path, units);
     }
 
     fn emit_number(&mut self, path: &[PathSegment], number: &[u8]) {
@@ -774,6 +765,15 @@ impl StructuredJsonParser {
 
     pub fn patch_bytes(&self) -> &[u8] {
         self.values.patch_bytes()
+    }
+}
+
+fn emit_string_append(output: &mut Vec<u8>, path: &[PathSegment], units: &[u16]) {
+    output.push(PATCH_APPEND_STRING);
+    encode_path(output, path);
+    write_u32(output, units.len());
+    for &unit in units {
+        output.extend_from_slice(&unit.to_le_bytes());
     }
 }
 
