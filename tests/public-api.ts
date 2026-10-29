@@ -53,7 +53,7 @@ const pool = createStructuredStreamPool<string>({
 pool.start("call-1");
 pool.push("call-1", '{"query":"streamfold"}');
 pool.getFieldState("call-1", ["query"]) satisfies "complete" | "partial";
-pool.finish("call-1").value;
+pool.finish("call-1", '{"query":"streamfold"}').value;
 
 const assistantUi = createAssistantUiStream();
 assistantUi.push({

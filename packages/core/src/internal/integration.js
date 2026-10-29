@@ -47,17 +47,18 @@ export const createIntegration = (
     return true;
   };
 
-  const complete = (id, initialChunk) => {
+  const complete = (id, finalChunk) => {
     if (missingId(id)) return undefined;
+    if (!pool.has(id) && completedIds.has(id)) return undefined;
+    const finalText = finalChunk?.();
     if (!pool.has(id)) {
-      if (completedIds.has(id)) return undefined;
-      if (initialChunk === undefined) {
+      if (finalChunk === undefined) {
         unmatched("Tool completion has no matching active call", id);
         return undefined;
       }
-      record("start", pool.start(id, initialChunk()));
+      record("start", pool.start(id, finalText));
     }
-    const result = pool.finish(id);
+    const result = pool.finish(id, finalText);
     completed.push(result);
     completedIds.add(id);
     return record("complete", result);

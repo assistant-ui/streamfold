@@ -12,8 +12,8 @@ export const langchain = (pool = createStructuredStreamPool(), options) => {
         let id = idsByIndex.get(chunk.index);
         if (id === undefined && chunk.id) {
           id = chunk.id;
-          idsByIndex.set(chunk.index, id);
-          update = calls.start(id);
+          if (chunk.index !== undefined) idsByIndex.set(chunk.index, id);
+          if (!calls.has(id)) update = calls.start(id);
         }
         if (id !== undefined && chunk.args) {
           update = calls.push(id, chunk.args);

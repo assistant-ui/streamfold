@@ -105,13 +105,18 @@ Adapters consume structural event shapes and do not install or load the
 provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle
 completion means the arguments are finalized, not that a tool has executed.
-The Vercel AI SDK adapter also accepts `tool-input-available` events without
-preceding argument deltas and emits their completed input once.
+The Vercel AI SDK adapter uses the final `tool-call` input from `fullStream` or
+`tool-input-available` input from `toUIMessageStream()`, preserving schema defaults
+and transforms after streamed deltas. It also accepts these events without
+preceding deltas and emits their completed input once.
 
 Pass `{ onDiagnostic(diagnostic) { /* report diagnostic */ } }` as an adapter's
 second argument for opt-in event-matching and error diagnostics. Parser errors
 preserve their native `SyntaxError` or `RangeError` type and include a stable
 `code`, a UTF-8 `byteOffset`, and call/event context where available.
+
+LangChain chunks can identify a call by index or, when the index is absent,
+by call ID. Each unindexed fragment must carry its call ID.
 
 For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
 mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory
