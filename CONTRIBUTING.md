@@ -91,3 +91,10 @@ so provenance identifies the actual build commit. It never moves the tag,
 and it skips npm publication if that version already exists. An existing
 GitHub release draft remains a draft until a maintainer publishes it after
 verifying the npm package.
+
+After dispatching a retry, run `pnpm release:await` from a checkout with the
+version being released. The waiter selects the latest matching tag run or
+manual retry on `main`, checking the retry commit's package version. It resolves
+the tag through GitHub, so workflow-fix commits and checkouts without local tags
+can wait for the same release. A failed retry still exits with failure; a
+successful run must also be visible on npm before the command reports success.

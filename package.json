@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
-    "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs examples/*.test.mjs",
+    "test": "node --test packages/core/src/*.test.js benchmarks/*.test.mjs examples/*.test.mjs scripts/*.test.mjs",
     "examples": "node examples/run.mjs",
     "test:browser": "node --test tests/browser-smoke.test.mjs",
     "typecheck": "tsc --noEmit && tsc --project examples/tsconfig.json",

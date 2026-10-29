@@ -9,12 +9,24 @@ const packageJson = JSON.parse(
 );
 const version = packageJson.version;
 const tag = `v${version}`;
-const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+const commit = execFileSync("gh", ["api", `repos/{owner}/{repo}/commits/${tag}`, "--jq", ".sha"], {
   encoding: "utf8",
 }).trim();
 
 const wait = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const versionsByCommit = new Map();
+const releaseVersion = (sha) => {
+  if (!versionsByCommit.has(sha)) {
+    const content = execFileSync("gh", [
+      "api", `repos/{owner}/{repo}/contents/packages/core/package.json?ref=${sha}`,
+      "--jq", ".content",
+    ], { encoding: "utf8" });
+    versionsByCommit.set(sha, JSON.parse(Buffer.from(content.trim(), "base64").toString("utf8")).version);
+  }
+  return versionsByCommit.get(sha);
+};
 
 const findReleaseRun = () => {
   const output = execFileSync(
@@ -24,18 +36,18 @@ const findReleaseRun = () => {
       "list",
       "--workflow",
       "Release",
-      "--event",
-      "push",
-      "--branch",
-      tag,
       "--limit",
       "20",
       "--json",
-      "databaseId,headSha,status,conclusion,url",
+      "databaseId,event,headBranch,headSha,status,conclusion,url",
     ],
     { encoding: "utf8" },
   );
-  return JSON.parse(output).find((run) => run.headSha === commit);
+  return JSON.parse(output).find((run) => {
+    if (run.event === "push") return run.headBranch === tag && run.headSha === commit;
+    return run.event === "workflow_dispatch" && run.headBranch === "main" &&
+      releaseVersion(run.headSha) === version;
+  });
 };
 
 let releaseRun;
