@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Release descendant completion metadata when a JSON container completes,
+  reducing retained memory while preserving field-state queries.
+
 ## 0.1.14
 
 - Reuse string append buffers and borrow their paths between streamed chunks,
