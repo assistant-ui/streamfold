@@ -181,17 +181,16 @@ impl StringToken {
         };
         match std::str::from_utf8(&self.raw_utf8) {
             Ok(text) => {
-                units.extend(text.encode_utf16());
+                extend_utf16(units, text);
                 self.raw_utf8.clear();
                 Ok(())
             }
             Err(error) => {
                 let valid = error.valid_up_to();
                 if valid > 0 {
-                    units.extend(
-                        std::str::from_utf8(&self.raw_utf8[..valid])
-                            .expect("valid UTF-8 prefix")
-                            .encode_utf16(),
+                    extend_utf16(
+                        units,
+                        std::str::from_utf8(&self.raw_utf8[..valid]).expect("valid UTF-8 prefix"),
                     );
                     self.raw_utf8.drain(..valid);
                 }
@@ -215,6 +214,14 @@ impl StringToken {
             StringRole::Key => self.units.extend_from_slice(units),
             StringRole::Value(_) => self.delta.extend_from_slice(units),
         }
+    }
+}
+
+fn extend_utf16(units: &mut Vec<u16>, text: &str) {
+    if text.is_ascii() {
+        units.extend(text.bytes().map(u16::from));
+    } else {
+        units.extend(text.encode_utf16());
     }
 }
 
