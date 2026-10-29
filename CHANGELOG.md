@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve Vercel AI SDK schema defaults and transforms in completed tool inputs,
+  with replacement patches when the final input differs from streamed arguments.
+
 ## 0.1.14
 
 - Reuse string append buffers and borrow their paths between streamed chunks,

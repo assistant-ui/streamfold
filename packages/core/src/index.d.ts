@@ -215,7 +215,7 @@ export class StructuredStreamPool<Id = string> {
   constructor(options?: StructuredStreamPoolOptions);
   start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
   push(id: Id, delta: string): ActiveStructuredStream<Id>;
-  finish(id: Id): CompletedStructuredStream<Id>;
+  finish(id: Id, finalText?: string): CompletedStructuredStream<Id>;
   getFieldState(id: Id, path: StructuredStreamPath): StructuredStreamFieldState;
   abort(id: Id): boolean;
   has(id: Id): boolean;

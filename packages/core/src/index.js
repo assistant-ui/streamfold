@@ -247,7 +247,7 @@ export class StructuredStreamPool {
     }
   }
 
-  finish(id) {
+  finish(id, finalText) {
     const entry = this.#streams.get(id);
     if (entry === undefined) {
       throw streamError(
@@ -258,8 +258,16 @@ export class StructuredStreamPool {
     }
 
     try {
+      let text = entry.chunks.join("");
+      let changes;
+      if (finalText !== undefined && finalText !== text) {
+        entry.scanner.dispose();
+        entry.scanner = createStructuredStream(this.#streamOptions);
+        changes = entry.scanner.push(finalText).changes;
+        text = finalText;
+      }
       const state = entry.scanner.finish();
-      const text = entry.chunks.join("");
+      if (changes !== undefined) state.changes = changes.concat(state.changes);
       const value = JSON.parse(text);
       if (this.#streamOptions.snapshots === "immutable") freezeJson(value);
       return { id, text, value, ...state };

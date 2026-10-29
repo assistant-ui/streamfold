@@ -55,7 +55,7 @@ escapes (for example, by using `JSON.stringify`) to preserve them losslessly.
 | --- | --- |
 | `start(id, initialChunk?)` | Start a stream; duplicate IDs throw |
 | `push(id, delta)` | Process a fragment for an active ID |
-| `finish(id)` | Finalize, return `{ id, text, value, ...state }`, and remove the stream |
+| `finish(id, finalText?)` | Finalize, optionally replacing the streamed JSON, return `{ id, text, value, ...state }`, and remove the stream |
 | `getFieldState(id, path)` | Read completion state for a field |
 | `abort(id)` | Dispose and remove a stream; returns whether it existed |
 | `has(id)` | Test whether an ID is active |
@@ -64,6 +64,12 @@ escapes (for example, by using `JSON.stringify`) to preserve them losslessly.
 
 Syntax and limit failures are terminal. A failed pool entry is removed
 automatically.
+
+When a provider supplies authoritative final JSON, pass it as `finalText`.
+If it differs from the streamed text, it replaces the partial value under the
+same byte/depth limits and snapshot mode. The completion includes replacement
+patches, and its text, value, and byte count describe that final JSON. Matching
+text reuses the current parser and partial-value identity.
 
 ## Stream state
 
