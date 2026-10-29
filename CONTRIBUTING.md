@@ -33,6 +33,12 @@ For numeric-parser changes, run `node benchmarks/number-prefixes.mjs
 exponents with matching partial values and final validation, recording medians
 and p95s in `artifacts/number-prefixes.json`.
 
+For completion-tracking changes, run `pnpm bench:completion-memory
+/path/to/baseline/src/index.js`. It compares retained JavaScript heap in fresh
+Node processes after explicit garbage collection, with 16 streams of 2,000
+nested records in both snapshot modes. It checks field states and final values
+and records three alternating trials in `artifacts/completion-memory.json`.
+
 The standalone assistant-ui demo has its own locked dependencies and CI job.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check
