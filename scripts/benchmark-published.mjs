@@ -107,6 +107,9 @@ try {
     join(temporaryRoot, "artifacts", "sdk-adapter-results.json"),
     join(root, "artifacts", "published-sdk-adapter-results.json"),
   );
+  const sdkReport = JSON.parse(
+    readFileSync(join(temporaryRoot, "artifacts", "sdk-adapter-results.json"), "utf8"),
+  );
   writeFileSync(
     join(root, "artifacts", "published-package.json"),
     `${JSON.stringify(
@@ -114,8 +117,8 @@ try {
         benchmarkedAt: new Date().toISOString(),
         ...packageMetadata,
         dependencies: {
-          ai: "7.0.22",
-          "assistant-stream": "0.3.25",
+          ai: sdkReport.environment.vercelAiSdk,
+          "assistant-stream": sdkReport.environment.assistantStream,
         },
       },
       null,
