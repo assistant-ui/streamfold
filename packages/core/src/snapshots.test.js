@@ -103,6 +103,64 @@ test("replacement negative numbers invalidate completion before their first digi
   }
 });
 
+test("completed containers answer descendant queries while siblings stream", () => {
+  for (const snapshots of ["live", "immutable"]) {
+    const stream = createStructuredStream({ snapshots });
+    try {
+      stream.push('{"rows":[{"nested":{"name":"first"}},[true,null]],"tail":"par');
+      for (const path of [
+        ["rows"],
+        ["rows", 0, "nested", "name"],
+        ["rows", "0", "nested"],
+        ["rows", 1, 0],
+        ["rows", 1, 1],
+      ]) assert.equal(stream.getFieldState(path), "complete");
+      assert.equal(stream.getFieldState([]), "partial");
+      assert.equal(stream.getFieldState(["tail"]), "partial");
+      assert.equal(stream.getFieldState(["missing"]), "partial");
+      stream.push('tial"}');
+      assert.equal(stream.getFieldState([]), "complete");
+      assert.equal(stream.getFieldState(["rows", 0, "nested", "name"]), "complete");
+      assert.equal(stream.getFieldState(["tail"]), "complete");
+      assert.deepEqual(stream.finish().partialValue, {
+        rows: [{ nested: { name: "first" } }, [true, null]],
+        tail: "partial",
+      });
+    } finally {
+      stream.dispose();
+    }
+  }
+});
+
+test("replacing a completed container resets its descendant field states", () => {
+  for (const snapshots of ["live", "immutable"]) {
+    for (const key of ["value", "__proto__", "constructor"]) {
+      const stream = createStructuredStream({ snapshots });
+      try {
+        const prefix = JSON.stringify(key);
+        const first = stream.push(`{${prefix}:{"rows":[{"old":true}]}`).partialValue;
+        const saved = structuredClone(first);
+        assert.equal(stream.getFieldState([key, "rows", 0, "old"]), "complete");
+        stream.push(`,${prefix}:{"rows":[{"next":"par`);
+        for (const path of [[key], [key, "rows"], [key, "rows", 0], [key, "rows", 0, "old"], [key, "rows", 0, "next"]])
+          assert.equal(stream.getFieldState(path), "partial");
+        stream.push('tial"}]}');
+        assert.equal(stream.getFieldState([key, "rows", 0, "next"]), "complete");
+        assert.equal(stream.getFieldState([]), "partial");
+        stream.push(`,${prefix}:-`);
+        assert.equal(stream.getFieldState([key]), "partial");
+        assert.equal(stream.getFieldState([key, "rows", 0, "next"]), "partial");
+        stream.push('12}');
+        assert.deepEqual(stream.finish().partialValue, JSON.parse(`{${prefix}:-12}`));
+        assert.equal(stream.getFieldState([key]), "complete");
+        if (snapshots === "immutable") assert.deepEqual(first, saved);
+      } finally {
+        stream.dispose();
+      }
+    }
+  }
+});
+
 test("immutable snapshots handle special keys and every Unicode chunk boundary", () => {
   const text =
     '{"__proto__":{"polluted":true},"constructor":{"name":"x"},"items":[1,true,null,"\\uD83D\\uDE80","é\uD83D\uDE80"]}';
