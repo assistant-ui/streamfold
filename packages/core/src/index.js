@@ -351,6 +351,7 @@ const markFieldComplete = (root, path) => {
     node = child;
   }
   node.complete = true;
+  node.children.clear();
 };
 
 const invalidateField = (root, path) => {
