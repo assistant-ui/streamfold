@@ -53,6 +53,7 @@ export interface StreamState {
 export interface CompletedStructuredStream<Id = string> extends StreamState {
   readonly id: Id;
   readonly text: string;
+  /** Shares the final frozen partialValue in immutable mode; separately parsed in live mode. */
   readonly value: JsonValue;
 }
 

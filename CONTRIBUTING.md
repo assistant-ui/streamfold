@@ -39,6 +39,13 @@ Node processes after explicit garbage collection, with 16 streams of 2,000
 nested records in both snapshot modes. It checks field states and final values
 and records three alternating trials in `artifacts/completion-memory.json`.
 
+For pool finalization changes, run `pnpm bench:final-value-memory
+/path/to/baseline/src/index.js`. It measures retained JavaScript heap for 16
+completed results containing 2,000 nested records each, in live and immutable
+modes. Three alternating trials use fresh Node processes and explicit garbage
+collection, with final values checked against the source JSON. Results are
+written to `artifacts/final-value-memory.json`.
+
 The standalone assistant-ui demo has its own locked dependencies and CI job.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check

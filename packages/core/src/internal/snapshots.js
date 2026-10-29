@@ -49,11 +49,3 @@ export const applyImmutableChanges = (previous, changes) => {
   for (const value of owned) Object.freeze(value);
   return next;
 };
-
-export const freezeJson = (value) => {
-  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
-    for (const child of Object.values(value)) freezeJson(child);
-    Object.freeze(value);
-  }
-  return value;
-};

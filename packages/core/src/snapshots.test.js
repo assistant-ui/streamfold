@@ -211,18 +211,91 @@ test("immutable prefixes match live mode across generated chunk schedules", () =
   );
 });
 
-test("pools freeze both final and partial values in immutable mode", () => {
+test("immutable pools reuse their final frozen snapshot", () => {
   const pool = createStructuredStreamPool({ snapshots: "immutable" });
   const first = pool.start("a", '{"rows":[').partialValue;
   pool.start("b", "42");
-  pool.push("a", '{"ok":true}]}');
+  const latest = pool.push("a", '{"ok":true}]}').partialValue;
   const final = pool.finish("a");
   assert.deepEqual(first, { rows: [] });
-  assert.deepEqual(final.partialValue, final.value);
+  assert.equal(final.partialValue, final.value);
+  assert.equal(final.value, latest);
   assertFrozen(final.value);
   assertFrozen(final.partialValue);
   assert.equal(pool.finish("b").value, 42);
   assert.equal(pool.size, 0);
+});
+
+test("immutable pool final values match JSON across generated chunks and replacements", () => {
+  fc.assert(
+    fc.property(fc.jsonValue(), fc.jsonValue(), fc.integer({ min: 1, max: 32 }), (input, replacement, chunkSize) => {
+      const text = JSON.stringify(input);
+      for (const finalText of [undefined, text, JSON.stringify(replacement)]) {
+        const pool = createStructuredStreamPool({ snapshots: "immutable" });
+        pool.start("a");
+        let previous;
+        for (let offset = 0; offset < text.length; offset += chunkSize)
+          previous = pool.push("a", text.slice(offset, offset + chunkSize)).partialValue;
+        const saved = structuredClone(previous);
+        const result = pool.finish("a", finalText);
+        assert.deepEqual(result.value, JSON.parse(finalText ?? text));
+        assert.equal(result.value, result.partialValue);
+        assertFrozen(result.value);
+        assert.deepEqual(previous, saved);
+        assert.equal(result.text, finalText ?? text);
+        assert.equal(pool.size, 0);
+      }
+    }),
+    { numRuns: 100, seed: 0x5f03d },
+  );
+});
+
+test("immutable pool completion preserves numeric, Unicode, and duplicate-key values", () => {
+  for (const text of [
+    "-0", "1e400", "-1e400", "1e-400", "-1e-400", "9007199254740993", "null", "true", "false",
+    '"\\ud800"', '"\\udc00"', '"é🚀"',
+    '{"__proto__":{"safe":true},"constructor":{"prototype":{"ok":true}}}',
+    '{"a":{"old":true},"a":[-0,"\\ud800",null]}',
+  ]) {
+    for (let split = 0; split <= text.length; split++) {
+      const pool = createStructuredStreamPool({ snapshots: "immutable" });
+      pool.start("a", text.slice(0, split));
+      pool.push("a", text.slice(split));
+      const result = pool.finish("a");
+      assert.deepEqual(result.value, JSON.parse(text));
+      assert.equal(result.value, result.partialValue);
+      assertFrozen(result.value);
+    }
+  }
+});
+
+test("live pool completion isolates final values from consumer mutations", () => {
+  for (const options of [{}, { snapshots: "live" }]) {
+    const pool = createStructuredStreamPool(options);
+    const text = '{"rows":[{"id":1}]}';
+    for (const finalText of [undefined, text]) {
+      const partial = pool.start("a", text).partialValue;
+      partial.rows[0].id = 99;
+      partial.rows.push({ id: 2 });
+      const result = pool.finish("a", finalText);
+      assert.deepEqual(result.value, { rows: [{ id: 1 }] });
+      assert.equal(result.partialValue, partial);
+      assert.notEqual(result.value, partial);
+      result.value.rows[0].id = 3;
+      assert.equal(partial.rows[0].id, 99);
+    }
+  }
+});
+
+test("immutable pools reject incomplete final JSON and release the call", () => {
+  for (const text of ["", "{", "[1,", '"unfinished', "1e", "1e+"]) {
+    const pool = createStructuredStreamPool({ snapshots: "immutable" });
+    pool.start("a", text);
+    assert.throws(() => pool.finish("a"), { name: "SyntaxError", id: "a", operation: "finish" });
+    assert.equal(pool.size, 0);
+    pool.start("a", "{}");
+    assert.deepEqual(pool.finish("a").value, {});
+  }
 });
 
 test("live snapshots remain the default and invalid modes fail clearly", () => {

@@ -5,7 +5,7 @@ import {
   pushWasmParser,
   readWasmParser,
 } from "./internal/wasm-runtime.js";
-import { applyImmutableChanges, freezeJson } from "./internal/snapshots.js";
+import { applyImmutableChanges } from "./internal/snapshots.js";
 import { annotateError, streamError } from "./internal/errors.js";
 
 export { isStructuredStreamError } from "./internal/errors.js";
@@ -268,8 +268,9 @@ export class StructuredStreamPool {
       }
       const state = entry.scanner.finish();
       if (changes !== undefined) state.changes = changes.concat(state.changes);
-      const value = JSON.parse(text);
-      if (this.#streamOptions.snapshots === "immutable") freezeJson(value);
+      const value = this.#streamOptions.snapshots === "immutable"
+        ? state.partialValue
+        : JSON.parse(text);
       return { id, text, value, ...state };
     } catch (error) {
       throw annotateError(error, { id, operation: "finish" });
