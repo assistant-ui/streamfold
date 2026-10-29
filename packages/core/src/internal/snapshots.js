@@ -34,8 +34,9 @@ export const applyImmutableChanges = (previous, changes) => {
     next = copy(next);
     let target = next;
     for (const key of change.path.slice(0, -1)) {
-      const child = copy(Object.hasOwn(target, key) ? target[key] : undefined);
-      setOwn(target, key, child);
+      const current = Object.hasOwn(target, key) ? target[key] : undefined;
+      const child = copy(current);
+      if (child !== current) setOwn(target, key, child);
       target = child;
     }
     const key = change.path.at(-1);
