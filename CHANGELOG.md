@@ -5,6 +5,8 @@
 - Preserve Vercel AI SDK schema defaults and transforms in completed tool inputs,
   including `fullStream` calls without argument deltas, with replacement patches
   when the final input differs from streamed arguments.
+- Keep LangChain tool calls without indexes separate by their IDs and accept
+  SDK message chunk types directly.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 
