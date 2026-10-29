@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Release consumed completion payloads in managed SDK readers while preserving
+  manual completion history and duplicate suppression.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 

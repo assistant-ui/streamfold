@@ -1,6 +1,7 @@
 import { createStructuredStreamPool } from "./index.js";
 import { streamError } from "./internal/errors.js";
 import { abortableSource } from "./internal/abortable-source.js";
+import { clearCompletionHistory } from "./internal/integration.js";
 
 export async function* readStructured(
   events,
@@ -21,6 +22,7 @@ export async function* readStructured(
   let source;
   let failed = false;
   const dispose = () => {
+    clearCompletionHistory(stream);
     if (pool === undefined) stream?.dispose();
     else for (const id of pool.activeIds) pool.abort(id);
   };
@@ -40,7 +42,9 @@ export async function* readStructured(
     source = abortableSource(events, signal, dispose);
     for await (const event of source) {
       signal?.throwIfAborted();
-      for (const update of stream.pushAll(event)) {
+      const updates = stream.pushAll(event);
+      clearCompletionHistory(stream);
+      for (const update of updates) {
         signal?.throwIfAborted();
         yield update;
       }
@@ -55,6 +59,7 @@ export async function* readStructured(
       // SDK finish() appends pending calls to its legacy completion history.
       const pending = pool.size;
       const completed = stream.finish();
+      clearCompletionHistory(stream);
       if (pending > 0) {
         for (const result of completed.slice(-pending)) {
           signal?.throwIfAborted();
