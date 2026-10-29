@@ -175,21 +175,23 @@ impl StringToken {
             return Ok(());
         }
 
+        let units = match self.role {
+            StringRole::Key => &mut self.units,
+            StringRole::Value(_) => &mut self.delta,
+        };
         match std::str::from_utf8(&self.raw_utf8) {
             Ok(text) => {
-                let units: Vec<u16> = text.encode_utf16().collect();
-                self.push_units(&units);
+                extend_utf16(units, text);
                 self.raw_utf8.clear();
                 Ok(())
             }
             Err(error) => {
                 let valid = error.valid_up_to();
                 if valid > 0 {
-                    let units: Vec<u16> = std::str::from_utf8(&self.raw_utf8[..valid])
-                        .expect("valid UTF-8 prefix")
-                        .encode_utf16()
-                        .collect();
-                    self.push_units(&units);
+                    extend_utf16(
+                        units,
+                        std::str::from_utf8(&self.raw_utf8[..valid]).expect("valid UTF-8 prefix"),
+                    );
                     self.raw_utf8.drain(..valid);
                 }
                 if terminated || error.error_len().is_some() {
@@ -212,6 +214,14 @@ impl StringToken {
             StringRole::Key => self.units.extend_from_slice(units),
             StringRole::Value(_) => self.delta.extend_from_slice(units),
         }
+    }
+}
+
+fn extend_utf16(units: &mut Vec<u16>, text: &str) {
+    if text.is_ascii() {
+        units.extend(text.bytes().map(u16::from));
+    } else {
+        units.extend(text.encode_utf16());
     }
 }
 
@@ -871,6 +881,82 @@ mod tests {
         }
         assert!(parser.state().complete);
         assert!(emitted_patch);
+    }
+
+    #[test]
+    fn emits_utf16_for_keys_and_values_across_utf8_boundaries() {
+        let mut parser = StructuredJsonParser::new();
+        // One key segment containing the UTF-16 units for "aé".
+        let path: &[u8] = &[1, 0, 0, 2, 0, 0, 0, 97, 0, 233, 0];
+
+        parser.push(b"{\"a\xc3").unwrap();
+        assert_eq!(parser.patch_bytes(), &[PATCH_SET_OBJECT, 0, 0]);
+
+        parser.push(b"\xa9\":\"x\xf0\x9f").unwrap();
+        assert_eq!(
+            parser.patch_bytes(),
+            [
+                &[PATCH_SET_STRING][..],
+                path,
+                &[PATCH_APPEND_STRING],
+                path,
+                &[1, 0, 0, 0, 120, 0],
+            ]
+            .concat()
+        );
+
+        parser.push(b"\xa6").unwrap();
+        assert!(parser.patch_bytes().is_empty());
+
+        parser.push(b"\x80\xc3\xa9").unwrap();
+        assert_eq!(
+            parser.patch_bytes(),
+            [
+                &[PATCH_APPEND_STRING][..],
+                path,
+                &[3, 0, 0, 0, 0x3e, 0xd8, 0x80, 0xdd, 233, 0],
+            ]
+            .concat()
+        );
+
+        parser.push(b"\\nZ\"}").unwrap();
+        assert_eq!(
+            parser.patch_bytes(),
+            [
+                &[PATCH_APPEND_STRING][..],
+                path,
+                &[2, 0, 0, 0, 10, 0, 90, 0, PATCH_COMPLETE],
+                path,
+                &[PATCH_COMPLETE, 0, 0],
+            ]
+            .concat()
+        );
+        assert!(parser.finish().unwrap().complete);
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_in_keys_and_values_at_every_split() {
+        for prefix in [b"{\"ok".as_slice(), b"[\"ok"] {
+            for invalid in [
+                b"\xff\"".as_slice(),
+                b"\xc0\xaf\"",
+                b"\xf0\x28\x8c\xbc\"",
+                b"\xc3\"",
+                b"\xf0\x9f\\n",
+            ] {
+                let input = [prefix, invalid].concat();
+                for split in 0..=input.len() {
+                    let mut parser = StructuredJsonParser::new();
+                    let result = parser
+                        .push(&input[..split])
+                        .and_then(|_| parser.push(&input[split..]));
+                    assert!(
+                        matches!(result, Err(StreamError::InvalidJson { .. })),
+                        "input {input:?}, split {split}: {result:?}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
