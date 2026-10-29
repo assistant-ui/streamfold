@@ -310,6 +310,10 @@ Choose exactly one factory: `adapter` for a `defineAdapter` factory, or
 `integration` for a built-in SDK factory. Both return the same lifecycle update
 shape. The helper owns the integration's pool and finalizes only pending calls,
 without replaying SDK completion history, even when a call ID is reused.
+Built-in integrations release their completion payload history after each
+managed batch; the current batch and any values retained by the consumer remain
+live. Call IDs remain recorded for duplicate suppression. Manual SDK streams
+still retain all completed calls for `finish()`.
 Cleanup and backpressure rules above apply to both paths. Custom integration
 factories must use the supplied pool and return completion history with newly
 finalized calls appended, matching the built-in contract.

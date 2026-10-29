@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Release consumed completion payloads in managed SDK readers while preserving
+  manual completion history and duplicate suppression.
 - Preserve Vercel AI SDK schema defaults and transforms in completed tool inputs,
   including `fullStream` calls without argument deltas, with replacement patches
   when the final input differs from streamed arguments.

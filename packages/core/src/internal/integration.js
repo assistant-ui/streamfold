@@ -5,6 +5,13 @@ import {
 } from "./errors.js";
 import { emitDiagnostic } from "./diagnostics.js";
 
+const completionHistories = new WeakMap();
+
+export const clearCompletionHistory = (stream) => {
+  const history = completionHistories.get(stream);
+  if (history !== undefined) history.length = 0;
+};
+
 export const createIntegration = (
   pool,
   accept,
@@ -104,7 +111,7 @@ export const createIntegration = (
     }
   };
 
-  return {
+  const stream = {
     push: (event) => push(event, false),
     pushAll: (event) => push(event, true),
     finish() {
@@ -126,6 +133,8 @@ export const createIntegration = (
       }
     },
   };
+  completionHistories.set(stream, completed);
+  return stream;
 };
 
 export const append = (operations, id, delta) => {

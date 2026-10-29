@@ -230,6 +230,7 @@ test("SDK completion history does not duplicate reused IDs at EOF", async () => 
         { type: "tool-input-start", id: "same" },
         { type: "tool-input-delta", id: "same", delta: "1" },
         { type: "tool-input-end", id: "same" },
+        { type: "tool-input-end", id: "same" },
         { type: "tool-input-start", id: "same" },
         { type: "tool-input-delta", id: "same", delta: "2" },
       ],
