@@ -4,6 +4,10 @@
 
 - Route native assistant-stream tool arguments by their part indexes, including
   calls after non-tool parts and merged streams, while retaining explicit paths.
+- Release input buffers and unused patch capacity after scanner finalization,
+  reducing Wasm allocation when completed scanners remain referenced.
+- Use OpenAI final arguments when deltas are missing or incomplete and suppress
+  repeated completion events while preserving explicit call ID reuse.
 
 ## 0.1.15
 
