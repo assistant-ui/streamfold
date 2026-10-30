@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a Cohere v2 adapter for SDK and decoded wire tool argument streams.
 - Add a Bedrock ConverseStream adapter for streaming tool-use arguments.
 - Accept Anthropic stable and beta SDK message event interfaces directly in
   the Anthropic adapter and managed reader.

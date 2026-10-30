@@ -51,6 +51,10 @@
     "./vercel-ai": {
       "types": "./src/vercel-ai.d.ts",
       "default": "./src/vercel-ai.js"
+    },
+    "./cohere": {
+      "types": "./src/cohere.d.ts",
+      "default": "./src/cohere.js"
     }
   },
   "engines": {

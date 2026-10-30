@@ -332,6 +332,7 @@ composable integration value:
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/openai` | `openAI` |
 | `streamfold/anthropic` | `anthropic` |
+| `streamfold/cohere` | `cohere` |
 | `streamfold/bedrock` | `bedrock` |
 | `streamfold/gemini` | `gemini` |
 | `streamfold/langchain` | `langchain` |
@@ -379,6 +380,14 @@ input, including schema defaults and transforms. Calls still pending at
 boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
+
+For Cohere v2, pass `client.chatStream(...)` from `CohereClientV2` to
+`readStructured` with `integration: cohere`. Both the SDK's camelCase
+`toolCalls` payloads and decoded wire `tool_calls` payloads are accepted.
+Calls are correlated by index and expose the tool-call ID. They finish at
+`tool-call-end` or EOF. Text and tool-plan events are ignored; malformed JSON
+and generation error messages fail the integration. The Cohere SDK is not
+a runtime dependency of Streamfold.
 
 For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
 `readStructured` with `integration: bedrock`. The adapter correlates tool-use
