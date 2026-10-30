@@ -20,6 +20,10 @@ export type GeminiToolCallEvent =
       readonly index: number;
       readonly delta:
         | {
+            readonly type: "arguments_delta";
+            readonly arguments?: string | undefined;
+          }
+        | {
             readonly type: "arguments";
             readonly partial_arguments: string;
           }

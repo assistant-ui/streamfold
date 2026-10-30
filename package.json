@@ -32,11 +32,13 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "1.3.0",
+    "@google/genai": "2.31.0",
     "@langchain/core": "1.3.0",
     "ai": "7.0.152",
     "assistant-stream": "0.3.42",
     "bumpp": "^12.3.0",
     "fast-check": "4.10.2",
+    "openai": "7.45.1",
     "playwright": "^1.63.0",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2",
