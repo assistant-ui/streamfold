@@ -347,6 +347,12 @@ and other non-tool SDK events can remain in the stream and are ignored.
 The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
 directly, including SDK event interfaces for text and other non-tool events.
 Non-tool events are ignored; callers do not need to cast or filter the stream.
+Explicit `error`, `response.failed`, and terminal `response.incomplete` events
+fail the reader, emit `STREAM_ERROR`, and abort active calls without finalizing
+their pending arguments. Error messages and incomplete reasons are preserved;
+decoded failure details are available as the error's `cause`. Previously
+emitted completions are not retracted. The WebSocket `steered` incomplete reason
+is a normal handoff and remains ignored.
 
 | Method | Returns |
 | --- | --- |
