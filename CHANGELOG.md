@@ -11,6 +11,8 @@
   when the final input differs from streamed arguments.
 - Keep LangChain tool calls without indexes separate by their IDs and accept
   SDK message chunk types directly.
+- Use OpenAI final arguments when deltas are missing or incomplete and suppress
+  repeated completion events while preserving explicit call ID reuse.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 

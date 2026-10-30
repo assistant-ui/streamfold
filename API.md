@@ -362,6 +362,11 @@ If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
 Use a separate pool per response/session.
 
+The OpenAI Responses adapter uses the final `arguments` from
+`response.function_call_arguments.done`, including when earlier deltas are
+missing or incomplete. Repeated completions for an inactive call ID are ignored;
+an explicit new start allows that ID to be reused.
+
 The Vercel adapter accepts both `streamText(...).fullStream` and
 `toUIMessageStream()`. Within SDK step boundaries (`start-step` / `finish-step`),
 `tool-input-end` ends the deltas; the subsequent `tool-call` supplies the final
