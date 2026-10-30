@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept OpenAI SDK response stream event types directly in the OpenAI adapter
+  and managed reader, including non-tool events.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving

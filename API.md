@@ -336,6 +336,10 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
+The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
+directly, including SDK event interfaces for text and other non-tool events.
+Non-tool events are ignored; callers do not need to cast or filter the stream.
+
 | Method | Returns |
 | --- | --- |
 | `pushAll(event)` | All lifecycle updates caused by this event, in order; `[]` for ignored events |
