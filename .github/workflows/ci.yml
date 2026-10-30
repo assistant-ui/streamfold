@@ -73,8 +73,12 @@ jobs:
       - run: node --test packages/core/src/*.test.js
 
   assistant-ui-demo:
-    name: Assistant UI demo
+    name: Assistant UI demo (${{ matrix.package }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [published, candidate]
     defaults:
       run:
         working-directory: examples/assistant-ui-demo
@@ -84,7 +88,21 @@ jobs:
         with:
           runtime: node@24
           install: false
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.package == 'candidate'
+        with:
+          toolchain: 1.97.1
+          targets: wasm32-unknown-unknown
+      - name: Pack the candidate package
+        if: matrix.package == 'candidate'
+        working-directory: packages/core
+        run: |
+          mkdir "$RUNNER_TEMP/streamfold-candidate"
+          npm pack --pack-destination "$RUNNER_TEMP/streamfold-candidate"
       - run: npm ci
+      - name: Install the candidate package
+        if: matrix.package == 'candidate'
+        run: npm install --no-save --ignore-scripts "$RUNNER_TEMP"/streamfold-candidate/streamfold-*.tgz
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium

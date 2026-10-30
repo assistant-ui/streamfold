@@ -46,7 +46,11 @@ modes. Three alternating trials use fresh Node processes and explicit garbage
 collection, with final values checked against the source JSON. Results are
 written to `artifacts/final-value-memory.json`.
 
-The standalone assistant-ui demo has its own locked dependencies and CI job.
+The standalone assistant-ui demo has its own locked dependencies. CI runs its
+unit tests, production build, and browser tests against both the pinned npm
+release and a freshly built tarball from the commit under test. The candidate
+lane runs the package's `prepack` WASM build and installs the tarball without
+changing the demo's manifest or lockfile.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check
 the UI. Set `CHROME_EXECUTABLE` to use an installed Chrome binary instead of
