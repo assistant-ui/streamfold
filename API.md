@@ -371,6 +371,11 @@ boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
 
+The [Mistral Responses example](examples/README.md#mistral-responses) translates
+`@mistralai/mistralai` frames into the existing OpenAI adapter's event shape.
+It unwraps `frame.data` and maps the argument events' `itemId` to `item_id`.
+No additional adapter or runtime SDK dependency is required.
+
 ### Errors and diagnostics
 
 ```ts

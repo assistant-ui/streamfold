@@ -105,6 +105,9 @@ Adapters consume structural event shapes and do not install or load the
 provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle
 completion means the arguments are finalized, not that a tool has executed.
+The [Mistral Responses example](examples/README.md#mistral-responses) reuses
+`streamfold/openai` after unwrapping SDK frames and converting their `itemId`
+field to `item_id`.
 The Vercel AI SDK adapter uses the final `tool-call` input from `fullStream` or
 `tool-input-available` input from `toUIMessageStream()`, preserving schema defaults
 and transforms after streamed deltas. It also accepts these events without
