@@ -48,6 +48,55 @@ network request too. The explicit signal and testing subpath require Streamfold
 The assistant-ui adapter is an event translator. This example does not replace
 assistant-ui's internal parser or claim an end-to-end performance improvement.
 
+## Mistral Responses
+
+[`mistral.mjs`](./mistral.mjs) accepts the asynchronous stream returned by
+`@mistralai/mistralai`'s Responses API. Copy it into your application alongside
+the SDK and `streamfold`. It reuses `streamfold/openai`: Mistral emits compatible
+tool-argument events, but the SDK wraps them in `frame.data` and converts
+`item_id` to `itemId`. The example normalizes those differences before parsing.
+
+```js
+import { Mistral } from "@mistralai/mistralai";
+import { readToolInputs } from "./mistral.mjs";
+
+const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+const controller = new AbortController();
+const events = await client.responses.create({
+  model: process.env.MISTRAL_MODEL,
+  input: "What is the weather in Paris?",
+  tools: [{
+    type: "function",
+    name: "weather",
+    parameters: {
+      type: "object",
+      properties: { city: { type: "string" } },
+      required: ["city"],
+      additionalProperties: false,
+    },
+  }],
+  stream: true,
+}, { signal: controller.signal });
+
+for await (const update of readToolInputs(events, { signal: controller.signal })) {
+  console.log(update.id, update.partialValue);
+}
+```
+
+Set `MISTRAL_MODEL` to a model supported by the
+[Mistral Responses API](https://docs.mistral.ai/studio/conversations/responses).
+The example yields immutable tool-argument previews keyed by output item ID,
+not `callId`. It does not execute tools, validate their schema, or interpret
+response-level status events. Keep those responsibilities in the application's
+existing response handler. Breaking the loop closes the SDK iterator; pass the
+same signal to both calls to also cancel pending network reads.
+
+Run `node --test examples/mistral.test.mjs` for a credential-free check through
+the real SDK's SSE decoder. `pnpm typecheck` also checks an actual
+`client.responses.create()` stream against this example. These checks use
+`@mistralai/mistralai@3.4.0`; they do not make live model requests or establish
+an end-to-end performance improvement.
+
 ## Interactive assistant-ui demo
 
 The [standalone React demo](./assistant-ui-demo/README.md) consumes the published
