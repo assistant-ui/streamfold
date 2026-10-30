@@ -332,6 +332,7 @@ composable integration value:
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/openai` | `openAI` |
 | `streamfold/anthropic` | `anthropic` |
+| `streamfold/bedrock` | `bedrock` |
 | `streamfold/gemini` | `gemini` |
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
@@ -370,6 +371,14 @@ input, including schema defaults and transforms. Calls still pending at
 boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
+
+For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
+`readStructured` with `integration: bedrock`. The adapter correlates tool-use
+blocks by `contentBlockIndex` and exposes `toolUseId` as the call ID. Text,
+reasoning, and metadata events are ignored. Calls complete at their block stop
+or EOF; malformed or truncated JSON fails and releases active parsers. Service
+error events also fail the integration. AWS SDK types are accepted directly,
+but the AWS SDK is not a runtime dependency of Streamfold.
 
 ### Errors and diagnostics
 

@@ -79,6 +79,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | `streamfold/vercel-ai` | Vercel AI SDK |
 | `streamfold/openai` | OpenAI Responses |
 | `streamfold/anthropic` | Anthropic Messages |
+| `streamfold/bedrock` | Amazon Bedrock ConverseStream |
 | `streamfold/gemini` | Gemini Interactions |
 | `streamfold/langchain` | LangChain message chunks |
 | `streamfold/ag-ui` | AG-UI events |
