@@ -16,7 +16,7 @@ const retryRun = (overrides = {}) => ({
   ...overrides,
 });
 
-function runWaiter(t, { runs, versions = {}, head = "tag-commit" }) {
+function runWaiter(t, { runs, versions = {}, head = "tag-commit", npmVisibleAfter = 0, npmError = "npm error code E404", npmVersion = "0.1.14" }) {
   const root = mkdtempSync(join(tmpdir(), "streamfold-await-release-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const dir of ["scripts", "packages/core", "bin"]) mkdirSync(join(root, dir), { recursive: true });
@@ -24,7 +24,21 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit" }) {
   writeFileSync(join(root, "packages/core/package.json"), JSON.stringify({ version: "0.1.14" }));
   const fixture = join(root, "fixture.json");
   const commands = join(root, "commands.jsonl");
-  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", ...versions }, head }));
+  const clock = join(root, "clock.txt");
+  const preload = join(root, "clock.mjs");
+  writeFileSync(clock, "0");
+  writeFileSync(preload, `
+    import { writeFileSync } from "node:fs";
+    const schedule = globalThis.setTimeout;
+    let elapsed = 0;
+    Date.now = () => elapsed;
+    globalThis.setTimeout = (callback, milliseconds, ...args) => {
+      elapsed += milliseconds;
+      writeFileSync(process.env.RELEASE_TEST_CLOCK, String(elapsed));
+      return schedule(callback, 0, ...args);
+    };
+  `);
+  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", ...versions }, head, npmVisibleAfter, npmError, npmVersion }));
   const shim = `#!${process.execPath}
     const { appendFileSync, readFileSync } = require("node:fs");
     const name = require("node:path").basename(process.argv[1]);
@@ -32,7 +46,14 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit" }) {
     const fixture = JSON.parse(readFileSync(process.env.RELEASE_TEST_FIXTURE, "utf8"));
     appendFileSync(process.env.RELEASE_TEST_COMMANDS, JSON.stringify({ name, args }) + "\\n");
     if (name === "git" && args[0] === "rev-parse") console.log(fixture.head);
-    else if (name === "npm" && args[0] === "view") console.log(JSON.stringify("0.1.14"));
+    else if (name === "npm" && args[0] === "view") {
+      const elapsed = Number(readFileSync(process.env.RELEASE_TEST_CLOCK, "utf8"));
+      if (elapsed < fixture.npmVisibleAfter) {
+        console.error(fixture.npmError);
+        process.exit(1);
+      }
+      console.log(JSON.stringify(fixture.npmVersion));
+    }
     else if (name === "gh" && args[0] === "run" && args[1] === "list") {
       const flag = key => args.includes(key) ? args[args.indexOf(key) + 1] : undefined;
       console.log(JSON.stringify(fixture.runs.filter(run =>
@@ -50,14 +71,14 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit" }) {
     } else throw new Error("Unexpected command: " + name + " " + args.join(" "));
   `;
   for (const name of ["git", "gh", "npm"]) writeFileSync(join(root, "bin", name), shim, { mode: 0o755 });
-  const result = spawnSync(process.execPath, [join(root, "scripts/await-release.mjs")], {
-    encoding: "utf8", timeout: 5000,
+  const result = spawnSync(process.execPath, ["--import", preload, join(root, "scripts/await-release.mjs")], {
+    encoding: "utf8", timeout: 10000,
     env: { ...process.env, PATH: `${join(root, "bin")}:${process.env.PATH}`,
-      RELEASE_TEST_FIXTURE: fixture, RELEASE_TEST_COMMANDS: commands },
+      RELEASE_TEST_FIXTURE: fixture, RELEASE_TEST_COMMANDS: commands, RELEASE_TEST_CLOCK: clock },
   });
   assert.equal(result.error, undefined);
   const calls = readFileSync(commands, "utf8").trim().split("\n").map(line => JSON.parse(line));
-  return { ...result, calls, watched: calls.find(({ name, args }) => name === "gh" && args[1] === "watch")?.args[2] };
+  return { ...result, calls, elapsed: Number(readFileSync(clock, "utf8")), watched: calls.find(({ name, args }) => name === "gh" && args[1] === "watch")?.args[2] };
 }
 
 test("recognizes a successful manual retry after a failed tag release", (t) => {
@@ -96,4 +117,33 @@ test("waits for an in-progress retry before verifying npm publication", (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "2");
   assert.deepEqual(result.calls.at(-1), { name: "npm", args: ["view", "streamfold@0.1.14", "version", "--json"] });
+});
+
+for (const npmError of ["npm error code E404", "npm error code ETIMEDOUT"]) {
+  test(`verifies publication after delayed npm visibility (${npmError})`, (t) => {
+    const result = runWaiter(t, { runs: [tagRun()], npmVisibleAfter: 70_000, npmError });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Published streamfold@0\.1\.14/);
+    assert.ok(result.elapsed >= 70_000);
+    assert.ok(result.elapsed <= 300_000);
+  });
+}
+
+test("verification timeout preserves the registry error and identifies the successful workflow", (t) => {
+  const result = runWaiter(t, { runs: [tagRun()], npmVisibleAfter: 600_000, npmError: "npm error code E503: registry unavailable" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Release workflow succeeded/);
+  assert.match(result.stderr, /npm error code E503: registry unavailable/);
+  assert.match(result.stderr, /pnpm release:await/);
+  assert.doesNotMatch(result.stdout, /Published streamfold/);
+  assert.equal(result.elapsed, 300_000);
+  assert.ok(result.calls.filter(({ name }) => name === "npm").every(({ args }) => args[0] === "view"));
+});
+
+test("a successful npm command with the wrong version is not a verified publication", (t) => {
+  const result = runWaiter(t, { runs: [tagRun()], npmVersion: "0.1.13" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Expected streamfold@0\.1\.14, received "?0\.1\.13"?/);
+  assert.doesNotMatch(result.stdout, /Published streamfold/);
+  assert.equal(result.elapsed, 300_000);
 });

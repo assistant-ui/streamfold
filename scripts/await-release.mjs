@@ -73,7 +73,13 @@ const watched = spawnSync(
 if (watched.status !== 0) process.exit(watched.status ?? 1);
 
 let publishedVersion;
-for (let attempt = 0; attempt < 15; attempt++) {
+let verificationError;
+let retryDelay = 2_000;
+const publicationDeadline = Date.now() + 5 * 60_000;
+console.log(`Release workflow succeeded. Waiting up to five minutes to verify streamfold@${version} on npm...`);
+while (true) {
+  const remaining = publicationDeadline - Date.now();
+  if (remaining <= 0) break;
   try {
     publishedVersion = JSON.parse(
       execFileSync(
@@ -81,22 +87,28 @@ for (let attempt = 0; attempt < 15; attempt++) {
         ["view", `streamfold@${version}`, "version", "--json"],
         {
           encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: Math.min(30_000, remaining),
+          killSignal: "SIGKILL",
         },
       ),
     );
-  } catch {
-    if (attempt === 0) {
-      console.log(`Waiting for streamfold@${version} to reach npm...`);
-    }
+    verificationError = `Expected streamfold@${version}, received ${JSON.stringify(publishedVersion)}`;
+  } catch (error) {
+    verificationError = error.stderr?.toString().trim() || error.message;
   }
   if (publishedVersion === version) break;
-  await wait(2_000);
+  const delay = Math.min(retryDelay, publicationDeadline - Date.now());
+  if (delay <= 0) break;
+  await wait(delay);
+  retryDelay = Math.min(retryDelay * 2, 30_000);
 }
 
 if (publishedVersion !== version) {
   throw new Error(
-    `Expected streamfold@${version}, received ${String(publishedVersion)}`,
+    `Release workflow succeeded, but npm publication of streamfold@${version} was not verified within five minutes.\n` +
+    `Last npm verification error: ${verificationError}\n` +
+    "Run pnpm release:await to check again without publishing another version.",
   );
 }
 
