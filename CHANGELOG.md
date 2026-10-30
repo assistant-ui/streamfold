@@ -10,6 +10,8 @@
   reducing Wasm allocation when completed scanners remain referenced.
 - Use OpenAI final arguments when deltas are missing or incomplete and suppress
   repeated completion events while preserving explicit call ID reuse.
+- Surface OpenAI failed and terminal incomplete responses, preserving failure
+  details and aborting pending calls while leaving steering handoffs non-fatal.
 
 ## 0.1.15
 
