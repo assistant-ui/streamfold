@@ -103,6 +103,11 @@ for await (const event of assistantStream) {
 const completedCalls = toolInputs.finish();
 ```
 
+The assistant-ui adapter accepts native assistant-stream events: `part-start`
+uses the root path `[]`, while deltas and completion use the part index such as
+`[0]`. Every part, including text and reasoning, advances that index. Explicitly
+indexed `part-start` events from earlier integrations remain supported.
+
 Adapters consume structural event shapes and do not install or load the
 provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle

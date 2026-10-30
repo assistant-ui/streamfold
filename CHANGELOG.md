@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Route native assistant-stream tool arguments by their part indexes, including
+  calls after non-tool parts and merged streams, while retaining explicit paths.
+
 ## 0.1.15
 
 - Add a Mistral Responses example that normalizes SDK frames and reuses the
