@@ -13,9 +13,7 @@ export const openAI = (pool = createStructuredStreamPool(), options) =>
         return append(calls, event.item_id, event.delta);
       }
       if (event.type === "response.function_call_arguments.done") {
-        if (!calls.has(event.item_id))
-          calls.start(event.item_id, event.arguments);
-        return calls.complete(event.item_id);
+        return calls.complete(event.item_id, () => event.arguments);
       }
       return undefined;
     },
