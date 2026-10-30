@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a Cohere v2 adapter for SDK and decoded wire tool argument streams.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving

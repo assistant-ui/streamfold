@@ -28,6 +28,10 @@
       "types": "./src/anthropic.d.ts",
       "default": "./src/anthropic.js"
     },
+    "./cohere": {
+      "types": "./src/cohere.d.ts",
+      "default": "./src/cohere.js"
+    },
     "./assistant-ui": {
       "types": "./src/assistant-ui.d.ts",
       "default": "./src/assistant-ui.js"
