@@ -332,9 +332,19 @@ composable integration value:
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/openai` | `openAI` |
 | `streamfold/anthropic` | `anthropic` |
+| `streamfold/cohere` | `cohere` |
+| `streamfold/bedrock` | `bedrock` |
 | `streamfold/gemini` | `gemini` |
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
+
+The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
+and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
+and other non-tool SDK events can remain in the stream and are ignored.
+
+The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
+directly, including SDK event interfaces for text and other non-tool events.
+Non-tool events are ignored; callers do not need to cast or filter the stream.
 
 | Method | Returns |
 | --- | --- |
@@ -375,6 +385,33 @@ input, including schema defaults and transforms. Calls still pending at
 boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
+
+The [Mistral Responses example](examples/README.md#mistral-responses) translates
+`@mistralai/mistralai` frames into the existing OpenAI adapter's event shape.
+It unwraps `frame.data` and maps the argument events' `itemId` to `item_id`.
+No additional adapter or runtime SDK dependency is required.
+
+For Cohere v2, pass `client.chatStream(...)` from `CohereClientV2` to
+`readStructured` with `integration: cohere`. Both the SDK's camelCase
+`toolCalls` payloads and decoded wire `tool_calls` payloads are accepted.
+Calls are correlated by index and expose the tool-call ID. They finish at
+`tool-call-end` or EOF. Text and tool-plan events are ignored; malformed JSON
+and generation error messages fail the integration. The Cohere SDK is not
+a runtime dependency of Streamfold.
+
+For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
+`readStructured` with `integration: bedrock`. The adapter correlates tool-use
+blocks by `contentBlockIndex` and exposes `toolUseId` as the call ID. Text,
+reasoning, and metadata events are ignored. Calls complete at their block stop
+or EOF; malformed or truncated JSON fails and releases active parsers. Service
+error events also fail the integration. AWS SDK types are accepted directly,
+but the AWS SDK is not a runtime dependency of Streamfold.
+
+The Gemini adapter accepts the Interactions API's `arguments_delta` events
+and the older `arguments` / `partial_arguments` shape. The empty object at
+`step.start` is a placeholder while deltas arrive. A call with no argument
+text retains `{}` at completion; nonempty initial arguments remain supported.
+Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
 
 ### Errors and diagnostics
 

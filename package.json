@@ -1,6 +1,6 @@
 {
   "name": "streamfold-workspace",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "type": "module",
   "scripts": {
@@ -31,11 +31,17 @@
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1159.0",
+    "@google/genai": "2.31.0",
     "@langchain/core": "1.3.0",
+    "@mistralai/mistralai": "3.4.0",
     "ai": "7.0.152",
     "assistant-stream": "0.3.42",
     "bumpp": "^12.3.0",
+    "cohere-ai": "8.3.0",
     "fast-check": "4.10.2",
+    "openai": "7.45.1",
     "playwright": "^1.63.0",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2",

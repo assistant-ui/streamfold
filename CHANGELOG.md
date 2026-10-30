@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Use OpenAI final arguments when deltas are missing or incomplete and suppress
+  repeated completion events while preserving explicit call ID reuse.
+
+## 0.1.15
+
+- Add a Mistral Responses example that normalizes SDK frames and reuses the
+  OpenAI adapter, with SDK decoding and cancellation coverage.
+- Add a Cohere v2 adapter for SDK and decoded wire tool argument streams.
+- Add a Bedrock ConverseStream adapter for streaming tool-use arguments.
+- Accept Anthropic stable and beta SDK message event interfaces directly in
+  the Anthropic adapter and managed reader.
+- Accept OpenAI SDK response stream event types directly in the OpenAI adapter
+  and managed reader, including non-tool events.
+- Preserve Gemini Interactions tool arguments from `arguments_delta` events
+  without treating the initial empty object as the completed input.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving
@@ -11,8 +26,6 @@
   when the final input differs from streamed arguments.
 - Keep LangChain tool calls without indexes separate by their IDs and accept
   SDK message chunk types directly.
-- Use OpenAI final arguments when deltas are missing or incomplete and suppress
-  repeated completion events while preserving explicit call ID reuse.
 - Release descendant completion metadata when a JSON container completes,
   reducing retained memory while preserving field-state queries.
 
