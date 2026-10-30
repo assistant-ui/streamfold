@@ -43,6 +43,8 @@ Limits must be positive safe integers no greater than `4294967295`.
 
 A path is an array of object keys and array indexes. Use `[]` for the root.
 Call `dispose()` when abandoning a scanner before completion.
+Successful `finish()` releases the input buffer and unused patch capacity;
+final values, state, and field queries remain available.
 
 Chunks contain Unicode text and are encoded as UTF-8. Valid surrogate pairs
 can span pushes; raw unpaired UTF-16 code units throw `INVALID_CHUNK` rather
@@ -371,6 +373,11 @@ Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
 Use a separate pool per response/session.
+
+The OpenAI Responses adapter uses the final `arguments` from
+`response.function_call_arguments.done`, including when earlier deltas are
+missing or incomplete. Repeated completions for an inactive call ID are ignored;
+an explicit new start allows that ID to be reused.
 
 The Vercel adapter accepts both `streamText(...).fullStream` and
 `toUIMessageStream()`. Within SDK step boundaries (`start-step` / `finish-step`),
