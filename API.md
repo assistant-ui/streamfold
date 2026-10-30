@@ -387,6 +387,12 @@ input, including schema defaults and transforms. Calls still pending at
 boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
+SDK `error` events, UI `tool-input-error` events, and `tool-call` events marked
+`invalid: true` terminate the reader, emit `STREAM_ERROR`, and abort all active
+calls. Original `Error` objects are preserved; UI error text becomes an error
+message. Tool execution outcomes (`tool-error`, `tool-output-error`, and
+`tool-output-denied`) are ignored by the argument parser. Previously emitted
+completions are not retracted.
 
 The [Mistral Responses example](examples/README.md#mistral-responses) translates
 `@mistralai/mistralai` frames into the existing OpenAI adapter's event shape.

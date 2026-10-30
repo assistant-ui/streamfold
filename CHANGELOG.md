@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface Vercel AI provider and tool-input errors instead of completing pending
+  arguments normally, preserving upstream errors and releasing active parsers.
 - Route native assistant-stream tool arguments by their part indexes, including
   calls after non-tool parts and merged streams, while retaining explicit paths.
 - Release input buffers and unused patch capacity after scanner finalization,
