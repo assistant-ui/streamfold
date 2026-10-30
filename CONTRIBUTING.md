@@ -117,3 +117,9 @@ manual retry on `main`, checking the retry commit's package version. It resolves
 the tag through GitHub, so workflow-fix commits and checkouts without local tags
 can wait for the same release. A failed retry still exits with failure; a
 successful run must also be visible on npm before the command reports success.
+Npm verification retries for up to five minutes, with increasing delays capped
+at 30 seconds and each query limited to the remaining window or 30 seconds.
+If verification times out, the command exits with failure, preserves the last
+npm error, and identifies the successful workflow separately. Run
+`pnpm release:await` again to verify the existing version without publishing
+another release.
