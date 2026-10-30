@@ -360,6 +360,7 @@ impl PartialValueParser {
                 offset: self.bytes_seen,
             });
         }
+        self.output.shrink_to_fit();
         Ok(())
     }
 
