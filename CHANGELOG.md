@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve Gemini Interactions tool arguments from `arguments_delta` events
+  without treating the initial empty object as the completed input.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving

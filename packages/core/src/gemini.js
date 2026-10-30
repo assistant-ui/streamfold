@@ -2,7 +2,13 @@ import { createStructuredStreamPool } from "./index.js";
 import { createIntegration } from "./internal/integration.js";
 
 export const gemini = (pool = createStructuredStreamPool(), options) => {
-  const idsByIndex = new Map();
+  const callsByIndex = new Map();
+  const completeCalls = (complete) => {
+    for (const { id, emptyArguments } of callsByIndex.values()) {
+      complete(id, emptyArguments ? () => "{}" : undefined);
+    }
+    callsByIndex.clear();
+  };
 
   return createIntegration(
     pool,
@@ -11,23 +17,29 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
         event.event_type === "step.start" &&
         event.step.type === "function_call"
       ) {
-        idsByIndex.set(event.index, event.step.id);
         const initial =
           typeof event.step.arguments === "string"
             ? event.step.arguments
             : event.step.arguments
               ? JSON.stringify(event.step.arguments)
               : "";
-        return calls.start(event.step.id, initial);
+        const emptyArguments =
+          typeof event.step.arguments === "object" && initial === "{}";
+        callsByIndex.set(event.index, { id: event.step.id, emptyArguments });
+        return calls.start(event.step.id, emptyArguments ? "" : initial);
       }
 
       if (
         event.event_type === "step.delta" &&
-        event.delta.type === "arguments"
+        (event.delta.type === "arguments_delta" || event.delta.type === "arguments")
       ) {
-        const id = idsByIndex.get(event.index);
-        if (id !== undefined) {
-          return calls.push(id, event.delta.partial_arguments);
+        const call = callsByIndex.get(event.index);
+        if (call !== undefined) {
+          const text = event.delta.type === "arguments_delta"
+            ? event.delta.arguments ?? ""
+            : event.delta.partial_arguments;
+          if (text !== "") call.emptyArguments = false;
+          return calls.push(call.id, text);
         }
         calls.unmatched("Arguments delta has no matching function call index");
       }
@@ -36,15 +48,11 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
         event.event_type === "interaction.completed" ||
         event.event_type === "interaction.complete"
       ) {
-        for (const id of idsByIndex.values()) calls.complete(id);
-        idsByIndex.clear();
+        completeCalls(calls.complete);
       }
       return undefined;
     },
-    (complete) => {
-      for (const id of idsByIndex.values()) complete(id);
-      idsByIndex.clear();
-    },
+    completeCalls,
     "gemini",
     options,
   );
