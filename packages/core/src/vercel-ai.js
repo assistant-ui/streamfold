@@ -1,4 +1,5 @@
 import { createStructuredStreamPool } from "./index.js";
+import { annotateError } from "./internal/errors.js";
 import { createIntegration } from "./internal/integration.js";
 
 export const vercelAI = (pool = createStructuredStreamPool(), options) => {
@@ -6,6 +7,19 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
+      if (
+        event.type === "error" ||
+        event.type === "tool-input-error" ||
+        (event.type === "tool-call" && event.invalid === true)
+      ) {
+        const failure = event.error;
+        throw annotateError(
+          failure instanceof Error ? failure : new Error(
+            event.errorText ?? (typeof failure === "string" ? failure : failure?.message) ?? "Vercel AI stream failed",
+          ),
+          { id: event.id ?? event.toolCallId },
+        );
+      }
       if (event.type === "start-step") {
         inStep = true;
         return undefined;

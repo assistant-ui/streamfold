@@ -6,32 +6,39 @@ import { z } from "zod";
 import { readStructured } from "../packages/core/src/index.js";
 import { vercelAI } from "../packages/core/src/vercel-ai.js";
 
-async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string() }), format = "ui") {
-  const input = '{"city":"Paris"}';
+const sdkToolCall = (streamed, inputSchema = z.object({ city: z.string() }), {
+  input = '{"city":"Paris"}', failure,
+} = {}) => {
   const chunks = [
     { type: "stream-start", warnings: [] },
     ...(streamed ? [
       { type: "tool-input-start", id: "weather-1", toolName: "weather" },
       { type: "tool-input-delta", id: "weather-1", delta: input },
-      { type: "tool-input-end", id: "weather-1" },
+      ...(failure ? [] : [{ type: "tool-input-end", id: "weather-1" }]),
     ] : []),
-    { type: "tool-call", toolCallId: "weather-1", toolName: "weather", input },
+    failure ? { type: "error", error: failure }
+      : { type: "tool-call", toolCallId: "weather-1", toolName: "weather", input },
     {
       type: "finish",
-      finishReason: { unified: "tool-calls", raw: "tool_calls" },
+      finishReason: { unified: failure ? "error" : "tool-calls", raw: failure ? "error" : "tool_calls" },
       usage: {
         inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
         outputTokens: { total: 1, text: 1, reasoning: 0 },
       },
     },
   ];
-  const result = streamText({
+  return streamText({
     model: new MockLanguageModelV4({ doStream: {
       stream: simulateReadableStream({ chunks, initialDelayInMs: null, chunkDelayInMs: null }),
     } }),
     prompt: "Weather in Paris?",
     tools: { weather: tool({ description: "Get weather", inputSchema }) },
+    onError() {},
   });
+};
+
+async function readSdkToolCall(streamed, inputSchema = z.object({ city: z.string() }), format = "ui") {
+  const result = sdkToolCall(streamed, inputSchema);
   const updates = [];
   const source = format === "full" ? result.fullStream : result.toUIMessageStream();
   for await (const update of readStructured(source, { integration: vercelAI })) {
@@ -75,3 +82,54 @@ test("SDK defaults and transforms survive streamed arguments", async () => {
     ]);
   }
 });
+
+for (const format of ["full", "ui"]) {
+  for (const snapshots of ["live", "immutable"]) {
+    for (const streamed of [false, true]) {
+      for (const kind of ["provider-error", "invalid-input"]) {
+        test(`${format} ${kind} terminates ${snapshots} input ${streamed ? "after" : "without"} deltas`, async () => {
+          const providerError = new Error("provider disconnected");
+          const result = sdkToolCall(streamed, undefined, kind === "provider-error"
+            ? { failure: providerError }
+            : { input: '{"city":42}' });
+          const source = format === "full" ? result.fullStream
+            : result.toUIMessageStream({ onError: (error) => error.message });
+          const diagnostics = [];
+          const completed = [];
+          let sdkErrorEvent;
+          let closed = false;
+          const events = (async function* () {
+            try {
+              for await (const event of source) {
+                if (event.type === "error" || event.type === "tool-input-error" || event.invalid === true) sdkErrorEvent = event;
+                yield event;
+              }
+            } finally {
+              closed = true;
+            }
+          })();
+          await assert.rejects(async () => {
+            for await (const update of readStructured(events, {
+              integration: vercelAI, limits: { snapshots },
+              onDiagnostic: (value) => diagnostics.push(value),
+            })) {
+              if (update.type === "complete") completed.push(update);
+            }
+          }, (error) => {
+            assert.ok(sdkErrorEvent);
+            assert.equal(error.code, "INTEGRATION_ERROR");
+            assert.equal(error.adapter, "vercel-ai");
+            assert.equal(error.eventType, sdkErrorEvent.type);
+            if (format === "full") assert.equal(error, sdkErrorEvent.error);
+            else assert.equal(error.message, sdkErrorEvent.errorText);
+            if (kind === "invalid-input") assert.equal(error.id, "weather-1");
+            return true;
+          });
+          assert.deepEqual(completed, []);
+          assert.equal(closed, true);
+          assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+        });
+      }
+    }
+  }
+}
