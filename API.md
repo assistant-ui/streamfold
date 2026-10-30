@@ -371,6 +371,12 @@ boundaries, `tool-input-end` continues to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
 
+The Gemini adapter accepts the Interactions API's `arguments_delta` events
+and the older `arguments` / `partial_arguments` shape. The empty object at
+`step.start` is a placeholder while deltas arrive. A call with no argument
+text retains `{}` at completion; nonempty initial arguments remain supported.
+Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
+
 ### Errors and diagnostics
 
 ```ts
