@@ -5,5 +5,5 @@
     "checkJs": true,
     "skipLibCheck": true
   },
-  "files": ["assistant-ui.mjs", "vercel-ai.mjs", "custom.mjs", "mistral.mjs", "../tests/langchain-sdk.ts", "../tests/mistral-sdk.ts"]
+  "files": ["assistant-ui.mjs", "vercel-ai.mjs", "custom.mjs", "../tests/langchain-sdk.ts", "../tests/gemini-sdk.ts", "../tests/openai-sdk.ts", "../tests/anthropic-sdk.ts", "../tests/bedrock-sdk.ts", "../tests/cohere-sdk.ts", "mistral.mjs", "../tests/mistral-sdk.ts"]
 }

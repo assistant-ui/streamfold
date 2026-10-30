@@ -28,6 +28,7 @@ export type AnthropicToolInputEvent =
       readonly type: "content_block_stop";
       readonly index: number;
     }
+  | { readonly type: string }
   | {
       readonly type: string;
       readonly index?: number;
