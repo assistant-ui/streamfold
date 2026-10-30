@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.15
+
+- Add a Mistral Responses example that normalizes SDK frames and reuses the
+  OpenAI adapter, with SDK decoding and cancellation coverage.
 - Add a Cohere v2 adapter for SDK and decoded wire tool argument streams.
 - Add a Bedrock ConverseStream adapter for streaming tool-use arguments.
 - Accept Anthropic stable and beta SDK message event interfaces directly in
