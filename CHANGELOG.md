@@ -4,6 +4,19 @@
 
 - Release input buffers and unused patch capacity after scanner finalization,
   reducing Wasm allocation when completed scanners remain referenced.
+
+## 0.1.15
+
+- Add a Mistral Responses example that normalizes SDK frames and reuses the
+  OpenAI adapter, with SDK decoding and cancellation coverage.
+- Add a Cohere v2 adapter for SDK and decoded wire tool argument streams.
+- Add a Bedrock ConverseStream adapter for streaming tool-use arguments.
+- Accept Anthropic stable and beta SDK message event interfaces directly in
+  the Anthropic adapter and managed reader.
+- Accept OpenAI SDK response stream event types directly in the OpenAI adapter
+  and managed reader, including non-tool events.
+- Preserve Gemini Interactions tool arguments from `arguments_delta` events
+  without treating the initial empty object as the completed input.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving

@@ -234,6 +234,10 @@ to match the test default.
 
 The standalone install is intentional: this demo consumes the npm release
 instead of a workspace link and adds no React dependencies to Streamfold core.
+CI also installs a tarball built from the commit under test in a separate lane,
+then runs the same unit tests, production build, and browser tests. This catches
+integration regressions before release while retaining the published-version
+coverage. The candidate install does not change this demo's manifest or lockfile.
 
 ## Hosting
 

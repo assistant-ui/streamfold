@@ -23,6 +23,7 @@ export type OpenAiResponsesToolEvent =
       readonly item_id: string;
       readonly arguments: string;
     }
+  | { readonly type: string }
   | {
       readonly type: string;
       readonly [key: string]: unknown;
