@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept Anthropic stable and beta SDK message event interfaces directly in
+  the Anthropic adapter and managed reader.
 - Accept OpenAI SDK response stream event types directly in the OpenAI adapter
   and managed reader, including non-tool events.
 - Preserve Gemini Interactions tool arguments from `arguments_delta` events
