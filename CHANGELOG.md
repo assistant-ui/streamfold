@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept OpenAI SDK response stream event types directly in the OpenAI adapter
+  and managed reader, including non-tool events.
 - Preserve Gemini Interactions tool arguments from `arguments_delta` events
   without treating the initial empty object as the completed input.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
