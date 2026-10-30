@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept Anthropic stable and beta SDK message event interfaces directly in
+  the Anthropic adapter and managed reader.
 - Reuse the final frozen snapshot in immutable pool completions, avoiding a
   second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving

@@ -31,6 +31,7 @@
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@langchain/core": "1.3.0",
     "ai": "7.0.152",
     "assistant-stream": "0.3.42",

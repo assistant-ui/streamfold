@@ -336,6 +336,10 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
+The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
+and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
+and other non-tool SDK events can remain in the stream and are ignored.
+
 | Method | Returns |
 | --- | --- |
 | `pushAll(event)` | All lifecycle updates caused by this event, in order; `[]` for ignored events |
