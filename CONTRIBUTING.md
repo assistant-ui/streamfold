@@ -46,6 +46,14 @@ modes. Three alternating trials use fresh Node processes and explicit garbage
 collection, with final values checked against the source JSON. Results are
 written to `artifacts/final-value-memory.json`.
 
+For scanner finalization changes, run `pnpm bench:finished-memory
+/path/to/baseline/src/index.js`. It retains 32 finished scanners with 2,000 nested
+records each, comparing 4,096-character chunks and single-chunk input in both
+snapshot modes. Three alternating trials use fresh processes without warmups
+and verify final values, field queries, and repeated operations. The results in
+`artifacts/finished-scanner-memory.json` measure Wasm linear-memory high-water
+allocation, not JavaScript heap or process RSS.
+
 The standalone assistant-ui demo has its own locked dependencies and CI job.
 From `examples/assistant-ui-demo`, run `npm ci`, `npm test`, and `npm run build`.
 Start a production preview on port 4173 and run `npm run test:browser` to check
