@@ -28,9 +28,9 @@
       "types": "./src/anthropic.d.ts",
       "default": "./src/anthropic.js"
     },
-    "./cohere": {
-      "types": "./src/cohere.d.ts",
-      "default": "./src/cohere.js"
+    "./bedrock": {
+      "types": "./src/bedrock.d.ts",
+      "default": "./src/bedrock.js"
     },
     "./assistant-ui": {
       "types": "./src/assistant-ui.d.ts",
@@ -51,6 +51,10 @@
     "./vercel-ai": {
       "types": "./src/vercel-ai.d.ts",
       "default": "./src/vercel-ai.js"
+    },
+    "./cohere": {
+      "types": "./src/cohere.d.ts",
+      "default": "./src/cohere.js"
     }
   },
   "engines": {
