@@ -112,6 +112,7 @@ pub extern "C" fn streamfold_parser_push(handle: usize, length: usize) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn streamfold_parser_finish(handle: usize) -> u32 {
     let parser = parser_mut(handle);
+    parser.input = Vec::new();
     let result = parser.parser.finish();
     parser.encode(result)
 }
