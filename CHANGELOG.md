@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse the final frozen snapshot in immutable pool completions, avoiding a
+  second JSON value tree while keeping live final values independently parsed.
 - Release consumed completion payloads in managed SDK readers while preserving
   manual completion history and duplicate suppression.
 - Preserve Vercel AI SDK schema defaults and transforms in completed tool inputs,

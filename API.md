@@ -110,6 +110,9 @@ stream.dispose();
 
 Objects and arrays in `partialValue`, `scanner.value`, and pool completion
 `value` are deeply frozen in immutable mode. Earlier values never change.
+Immutable pool completions share the final frozen snapshot between `value`
+and `partialValue`. Live pools parse a separate final `value` from the JSON
+text, independent of mutations to the live partial value.
 Changed paths get new containers; unchanged branches retain identity. An
 update containing only completion patches can retain the same root identity,
 so use `changes` or lifecycle updates when observing completion.
