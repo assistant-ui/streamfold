@@ -337,6 +337,14 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
+The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
+and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
+and other non-tool SDK events can remain in the stream and are ignored.
+
+The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
+directly, including SDK event interfaces for text and other non-tool events.
+Non-tool events are ignored; callers do not need to cast or filter the stream.
+
 | Method | Returns |
 | --- | --- |
 | `pushAll(event)` | All lifecycle updates caused by this event, in order; `[]` for ignored events |
@@ -379,6 +387,12 @@ reasoning, and metadata events are ignored. Calls complete at their block stop
 or EOF; malformed or truncated JSON fails and releases active parsers. Service
 error events also fail the integration. AWS SDK types are accepted directly,
 but the AWS SDK is not a runtime dependency of Streamfold.
+
+The Gemini adapter accepts the Interactions API's `arguments_delta` events
+and the older `arguments` / `partial_arguments` shape. The empty object at
+`step.start` is a placeholder while deltas arrive. A call with no argument
+text retains `{}` at completion; nonempty initial arguments remain supported.
+Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
 
 ### Errors and diagnostics
 
