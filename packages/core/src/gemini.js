@@ -48,6 +48,10 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
         event.event_type === "interaction.completed" ||
         event.event_type === "interaction.complete"
       ) {
+        const interaction = event.interaction;
+        if (["failed", "cancelled", "incomplete", "budget_exceeded"].includes(interaction?.status)) {
+          throw new Error(`Gemini interaction ${interaction.status}`, { cause: interaction });
+        }
         completeCalls(calls.complete);
       }
       return undefined;

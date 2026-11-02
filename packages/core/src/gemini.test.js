@@ -66,3 +66,51 @@ test("Gemini validates streamed arguments and releases all calls on failure", ()
     assert.equal(pool.size, 0);
   }
 });
+
+test("unsuccessful Gemini terminal statuses abort pending arguments and remain terminal", () => {
+  for (const status of ["failed", "cancelled", "incomplete", "budget_exceeded"]) {
+    for (const method of ["push", "pushAll"]) {
+      const pool = createStructuredStreamPool();
+      const diagnostics = [];
+      const stream = gemini(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "complete-json"));
+      stream[method](delta(0, "{}"));
+      stream[method](start(1, "partial-json"));
+      stream[method](delta(1, '{"city":'));
+      const interaction = { id: "interaction", status, continuation_token: "resume-token" };
+      let failure;
+      assert.throws(() => stream[method]({ event_type: "interaction.completed", interaction }), (error) => {
+        failure = error;
+        assert.equal(error.message, `Gemini interaction ${status}`);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.adapter, "gemini");
+        assert.equal(error.eventType, "interaction.completed");
+        assert.equal(error.cause, interaction);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.throws(() => stream[method](delta(1, "}")), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+    }
+  }
+});
+
+test("Gemini successful completions, tool handoffs, and legacy completion events still finalize", () => {
+  for (const event of [
+    { event_type: "interaction.completed", interaction: { id: "done", status: "completed" } },
+    { event_type: "interaction.completed", interaction: { id: "handoff", status: "requires_action" } },
+    { event_type: "interaction.completed" },
+    { event_type: "interaction.complete" },
+  ]) {
+    const stream = gemini();
+    stream.pushAll(start(0, "weather"));
+    stream.pushAll(delta(0, '{"city":"Paris"}'));
+    const updates = stream.pushAll(event);
+    assert.deepEqual(updates.map(({ type, value }) => ({ type, value })), [
+      { type: "complete", value: { city: "Paris" } },
+    ]);
+    assert.deepEqual(stream.pushAll(event), []);
+    assert.deepEqual(stream.finish().map(({ value }) => value), [{ city: "Paris" }]);
+  }
+});
