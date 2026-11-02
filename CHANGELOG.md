@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject Cohere error and timeout endings even without error text, discarding
+  pending arguments and preserving the provider's failure details.
 - Surface native assistant-ui stream errors and discard pending arguments,
   preserving the error event and its metadata.
 - Reject malformed Bedrock generation endings and discard pending arguments,
