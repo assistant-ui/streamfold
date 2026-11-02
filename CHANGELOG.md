@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface native assistant-ui stream errors and discard pending arguments,
+  preserving the error event and its metadata.
 - Reject malformed Bedrock generation endings and discard pending arguments,
   preserving the stop reason and provider details.
 - Surface Gemini streaming error events and discard pending arguments instead
