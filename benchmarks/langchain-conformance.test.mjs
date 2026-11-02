@@ -46,3 +46,27 @@ test("routes unindexed fragments by ID without claiming unidentified fragments",
     { id: "tokyo", value: { city: "Tokyo" } },
   ]);
 });
+
+for (const indexed of [false, true]) {
+  test(`LangChain SDK ${indexed ? "indexed" : "unindexed"} empty arguments complete as objects`, async () => {
+    for (const args of [undefined, "", " \n\t"]) {
+      const chunk = new AIMessageChunk({
+        content: "",
+        tool_call_chunks: [{
+          id: "weather", name: "weather",
+          ...(indexed ? { index: 0 } : {}),
+          ...(args !== undefined ? { args } : {}),
+        }],
+      });
+      assert.deepEqual(chunk.tool_calls.map(({ id, args }) => ({ id, args })), [
+        { id: "weather", args: {} },
+      ]);
+      assert.deepEqual(chunk.invalid_tool_calls, []);
+      const completed = [];
+      for await (const update of readStructured([chunk], { integration: langchain })) {
+        if (update.type === "complete") completed.push({ id: update.id, value: update.value });
+      }
+      assert.deepEqual(completed, [{ id: "weather", value: {} }]);
+    }
+  });
+}

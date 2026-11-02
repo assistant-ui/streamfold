@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Complete LangChain calls with empty arguments as `{}`, preserving validation
+  and parser limits for indexed and unindexed calls.
 - Preserve Anthropic empty tool inputs when no argument text arrives, while
   continuing to reject incomplete or malformed streamed arguments.
 - Reject Cohere error and timeout endings even without error text, discarding

@@ -384,6 +384,10 @@ a tool has executed or its arguments satisfy a schema.
 LangChain has no per-call end event in this adapter, so its remaining calls
 are finalized by `finish()`. The returned completion history is not a new batch
 of lifecycle events; do not process already-seen completions twice.
+Calls with omitted, empty, or whitespace-only arguments complete as `{}`, matching
+the SDK. Any received non-whitespace argument text must form valid JSON;
+incomplete or malformed arguments still fail. This applies to indexed calls and
+calls correlated only by ID.
 
 Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
