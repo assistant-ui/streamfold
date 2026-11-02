@@ -5,6 +5,9 @@ export const agUI = (pool = createStructuredStreamPool(), options) =>
   createIntegration(
     pool,
     (event, calls) => {
+      if (event.type === "RUN_ERROR") {
+        throw new Error(event.message ?? "AG-UI run failed", { cause: event });
+      }
       if (event.type === "TOOL_CALL_START")
         return calls.start(event.toolCallId);
       if (event.type === "TOOL_CALL_ARGS") {

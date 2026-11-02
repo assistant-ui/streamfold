@@ -427,6 +427,12 @@ and the older `arguments` / `partial_arguments` shape. The empty object at
 text retains `{}` at completion; nonempty initial arguments remain supported.
 Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
 
+The AG-UI adapter completes arguments at `TOOL_CALL_END` or EOF. A `RUN_ERROR`
+terminates the reader, emits `STREAM_ERROR`, and aborts every pending call
+without finalizing its arguments. The run message becomes the error message;
+the original event, including its provider code, is preserved as `cause`.
+Tool execution results remain outside the argument parser's lifecycle.
+
 ### Errors and diagnostics
 
 ```ts
