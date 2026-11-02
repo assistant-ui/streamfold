@@ -108,6 +108,8 @@ vercelAi.push({
   type: "tool-input-end",
   id: "call-1",
 });
+vercelAi.push({ type: "finish-step" });
+vercelAi.push({ type: "finish", finishReason: "error" });
 
 type WeatherEvent =
   | { kind: "begin" | "done"; id: number }

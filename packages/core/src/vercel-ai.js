@@ -27,8 +27,14 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
         inStep = true;
         return undefined;
       }
-      if (event.type === "finish-step") {
-        for (const id of pool.activeIds) calls.complete(id);
+      if (event.type === "finish-step" || event.type === "finish") {
+        if (event.finishReason === "error") {
+          throw new Error("Vercel AI generation failed", { cause: event });
+        }
+        // UI step endings omit the reason; pending inputs must wait for finish or EOF.
+        if (event.type === "finish" || typeof event.finishReason === "string") {
+          for (const id of pool.activeIds) calls.complete(id);
+        }
         inStep = false;
         return undefined;
       }

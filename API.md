@@ -402,9 +402,11 @@ an explicit new start allows that ID to be reused.
 The Vercel adapter accepts both `streamText(...).fullStream` and
 `toUIMessageStream()`. Within SDK step boundaries (`start-step` / `finish-step`),
 `tool-input-end` ends the deltas; the subsequent `tool-call` supplies the final
-input, including schema defaults and transforms. Calls still pending at
-`finish-step` or EOF finalize from their streamed arguments. Outside SDK step
-boundaries, `tool-input-end` continues to complete a call immediately.
+input, including schema defaults and transforms. Calls still pending at a
+`finish-step` with a non-error finish reason finalize from their streamed
+arguments. UI `finish-step` events omit that reason, so pending calls stay open
+until `finish` or EOF. Outside SDK step boundaries, `tool-input-end` continues
+to complete a call immediately.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
 SDK `error` events, UI `tool-input-error` events, and `tool-call` events marked
@@ -413,6 +415,11 @@ calls. Original `Error` objects are preserved; UI error text becomes an error
 message. Tool execution outcomes (`tool-error`, `tool-output-error`, and
 `tool-output-denied`) are ignored by the argument parser. Previously emitted
 completions are not retracted.
+
+`finish-step` and `finish` events with `finishReason: "error"` also terminate
+the reader and abort pending calls, even without a separate error event. The
+ending event, including its raw finish reason and other metadata, is preserved
+as `cause`.
 
 SDK and UI `abort` events also terminate the reader and discard pending
 arguments, even when the SDK's abort signal is not passed to `readStructured`.
