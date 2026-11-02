@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.16
+
 - Surface AG-UI run errors and release pending parsers instead of finalizing
   arguments from a failed run.
 - Surface Vercel AI provider and tool-input errors instead of completing pending
