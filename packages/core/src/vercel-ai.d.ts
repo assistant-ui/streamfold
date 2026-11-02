@@ -7,6 +7,10 @@ import type {
 
 export type VercelAiToolInputEvent =
   | {
+      readonly type: "abort";
+      readonly reason?: string | undefined;
+    }
+  | {
       readonly type: "tool-input-start";
       readonly id: string;
       readonly toolName: string;

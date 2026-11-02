@@ -7,6 +7,9 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
+      if (event.type === "abort") {
+        throw new Error(event.reason ?? "Vercel AI stream aborted", { cause: event });
+      }
       if (
         event.type === "error" ||
         event.type === "tool-input-error" ||
