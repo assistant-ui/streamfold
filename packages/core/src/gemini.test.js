@@ -67,33 +67,53 @@ test("Gemini validates streamed arguments and releases all calls on failure", ()
   }
 });
 
-test("unsuccessful Gemini terminal statuses abort pending arguments and remain terminal", () => {
-  for (const status of ["failed", "cancelled", "incomplete", "budget_exceeded"]) {
-    for (const method of ["push", "pushAll"]) {
-      const pool = createStructuredStreamPool();
-      const diagnostics = [];
-      const stream = gemini(pool, { onDiagnostic: (event) => diagnostics.push(event) });
-      stream[method](start(0, "complete-json"));
-      stream[method](delta(0, "{}"));
-      stream[method](start(1, "partial-json"));
-      stream[method](delta(1, '{"city":'));
-      const interaction = { id: "interaction", status, continuation_token: "resume-token" };
-      let failure;
-      assert.throws(() => stream[method]({ event_type: "interaction.completed", interaction }), (error) => {
-        failure = error;
-        assert.equal(error.message, `Gemini interaction ${status}`);
-        assert.equal(error.code, "INTEGRATION_ERROR");
-        assert.equal(error.adapter, "gemini");
-        assert.equal(error.eventType, "interaction.completed");
-        assert.equal(error.cause, interaction);
-        return true;
-      });
-      assert.equal(pool.size, 0);
-      assert.throws(() => stream.finish(), (error) => error === failure);
-      assert.throws(() => stream[method](delta(1, "}")), (error) => error === failure);
-      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+for (const eventType of ["interaction.completed", "interaction.status_update"]) {
+  test(`unsuccessful Gemini ${eventType} statuses abort pending arguments and remain terminal`, () => {
+    for (const status of ["failed", "cancelled", "incomplete", "budget_exceeded"]) {
+      for (const method of ["push", "pushAll"]) {
+        const pool = createStructuredStreamPool();
+        const diagnostics = [];
+        const stream = gemini(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+        stream[method](start(0, "complete-json"));
+        stream[method](delta(0, "{}"));
+        stream[method](start(1, "partial-json"));
+        stream[method](delta(1, '{"city":'));
+        const details = { id: "interaction", status, continuation_token: "resume-token" };
+        const event = eventType === "interaction.status_update"
+          ? { event_type: eventType, interaction_id: "interaction", status, continuation_token: "resume-token" }
+          : { event_type: eventType, interaction: details };
+        let failure;
+        assert.throws(() => stream[method](event), (error) => {
+          failure = error;
+          assert.equal(error.message, `Gemini interaction ${status}`);
+          assert.equal(error.code, "INTEGRATION_ERROR");
+          assert.equal(error.adapter, "gemini");
+          assert.equal(error.eventType, eventType);
+          assert.equal(error.cause, eventType === "interaction.status_update" ? event : details);
+          return true;
+        });
+        assert.equal(pool.size, 0);
+        assert.throws(() => stream.finish(), (error) => error === failure);
+        assert.throws(() => stream[method](delta(1, "}")), (error) => error === failure);
+        assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+      }
     }
+  });
+}
+
+test("Gemini non-failure status updates leave arguments active until completion", () => {
+  const pool = createStructuredStreamPool();
+  const stream = gemini(pool);
+  stream.pushAll(start(0, "weather"));
+  stream.pushAll(delta(0, '{"city":"Pa'));
+  for (const status of ["queued", "in_progress", "requires_action", "completed"]) {
+    assert.deepEqual(stream.pushAll({
+      event_type: "interaction.status_update", interaction_id: "interaction", status,
+    }), []);
+    assert.equal(pool.size, 1);
   }
+  stream.pushAll(delta(0, 'ris"}'));
+  assert.deepEqual(stream.finish().map(({ value }) => value), [{ city: "Paris" }]);
 });
 
 test("Gemini successful completions, tool handoffs, and legacy completion events still finalize", () => {

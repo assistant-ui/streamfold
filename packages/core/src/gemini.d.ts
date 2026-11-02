@@ -40,6 +40,11 @@ export type GeminiToolCallEvent =
       readonly event_type: "interaction.completed" | "interaction.complete";
     }
   | {
+      readonly event_type: "interaction.status_update";
+      readonly interaction_id: string;
+      readonly status: string;
+    }
+  | {
       readonly event_type: string;
       readonly [key: string]: unknown;
     };

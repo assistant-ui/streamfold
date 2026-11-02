@@ -199,6 +199,11 @@ createStructuredStream(anthropic).pushAll({
   index: 0,
 });
 createStructuredStream(gemini).pushAll({ event_type: "interaction.completed" });
+createStructuredStream(gemini).pushAll({
+  event_type: "interaction.status_update",
+  interaction_id: "interaction",
+  status: "failed",
+});
 createStructuredStream(langchain).pushAll({ tool_call_chunks: [] });
 createStructuredStream(openAI).pushAll({ type: "response.completed" });
 // Custom integrations written before pushAll remain source-compatible.

@@ -66,6 +66,58 @@ test("Google SDK terminal failures never emit successful pending argument comple
 });
 
 for (const pending of [false, true]) {
+  test(`Google SDK failed status updates reject ${pending ? "pending arguments" : "an empty stream"}`, async () => {
+    for (const status of ["failed", "cancelled", "incomplete", "budget_exceeded"]) {
+      const details = { event_type: "interaction.status_update", interaction_id: "interaction", status };
+      const events = [
+        ...(pending ? [
+          { event_type: "step.start", index: 0, step: { type: "function_call", id: "weather", name: "weather", arguments: {} } },
+          { event_type: "step.delta", index: 0, delta: { type: "arguments_delta", arguments: '{"city":"Paris"}' } },
+        ] : []),
+        details,
+      ];
+      const client = new GoogleGenAI({
+        apiKey: "test-key",
+        httpOptions: {
+          fetch: async () => new Response(
+            events.map((event) => `event: ${event.event_type}\ndata: ${JSON.stringify(event)}\n\n`).join(""),
+            { headers: { "Content-Type": "text/event-stream" } },
+          ),
+        },
+      });
+      const source = await client.interactions.create({
+        model: "gemini-3.8-flash", input: "Weather in Paris?", stream: true,
+      });
+      let closed = false;
+      let readPastFailure = false;
+      const decoded = (async function* () {
+        try {
+          for await (const event of source) {
+            yield event;
+            if (event.event_type === "interaction.status_update") readPastFailure = true;
+          }
+        } finally {
+          closed = true;
+        }
+      })();
+      const completed = [];
+      await assert.rejects(async () => {
+        for await (const update of readStructured(decoded, { integration: gemini })) {
+          if (update.type === "complete") completed.push(update);
+        }
+      }, (error) => {
+        assert.equal(error.message, `Gemini interaction ${status}`);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.eventType, "interaction.status_update");
+        assert.deepEqual(error.cause, details);
+        return true;
+      });
+      assert.deepEqual(completed, []);
+      assert.equal(closed, true);
+      assert.equal(readPastFailure, false);
+    }
+  });
+
   test(`Google SDK error events reject ${pending ? "pending arguments" : "an empty stream"}`, async () => {
     const details = { code: "gateway_timeout", message: "Deadline expired before operation could complete." };
     const events = [
