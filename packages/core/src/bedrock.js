@@ -10,6 +10,11 @@ export const bedrock = (pool = createStructuredStreamPool(), options) => {
         event.validationException ?? event.throttlingException ?? event.serviceUnavailableException;
       if (failure) throw failure instanceof Error ? failure : new Error(failure.message ?? "Bedrock stream failed");
 
+      const messageStop = event.messageStop;
+      if (messageStop?.stopReason === "malformed_model_output" || messageStop?.stopReason === "malformed_tool_use") {
+        throw new Error(`Bedrock generation failed: ${messageStop.stopReason}`, { cause: messageStop });
+      }
+
       const start = event.contentBlockStart;
       if (start?.start?.toolUse) {
         if (start.contentBlockIndex === undefined) {
