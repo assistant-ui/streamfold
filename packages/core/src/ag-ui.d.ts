@@ -7,6 +7,11 @@ import type {
 
 export type AgUiToolCallEvent =
   | {
+      readonly type: "RUN_ERROR";
+      readonly message: string;
+      readonly code?: string;
+    }
+  | {
       readonly type: "TOOL_CALL_START";
       readonly toolCallId: string;
     }

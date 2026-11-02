@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface AG-UI run errors and release pending parsers instead of finalizing
+  arguments from a failed run.
 - Surface Vercel AI provider and tool-input errors instead of completing pending
   arguments normally, preserving upstream errors and releasing active parsers.
 - Route native assistant-stream tool arguments by their part indexes, including
