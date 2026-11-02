@@ -114,3 +114,36 @@ test("Gemini successful completions, tool handoffs, and legacy completion events
     assert.deepEqual(stream.finish().map(({ value }) => value), [{ city: "Paris" }]);
   }
 });
+
+test("Gemini error events release pending calls and preserve failure details", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const details of [
+      { code: "gateway_timeout", message: "Deadline expired" },
+      { code: "gateway_timeout" },
+      undefined,
+    ]) {
+      const pool = createStructuredStreamPool();
+      const diagnostics = [];
+      const stream = gemini(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "complete-json"));
+      stream[method](delta(0, "{}"));
+      stream[method](start(1, "partial-json"));
+      stream[method](delta(1, '{"city":'));
+      let failure;
+      assert.throws(() => stream[method]({ event_type: "error", error: details }), (error) => {
+        failure = error;
+        assert.equal(error.message, details?.message ?? "Gemini stream failed");
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.adapter, "gemini");
+        assert.equal(error.eventType, "error");
+        assert.equal(error.cause, details);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.throws(() => stream[method]({ event_type: "interaction.completed" }), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+      assert.equal(diagnostics[0].error, failure);
+    }
+  }
+});

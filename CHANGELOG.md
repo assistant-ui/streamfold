@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface Gemini streaming error events and discard pending arguments instead
+  of completing them at EOF, preserving provider error details.
 - Reject Vercel AI abort events before finalizing pending arguments, preserving
   the cancellation reason even without a shared reader signal.
 
