@@ -49,13 +49,14 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
 
       if (
         event.event_type === "interaction.completed" ||
-        event.event_type === "interaction.complete"
+        event.event_type === "interaction.complete" ||
+        event.event_type === "interaction.status_update"
       ) {
-        const interaction = event.interaction;
+        const interaction = event.event_type === "interaction.status_update" ? event : event.interaction;
         if (["failed", "cancelled", "incomplete", "budget_exceeded"].includes(interaction?.status)) {
           throw new Error(`Gemini interaction ${interaction.status}`, { cause: interaction });
         }
-        completeCalls(calls.complete);
+        if (event.event_type !== "interaction.status_update") completeCalls(calls.complete);
       }
       return undefined;
     },

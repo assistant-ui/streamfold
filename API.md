@@ -453,10 +453,12 @@ and the older `arguments` / `partial_arguments` shape. The empty object at
 `step.start` is a placeholder while deltas arrive. A call with no argument
 text retains `{}` at completion; nonempty initial arguments remain supported.
 Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
-Terminal interaction statuses `failed`, `cancelled`, `incomplete`, and
-`budget_exceeded` instead fail the reader and abort pending calls before
-finalization. The status is included in the error message, and the interaction
-resource is preserved as `cause`, including any continuation token. Successful
+Interaction statuses `failed`, `cancelled`, `incomplete`, and `budget_exceeded`
+on completion or `interaction.status_update` events instead fail the reader
+and abort pending calls before finalization. The status is included in the
+error message. The interaction resource or status-update event is preserved
+as `cause`, including any continuation token. Other status updates leave
+pending calls active until completion or EOF. Successful
 completion, `requires_action` tool handoffs, and legacy events without a status
 remain supported.
 Streaming `error` events also fail the reader and abort pending calls. The

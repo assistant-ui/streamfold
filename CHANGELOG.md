@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject failed Gemini interaction status updates before EOF can complete
+  pending arguments, preserving provider status details.
 - Complete LangChain calls with empty arguments as `{}`, preserving validation
   and parser limits for indexed and unindexed calls.
 - Preserve Anthropic empty tool inputs when no argument text arrives, while
