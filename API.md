@@ -426,6 +426,12 @@ and the older `arguments` / `partial_arguments` shape. The empty object at
 `step.start` is a placeholder while deltas arrive. A call with no argument
 text retains `{}` at completion; nonempty initial arguments remain supported.
 Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
+Terminal interaction statuses `failed`, `cancelled`, `incomplete`, and
+`budget_exceeded` instead fail the reader and abort pending calls before
+finalization. The status is included in the error message, and the interaction
+resource is preserved as `cause`, including any continuation token. Successful
+completion, `requires_action` tool handoffs, and legacy events without a status
+remain supported.
 
 The AG-UI adapter completes arguments at `TOOL_CALL_END` or EOF. A `RUN_ERROR`
 terminates the reader, emits `STREAM_ERROR`, and aborts every pending call

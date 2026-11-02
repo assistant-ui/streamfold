@@ -14,6 +14,8 @@
   repeated completion events while preserving explicit call ID reuse.
 - Surface OpenAI failed and terminal incomplete responses, preserving failure
   details and aborting pending calls while leaving steering handoffs non-fatal.
+- Reject unsuccessful Gemini terminal statuses before finalizing pending
+  arguments, while preserving successful tool handoffs and legacy events.
 
 ## 0.1.15
 

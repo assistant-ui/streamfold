@@ -35,3 +35,32 @@ test("reads function arguments from the Google SDK Interactions SSE stream", asy
   assert.deepEqual(updates.at(-1).value, { location: "San Francisco, CA" });
   assert.equal(updates.at(-1).id, "weather");
 });
+
+test("Google SDK terminal failures never emit successful pending argument completions", async () => {
+  for (const status of ["failed", "cancelled", "incomplete", "budget_exceeded"]) {
+    const events = [
+      { event_type: "step.start", index: 0, step: { type: "function_call", id: "weather", name: "weather", arguments: {} } },
+      { event_type: "step.delta", index: 0, delta: { type: "arguments_delta", arguments: '{"city":"Paris"}' } },
+      { event_type: "interaction.completed", interaction: { id: "interaction", status, object: "interaction" } },
+    ];
+    const client = new GoogleGenAI({
+      apiKey: "test-key",
+      httpOptions: {
+        fetch: async () => new Response(
+          events.map((event) => `event: ${event.event_type}\ndata: ${JSON.stringify(event)}\n\n`).join(""),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+      },
+    });
+    const source = await client.interactions.create({
+      model: "gemini-3.8-flash", input: "Weather in Paris?", stream: true,
+    });
+    const completed = [];
+    await assert.rejects(async () => {
+      for await (const update of readStructured(source, { integration: gemini })) {
+        if (update.type === "complete") completed.push(update);
+      }
+    }, { message: `Gemini interaction ${status}`, code: "INTEGRATION_ERROR" });
+    assert.deepEqual(completed, []);
+  }
+});
