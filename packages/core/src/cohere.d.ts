@@ -19,6 +19,14 @@ export type CohereToolCallEvent =
       };
     }
   | { readonly type: "tool-call-end"; readonly index?: number }
+  | {
+      readonly type: "message-end";
+      readonly delta?: {
+        readonly error?: string | undefined;
+        readonly finishReason?: string | undefined;
+        readonly finish_reason?: string | undefined;
+      } | undefined;
+    }
   | { readonly type: string }
   | { readonly type: string; readonly [key: string]: unknown };
 

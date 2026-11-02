@@ -6,7 +6,13 @@ export const cohere = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
-      if (event.type === "message-end" && event.delta?.error) throw new Error(event.delta.error);
+      if (event.type === "message-end") {
+        const details = event.delta;
+        const reason = details?.finishReason ?? details?.finish_reason;
+        if (details?.error || reason === "ERROR" || reason === "TIMEOUT") {
+          throw new Error(details?.error || `Cohere generation failed: ${reason}`, { cause: details });
+        }
+      }
       const message = event.delta?.message;
       const tool = message?.toolCalls ?? message?.tool_calls;
       if (event.type === "tool-call-start") {

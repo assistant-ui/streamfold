@@ -42,3 +42,36 @@ test("Cohere ignores text and diagnoses uncorrelated argument events", () => {
   assert.deepEqual(stream.finish(), []);
   assert.equal(diagnostics.filter(({ code }) => code === "UNMATCHED_TOOL_EVENT").length, 2);
 });
+
+test("Cohere failure endings release pending calls even without an error message", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const details of [
+      { finishReason: "ERROR" },
+      { finish_reason: "TIMEOUT" },
+      { finishReason: "TIMEOUT", error: "provider deadline expired" },
+      { finish_reason: "ERROR", error: "" },
+    ]) {
+      const pool = createStructuredStreamPool();
+      const diagnostics = [];
+      const stream = cohere(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "complete-json", "{}"));
+      stream[method](start(1, "partial-json", '{"city":'));
+      const reason = details.finishReason ?? details.finish_reason;
+      let failure;
+      assert.throws(() => stream[method]({ type: "message-end", delta: details }), (error) => {
+        failure = error;
+        assert.equal(error.message, details.error || `Cohere generation failed: ${reason}`);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.adapter, "cohere");
+        assert.equal(error.eventType, "message-end");
+        assert.equal(error.cause, details);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.throws(() => stream[method](end(0)), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+      assert.equal(diagnostics[0].error, failure);
+    }
+  }
+});

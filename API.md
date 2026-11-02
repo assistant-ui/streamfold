@@ -416,8 +416,12 @@ For Cohere v2, pass `client.chatStream(...)` from `CohereClientV2` to
 `toolCalls` payloads and decoded wire `tool_calls` payloads are accepted.
 Calls are correlated by index and expose the tool-call ID. They finish at
 `tool-call-end` or EOF. Text and tool-plan events are ignored; malformed JSON
-and generation error messages fail the integration. The Cohere SDK is not
-a runtime dependency of Streamfold.
+and generation error messages fail the integration. `ERROR` and `TIMEOUT`
+endings also fail when error text is absent, using either the SDK's
+`finishReason` or the wire's `finish_reason`. Pending calls are aborted, and
+the ending's delta is preserved as the error's `cause`. Previously emitted
+completions are not retracted. The Cohere SDK is not a runtime dependency
+of Streamfold.
 
 For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
 `readStructured` with `integration: bedrock`. The adapter correlates tool-use

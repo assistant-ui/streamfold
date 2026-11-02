@@ -26,3 +26,45 @@ test("reads interleaved arguments from Cohere SDK camelCase SSE events", async (
   assert.deepEqual(updates[2].partialValue, { city: "Pa" });
   assert.deepEqual(updates.slice(-2).map(({ value }) => value), [{ city: "Tokyo" }, { city: "Paris" }]);
 });
+
+for (const finishReason of ["ERROR", "TIMEOUT"]) {
+  test(`Cohere SDK ${finishReason} endings reject pending arguments without error text`, async () => {
+    const events = [
+      { type: "message-start", id: "fixture", delta: { message: { role: "assistant" } } },
+      { type: "tool-call-start", index: 0, delta: { message: { tool_calls: { id: "weather", type: "function", function: { name: "weather", arguments: "" } } } } },
+      { type: "tool-call-delta", index: 0, delta: { message: { tool_calls: { function: { arguments: '{"city":"Paris"}' } } } } },
+      { type: "message-end", delta: { finish_reason: finishReason } },
+    ];
+    const client = new CohereClientV2({
+      token: "test-token",
+      fetch: async () => new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    });
+    const source = await client.chatStream({ model: "command-a", messages: [{ role: "user", content: "Weather?" }] });
+    let ending;
+    let closed = false;
+    const decoded = (async function* () {
+      try {
+        for await (const event of source) {
+          if (event.type === "message-end") ending = event.delta;
+          yield event;
+        }
+      } finally { closed = true; }
+    })();
+    const completed = [];
+    await assert.rejects(async () => {
+      for await (const update of readStructured(decoded, { integration: cohere })) {
+        if (update.type === "complete") completed.push(update.value);
+      }
+    }, (error) => {
+      assert.equal(error.message, `Cohere generation failed: ${finishReason}`);
+      assert.equal(error.code, "INTEGRATION_ERROR");
+      assert.equal(error.cause, ending);
+      return true;
+    });
+    assert.equal(ending.finishReason, finishReason);
+    assert.deepEqual(completed, []);
+    assert.equal(closed, true);
+  });
+}

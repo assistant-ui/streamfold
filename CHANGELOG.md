@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject Cohere error and timeout endings even without error text, discarding
+  pending arguments and preserving the provider's failure details.
 - Surface Gemini streaming error events and discard pending arguments instead
   of completing them at EOF, preserving provider error details.
 - Reject Vercel AI abort events before finalizing pending arguments, preserving
