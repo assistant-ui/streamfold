@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reject Vercel AI abort events before finalizing pending arguments, preserving
+  the cancellation reason even without a shared reader signal.
+
 ## 0.1.16
 
 - Surface AG-UI run errors and release pending parsers instead of finalizing

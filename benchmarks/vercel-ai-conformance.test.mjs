@@ -84,6 +84,53 @@ test("SDK defaults and transforms survive streamed arguments", async () => {
 });
 
 for (const format of ["full", "ui"]) {
+  test(`${format} SDK abort events reject pending arguments without a shared reader signal`, { timeout: 3000 }, async () => {
+    const controller = new AbortController();
+    const result = streamText({
+      abortSignal: controller.signal,
+      model: new MockLanguageModelV4({ doStream: {
+        stream: new ReadableStream({
+          start(stream) {
+            stream.enqueue({ type: "stream-start", warnings: [] });
+            stream.enqueue({ type: "tool-input-start", id: "weather", toolName: "weather" });
+            stream.enqueue({ type: "tool-input-delta", id: "weather", delta: '{"city":"Paris"}' });
+          },
+        }),
+      } }),
+      prompt: "Weather in Paris?",
+      tools: { weather: tool({ inputSchema: z.object({ city: z.string() }) }) },
+      onError() {},
+    });
+    const source = format === "full" ? result.fullStream : result.toUIMessageStream();
+    let abortEvent;
+    let closed = false;
+    const events = (async function* () {
+      try {
+        for await (const event of source) {
+          if (event.type === "abort") abortEvent = event;
+          yield event;
+          if (event.type === "tool-input-delta") controller.abort(new Error("cancelled by user"));
+        }
+      } finally {
+        closed = true;
+      }
+    })();
+    const completed = [];
+    await assert.rejects(async () => {
+      for await (const update of readStructured(events, { integration: vercelAI })) {
+        if (update.type === "complete") completed.push(update);
+      }
+    }, (error) => {
+      assert.equal(abortEvent?.type, "abort");
+      assert.equal(error.message, "Error: cancelled by user");
+      assert.equal(error.cause, abortEvent);
+      assert.equal(error.code, "INTEGRATION_ERROR");
+      return true;
+    });
+    assert.deepEqual(completed, []);
+    assert.equal(closed, true);
+  });
+
   for (const snapshots of ["live", "immutable"]) {
     for (const streamed of [false, true]) {
       for (const kind of ["provider-error", "invalid-input"]) {
