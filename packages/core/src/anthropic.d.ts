@@ -12,6 +12,7 @@ export type AnthropicToolInputEvent =
       readonly content_block: {
         readonly type: string;
         readonly id: string;
+        readonly input?: unknown;
       };
     }
   | {

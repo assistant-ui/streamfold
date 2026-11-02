@@ -2,7 +2,9 @@ import { createStructuredStreamPool } from "./index.js";
 import { createIntegration } from "./internal/integration.js";
 
 export const anthropic = (pool = createStructuredStreamPool(), options) => {
-  const idsByIndex = new Map();
+  const callsByIndex = new Map();
+  const completeCall = (complete, { id, emptyArguments }) =>
+    complete(id, emptyArguments ? () => "{}" : undefined);
 
   return createIntegration(
     pool,
@@ -12,12 +14,15 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
         (event.content_block.type === "tool_use" ||
           event.content_block.type === "server_tool_use")
       ) {
-        idsByIndex.set(event.index, event.content_block.id);
+        callsByIndex.set(event.index, {
+          id: event.content_block.id,
+          emptyArguments: JSON.stringify(event.content_block.input) === "{}",
+        });
         return calls.start(event.content_block.id);
       }
 
-      const id = idsByIndex.get(event.index);
-      if (id === undefined) {
+      const call = callsByIndex.get(event.index);
+      if (call === undefined) {
         if (
           event.type === "content_block_delta" &&
           event.delta.type === "input_json_delta"
@@ -31,15 +36,19 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
         event.type === "content_block_delta" &&
         event.delta.type === "input_json_delta"
       ) {
-        return calls.push(id, event.delta.partial_json);
+        if (event.delta.partial_json !== "") call.emptyArguments = false;
+        return calls.push(call.id, event.delta.partial_json);
       }
       if (event.type === "content_block_stop") {
-        idsByIndex.delete(event.index);
-        return calls.complete(id);
+        callsByIndex.delete(event.index);
+        return completeCall(calls.complete, call);
       }
       return undefined;
     },
-    undefined,
+    (complete) => {
+      for (const call of callsByIndex.values()) completeCall(complete, call);
+      callsByIndex.clear();
+    },
     "anthropic",
     options,
   );
