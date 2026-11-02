@@ -58,3 +58,32 @@ test("Bedrock diagnoses uncorrelated deltas and missing block indexes", () => {
   assert.deepEqual(stream.finish(), []);
   assert.equal(diagnostics.filter(({ code }) => code === "UNMATCHED_TOOL_EVENT").length, 2);
 });
+
+test("Bedrock malformed generation endings release pending calls and remain terminal", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const stopReason of ["malformed_model_output", "malformed_tool_use"]) {
+      const pool = createStructuredStreamPool();
+      const diagnostics = [];
+      const stream = bedrock(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "complete-json"));
+      stream[method](delta(0, "{}"));
+      stream[method](start(1, "partial-json"));
+      stream[method](delta(1, '{"city":'));
+      const messageStop = { stopReason, additionalModelResponseFields: { detail: "invalid generation" } };
+      let failure;
+      assert.throws(() => stream[method]({ messageStop }), (error) => {
+        failure = error;
+        assert.equal(error.message, `Bedrock generation failed: ${stopReason}`);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.adapter, "bedrock");
+        assert.equal(error.cause, messageStop);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.throws(() => stream[method](stop(0)), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+      assert.equal(diagnostics[0].error, failure);
+    }
+  }
+});

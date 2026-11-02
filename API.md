@@ -431,7 +431,10 @@ For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
 blocks by `contentBlockIndex` and exposes `toolUseId` as the call ID. Text,
 reasoning, and metadata events are ignored. Calls complete at their block stop
 or EOF; malformed or truncated JSON fails and releases active parsers. Service
-error events also fail the integration. AWS SDK types are accepted directly,
+error events also fail the integration. The `malformed_model_output` and
+`malformed_tool_use` message stop reasons fail the reader and abort pending
+calls, preserving the message stop payload as `cause`. Previously emitted
+completions are not retracted. AWS SDK types are accepted directly,
 but the AWS SDK is not a runtime dependency of Streamfold.
 
 The Gemini adapter accepts the Interactions API's `arguments_delta` events
