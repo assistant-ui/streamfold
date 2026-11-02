@@ -7,6 +7,13 @@ import type {
 
 export type AssistantUiStreamEvent =
   | {
+      readonly type: "error";
+      readonly path: readonly number[];
+      readonly error: string;
+      readonly code?: string;
+      readonly severity?: "critical" | "warning" | "info";
+    }
+  | {
       readonly type: "part-start";
       readonly path: readonly number[];
       readonly part:

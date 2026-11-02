@@ -10,6 +10,9 @@ export const assistantUI = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
+      if (event.type === "error") {
+        throw new Error(event.error ?? "Assistant stream failed", { cause: event });
+      }
       if (event.type === "part-start") {
         // Native starts use the root path; older integrations supply the part path.
         const key = event.path.length === 0
