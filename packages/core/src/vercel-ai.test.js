@@ -84,3 +84,33 @@ test("Vercel input parsing leaves tool execution outcomes to the application", (
   }
   assert.deepEqual(stream.finish().map(({ value }) => value), [{}]);
 });
+
+test("Vercel abort events release pending calls and remain terminal", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const event of [{ type: "abort", reason: "cancelled by user" }, { type: "abort" }]) {
+      const pool = createStructuredStreamPool();
+      const diagnostics = [];
+      const stream = vercelAI(pool, { onDiagnostic: (value) => diagnostics.push(value) });
+      stream[method]({ type: "start-step" });
+      for (const [id, delta] of [["complete-json", "{}"], ["partial-json", '{"city":']]) {
+        stream[method]({ type: "tool-input-start", id });
+        stream[method]({ type: "tool-input-delta", id, delta });
+      }
+      let failure;
+      assert.throws(() => stream[method](event), (error) => {
+        failure = error;
+        assert.equal(error.message, event.reason ?? "Vercel AI stream aborted");
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.adapter, "vercel-ai");
+        assert.equal(error.eventType, "abort");
+        assert.equal(error.cause, event);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.throws(() => stream[method]({ type: "finish-step" }), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code }) => code), ["STREAM_ERROR"]);
+      assert.equal(diagnostics[0].error, failure);
+    }
+  }
+});

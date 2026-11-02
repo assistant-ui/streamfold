@@ -400,6 +400,12 @@ message. Tool execution outcomes (`tool-error`, `tool-output-error`, and
 `tool-output-denied`) are ignored by the argument parser. Previously emitted
 completions are not retracted.
 
+SDK and UI `abort` events also terminate the reader and discard pending
+arguments, even when the SDK's abort signal is not passed to `readStructured`.
+The serialized reason becomes the error message, with a fallback when omitted;
+the original event is preserved as `cause`. Passing a shared `signal` still
+rejects with that signal's original reason.
+
 The [Mistral Responses example](examples/README.md#mistral-responses) translates
 `@mistralai/mistralai` frames into the existing OpenAI adapter's event shape.
 It unwraps `frame.data` and maps the argument events' `itemId` to `item_id`.
