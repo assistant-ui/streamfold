@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface native assistant-ui stream errors and discard pending arguments,
+  preserving the error event and its metadata.
 - Surface Gemini streaming error events and discard pending arguments instead
   of completing them at EOF, preserving provider error details.
 - Reject Vercel AI abort events before finalizing pending arguments, preserving

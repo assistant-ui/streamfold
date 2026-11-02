@@ -340,6 +340,13 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
+The assistant-ui integration rejects native `error` events, emits `STREAM_ERROR`,
+and aborts pending calls without finalizing their arguments. The stream's error
+text becomes the message, and the original event (including its code and
+severity) is preserved as `cause`. Tool results marked `isError` remain execution
+outcomes and do not fail argument parsing. Previously emitted completions are
+not retracted.
+
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
 and other non-tool SDK events can remain in the stream and are ignored.
