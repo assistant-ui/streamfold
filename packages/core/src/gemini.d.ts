@@ -7,6 +7,13 @@ import type {
 
 export type GeminiToolCallEvent =
   | {
+      readonly event_type: "error";
+      readonly error?: {
+        readonly code?: string | undefined;
+        readonly message?: string | undefined;
+      } | undefined;
+    }
+  | {
       readonly event_type: "step.start";
       readonly index: number;
       readonly step: {

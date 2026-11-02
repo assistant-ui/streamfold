@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Surface Gemini streaming error events and discard pending arguments instead
+  of completing them at EOF, preserving provider error details.
+
 ## 0.1.16
 
 - Surface AG-UI run errors and release pending parsers instead of finalizing

@@ -13,6 +13,9 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
+      if (event.event_type === "error") {
+        throw new Error(event.error?.message ?? "Gemini stream failed", { cause: event.error });
+      }
       if (
         event.event_type === "step.start" &&
         event.step.type === "function_call"

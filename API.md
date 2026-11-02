@@ -432,6 +432,9 @@ finalization. The status is included in the error message, and the interaction
 resource is preserved as `cause`, including any continuation token. Successful
 completion, `requires_action` tool handoffs, and legacy events without a status
 remain supported.
+Streaming `error` events also fail the reader and abort pending calls. The
+provider's message is preserved, with a fallback when omitted, and its error
+object (including the provider code) is available as `cause`.
 
 The AG-UI adapter completes arguments at `TOOL_CALL_END` or EOF. A `RUN_ERROR`
 terminates the reader, emits `STREAM_ERROR`, and aborts every pending call
