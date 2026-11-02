@@ -20,6 +20,10 @@ export type BedrockToolCallEvent =
         } | undefined;
       } | undefined;
       readonly contentBlockStop?: { readonly contentBlockIndex?: number | undefined } | undefined;
+      readonly messageStop?: {
+        readonly stopReason?: string | undefined;
+        readonly additionalModelResponseFields?: unknown;
+      } | undefined;
     }
   | { readonly [key: string]: unknown };
 

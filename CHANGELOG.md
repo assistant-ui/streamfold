@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject malformed Bedrock generation endings and discard pending arguments,
+  preserving the stop reason and provider details.
 - Surface Gemini streaming error events and discard pending arguments instead
   of completing them at EOF, preserving provider error details.
 - Reject Vercel AI abort events before finalizing pending arguments, preserving
