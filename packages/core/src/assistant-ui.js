@@ -13,6 +13,12 @@ export const assistantUI = (pool = createStructuredStreamPool(), options) => {
       if (event.type === "error") {
         throw new Error(event.error ?? "Assistant stream failed", { cause: event });
       }
+      if (
+        (event.type === "step-finish" || event.type === "message-finish") &&
+        event.finishReason === "error"
+      ) {
+        throw new Error("Assistant generation failed", { cause: event });
+      }
       if (event.type === "part-start") {
         // Native starts use the root path; older integrations supply the part path.
         const key = event.path.length === 0

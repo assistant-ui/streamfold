@@ -346,6 +346,10 @@ text becomes the message, and the original event (including its code and
 severity) is preserved as `cause`. Tool results marked `isError` remain execution
 outcomes and do not fail argument parsing. Previously emitted completions are
 not retracted.
+`step-finish` and `message-finish` events with `finishReason: "error"` also fail
+the stream and abort pending calls. The ending event is preserved as `cause`,
+including its usage and continuation metadata. Other finish reasons leave the
+existing argument completion timing and strict JSON validation unchanged.
 
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
