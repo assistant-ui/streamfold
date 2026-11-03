@@ -11,6 +11,10 @@ export type VercelAiToolInputEvent =
       readonly reason?: string | undefined;
     }
   | {
+      readonly type: "finish-step" | "finish";
+      readonly finishReason?: string | undefined;
+    }
+  | {
       readonly type: "tool-input-start";
       readonly id: string;
       readonly toolName: string;

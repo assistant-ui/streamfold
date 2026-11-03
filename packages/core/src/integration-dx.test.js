@@ -377,7 +377,7 @@ test("Vercel final-only inputs preserve lifecycle, limits, and duplicate complet
   }
 });
 
-test("Vercel steps wait for final inputs and close remaining calls at the step boundary", () => {
+test("Vercel steps wait for final inputs and close remaining calls at a successful step boundary", () => {
   const stream = vercelAI();
   stream.pushAll({ type: "start-step" });
   for (const id of ["a", "b"]) {
@@ -390,7 +390,7 @@ test("Vercel steps wait for final inputs and close remaining calls at the step b
     { type: "complete", id: "a", value: { location: "Paris" } },
   ]);
   assert.deepEqual(stream.pushAll(final), []);
-  assert.deepEqual(stream.pushAll({ type: "finish-step" }).map(({ type, id, value }) => ({ type, id, value })), [
+  assert.deepEqual(stream.pushAll({ type: "finish-step", finishReason: "tool-calls" }).map(({ type, id, value }) => ({ type, id, value })), [
     { type: "complete", id: "b", value: { city: "Paris" } },
   ]);
 

@@ -7,20 +7,21 @@ import { readStructured } from "../packages/core/src/index.js";
 import { vercelAI } from "../packages/core/src/vercel-ai.js";
 
 const sdkToolCall = (streamed, inputSchema = z.object({ city: z.string() }), {
-  input = '{"city":"Paris"}', failure,
+  input = '{"city":"Paris"}', failure, finishReason = failure ? "error" : "tool-calls",
 } = {}) => {
   const chunks = [
     { type: "stream-start", warnings: [] },
     ...(streamed ? [
       { type: "tool-input-start", id: "weather-1", toolName: "weather" },
       { type: "tool-input-delta", id: "weather-1", delta: input },
-      ...(failure ? [] : [{ type: "tool-input-end", id: "weather-1" }]),
+      ...(finishReason === "error" ? [] : [{ type: "tool-input-end", id: "weather-1" }]),
     ] : []),
-    failure ? { type: "error", error: failure }
-      : { type: "tool-call", toolCallId: "weather-1", toolName: "weather", input },
+    ...(failure ? [{ type: "error", error: failure }]
+      : finishReason === "error" ? []
+        : [{ type: "tool-call", toolCallId: "weather-1", toolName: "weather", input }]),
     {
       type: "finish",
-      finishReason: { unified: failure ? "error" : "tool-calls", raw: failure ? "error" : "tool_calls" },
+      finishReason: { unified: finishReason, raw: finishReason === "error" ? "error" : "tool_calls" },
       usage: {
         inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
         outputTokens: { total: 1, text: 1, reasoning: 0 },
@@ -84,6 +85,43 @@ test("SDK defaults and transforms survive streamed arguments", async () => {
 });
 
 for (const format of ["full", "ui"]) {
+  for (const [kind, input] of [["no", undefined], ["complete", '{"city":"Paris"}'], ["incomplete", '{"city":']]) {
+    test(`${format} SDK error finish reasons reject ${kind} pending arguments`, async () => {
+      const result = sdkToolCall(input !== undefined, undefined, { input, finishReason: "error" });
+      const source = format === "full" ? result.fullStream : result.toUIMessageStream();
+      const completed = [];
+      let ending;
+      let closed = false;
+      let readPastFailure = false;
+      const events = (async function* () {
+        try {
+          for await (const event of source) {
+            if (event.finishReason === "error") ending = event;
+            yield event;
+            if (event.finishReason === "error") readPastFailure = true;
+          }
+        } finally {
+          closed = true;
+        }
+      })();
+      await assert.rejects(async () => {
+        for await (const update of readStructured(events, { integration: vercelAI })) {
+          if (update.type === "complete") completed.push(update);
+        }
+      }, (error) => {
+        assert.equal(ending?.type, format === "full" ? "finish-step" : "finish");
+        assert.equal(error.message, "Vercel AI generation failed");
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.eventType, ending.type);
+        assert.equal(error.cause, ending);
+        return true;
+      });
+      assert.deepEqual(completed, []);
+      assert.equal(closed, true);
+      assert.equal(readPastFailure, false);
+    });
+  }
+
   test(`${format} SDK abort events reject pending arguments without a shared reader signal`, { timeout: 3000 }, async () => {
     const controller = new AbortController();
     const result = streamText({
