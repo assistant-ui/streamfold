@@ -28,6 +28,10 @@ import { gemini } from "streamfold/gemini";
 import { langchain } from "streamfold/langchain";
 import { openAI } from "streamfold/openai";
 import { adapterContractTests } from "streamfold/testing";
+import type { AssistantStreamChunk } from "assistant-stream";
+
+declare const assistantSdkEvents: ReadableStream<AssistantStreamChunk>;
+readStructured(assistantSdkEvents, { integration: assistantUI });
 
 const scanner = createStructuredStream();
 prepareStreamfold satisfies () => Promise<void>;
@@ -74,6 +78,8 @@ assistantUi.push({
   type: "tool-call-args-text-finish",
   path: [0],
 });
+assistantUi.push({ type: "step-finish", path: [], finishReason: "error" });
+assistantUi.push({ type: "message-finish", path: [], finishReason: "error" });
 
 const composed = createStructuredStream(assistantUI);
 for (const update of composed.pushAll({

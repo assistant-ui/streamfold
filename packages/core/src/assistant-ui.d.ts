@@ -7,6 +7,11 @@ import type {
 
 export type AssistantUiStreamEvent =
   | {
+      readonly type: "step-finish" | "message-finish";
+      readonly path: readonly number[];
+      readonly finishReason: string;
+    }
+  | {
       readonly type: "error";
       readonly path: readonly number[];
       readonly error: string;

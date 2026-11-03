@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject assistant-ui error finish reasons before pending tool arguments can
+  complete at EOF, preserving the failed step or message event.
 - Reject Vercel AI error finish reasons and defer pending arguments at UI step
   boundaries until the final stream status is available or the source ends.
 - Reject failed Gemini interaction status updates before EOF can complete
