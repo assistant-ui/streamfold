@@ -41,6 +41,13 @@ prefix's value, patches, and field state are checked before alternating timed
 runs; final values are checked against JSON.parse. Medians and p95s are written
 to `artifacts/streamed-numbers.json`.
 
+For pool input-storage changes, run `node benchmarks/empty-deltas-memory.mjs
+/path/to/baseline/src/index.js`. It measures retained JavaScript heap in fresh
+Node processes after explicit garbage collection, comparing active pools fed
+100,000 and 500,000 empty deltas in both snapshot modes. Three alternating trials
+check byte counts, updates, and final text; results are written to
+`artifacts/empty-deltas-memory.json`.
+
 For completion-tracking changes, run `pnpm bench:completion-memory
 /path/to/baseline/src/index.js`. It compares retained JavaScript heap in fresh
 Node processes after explicit garbage collection, with 16 streams of 2,000

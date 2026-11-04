@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStructuredStreamPool } from "./index.js";
+import { createStructuredStreamPool, readStructured } from "./index.js";
 import { anthropic } from "./anthropic.js";
 
 const start = (index, id, type = "tool_use") => ({
@@ -69,4 +69,46 @@ test("Anthropic empty placeholders do not hide invalid arguments or bypass limit
       assert.equal(pool.size, 0);
     }
   }
+});
+
+
+test("Anthropic error events abort pending calls and preserve the provider failure", () => {
+  for (const method of ["push", "pushAll"]) {
+    const pool = createStructuredStreamPool();
+    const stream = anthropic(pool);
+    stream[method](start(0, "empty"));
+    stream[method](start(1, "complete-json"));
+    stream[method](delta(1, '{"city":"Paris"}'));
+    stream[method](start(2, "partial-json"));
+    stream[method](delta(2, '{"city":'));
+    const details = { type: "overloaded_error", message: "Overloaded" };
+    let failure;
+    assert.throws(() => stream[method]({ type: "error", error: details }), (error) => {
+      failure = error;
+      assert.equal(error.message, "Overloaded");
+      assert.equal(error.cause, details);
+      assert.equal(error.code, "INTEGRATION_ERROR");
+      assert.equal(error.adapter, "anthropic");
+      assert.equal(error.eventType, "error");
+      return true;
+    });
+    assert.equal(pool.size, 0);
+    assert.throws(() => stream.finish(), (error) => error === failure);
+    assert.throws(() => stream[method](stop(0)), (error) => error === failure);
+  }
+});
+
+test("managed Anthropic reads do not complete arguments after a decoded provider error", async () => {
+  const completed = [];
+  await assert.rejects(async () => {
+    for await (const update of readStructured([
+      start(0, "empty"),
+      start(1, "complete-json"),
+      delta(1, '{"city":"Paris"}'),
+      { type: "error", error: { type: "overloaded_error", message: "Overloaded" } },
+    ], { integration: anthropic })) {
+      if (update.type === "complete") completed.push(update);
+    }
+  }, { message: "Overloaded", code: "INTEGRATION_ERROR", adapter: "anthropic" });
+  assert.deepEqual(completed, []);
 });

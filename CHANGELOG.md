@@ -5,6 +5,10 @@
 - Avoid copying numeric prefixes solely to compare them and decode large numeric
   patches natively while preserving JavaScript number rounding, partial values,
   and malformed-input rejection.
+- Avoid retaining empty chunks in active parser pools while preserving their
+  updates, byte limits, and final text.
+- Surface decoded Anthropic stream errors and discard pending tool arguments,
+  preserving the provider failure instead of completing calls at EOF.
 
 ## 0.1.17
 
