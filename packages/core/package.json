@@ -85,5 +85,16 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "peerDependencies": {
+    "assistant-stream": "^0.3.54"
+  },
+  "peerDependenciesMeta": {
+    "assistant-stream": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "assistant-stream": "https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2"
   }
 }

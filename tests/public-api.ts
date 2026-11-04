@@ -19,6 +19,7 @@ import type {
 } from "streamfold";
 import {
   assistantUI,
+  initializeAssistantStream,
   createStructuredStream as createAssistantUiStream,
 } from "streamfold/assistant-ui";
 import { createStructuredStream as createVercelAiStream } from "streamfold/vercel-ai";
@@ -29,6 +30,8 @@ import { langchain } from "streamfold/langchain";
 import { openAI } from "streamfold/openai";
 import { adapterContractTests } from "streamfold/testing";
 import type { AssistantStreamChunk } from "assistant-stream";
+
+initializeAssistantStream satisfies () => Promise<boolean>;
 
 declare const assistantSdkEvents: ReadableStream<AssistantStreamChunk>;
 readStructured(assistantSdkEvents, { integration: assistantUI });

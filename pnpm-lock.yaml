@@ -54,7 +54,11 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
 
-  packages/core: {}
+  packages/core:
+    devDependencies:
+      assistant-stream:
+        specifier: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2
+        version: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2(ai@7.0.154(zod@4.6.7))
 
 packages:
 
@@ -474,6 +478,21 @@ packages:
 
   assistant-stream@0.3.54:
     resolution: {integrity: sha512-Jed48fZg12rzHHWDoTIRKLAO7SovX942f5VXCZ/GifGhaBH0fS1wZhhWhT8BVldJ4uDnCAMlszPGl82eZwO+vw==}
+    peerDependencies:
+      ai: ^6.0.0 || ^7.0.0
+      ioredis: ^5.10.1 || ^6.0.0
+      redis: ^5.12.1
+    peerDependenciesMeta:
+      ai:
+        optional: true
+      ioredis:
+        optional: true
+      redis:
+        optional: true
+
+  assistant-stream@https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2:
+    resolution: {integrity: sha512-OUIdXLi5nBxrw33bb/jUx4LvW3BAWWn44vpG1Xm3c6xCHVsU/j1bYbBdrWA6zSMII7uxHpddg9LTle95rtInig==, tarball: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2}
+    version: 0.3.55
     peerDependencies:
       ai: ^6.0.0 || ^7.0.0
       ioredis: ^5.10.1 || ^6.0.0
@@ -1643,6 +1662,15 @@ snapshots:
   args-tokenizer@0.3.0: {}
 
   assistant-stream@0.3.54(ai@7.0.154(zod@4.6.7)):
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      '@types/json-schema': 7.0.15
+      nanoid: 6.0.2
+      secure-json-parse: 4.1.1
+    optionalDependencies:
+      ai: 7.0.154(zod@4.6.7)
+
+  assistant-stream@https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2(ai@7.0.154(zod@4.6.7)):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15

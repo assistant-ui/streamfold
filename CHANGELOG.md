@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add explicit `initializeAssistantStream()` to `streamfold/assistant-ui` for
+  hosts exposing generic JSON parser registration, preserving the existing event
+  adapter and native fallback when the host or WASM support is unavailable.
 - Allocate completion child maps only for nodes with descendants and release
   them when a field completes, reducing memory retained by open streams.
 - Decode large string append patches with the platform UTF-16 decoder, avoiding

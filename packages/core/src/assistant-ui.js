@@ -1,4 +1,4 @@
-import { createStructuredStreamPool } from "./index.js";
+import { createStructuredStream, createStructuredStreamPool, prepareStreamfold } from "./index.js";
 import { createIntegration } from "./internal/integration.js";
 
 const pathKey = (path) => path.join("/");
@@ -56,3 +56,28 @@ export const assistantUI = (pool = createStructuredStreamPool(), options) => {
 };
 
 export { assistantUI as createStructuredStream };
+
+let initialization;
+
+const initialize = async () => {
+  if (typeof FinalizationRegistry !== "function") return false;
+  try {
+    const { registerJsonParserBackend } = await import("assistant-stream");
+    if (typeof registerJsonParserBackend !== "function") return false;
+    await prepareStreamfold();
+    const probe = createStructuredStream({ snapshots: "live" });
+    probe.dispose();
+    const { createAssistantStreamBackend } = await import("./internal/assistant-stream.js");
+    registerJsonParserBackend(createAssistantStreamBackend);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export async function initializeAssistantStream() {
+  const pending = (initialization ??= initialize());
+  const enabled = await pending;
+  if (!enabled && initialization === pending) initialization = undefined;
+  return enabled;
+}

@@ -103,6 +103,31 @@ for await (const event of assistantStream) {
 const completedCalls = toolInputs.finish();
 ```
 
+To enable Streamfold inside assistant-stream's shared tool-argument parser, use
+an assistant-stream build that exposes `registerJsonParserBackend` and initialize
+once before starting streams:
+
+```ts
+import { initializeAssistantStream } from "streamfold/assistant-ui";
+
+const enabled = await initializeAssistantStream();
+```
+
+This is an explicit opt-in. Merely importing `streamfold/assistant-ui` keeps its
+existing event adapter behavior and does not register anything. Initialization
+returns `false` if the optional assistant-stream peer is absent, lacks the
+registration API, or WebAssembly/finalization support is unavailable. Older
+assistant-stream versions keep native parsing. Concurrent or repeated calls
+share initialization; a failed attempt can be retried.
+
+Once enabled, new shared parsers use Streamfold across copies of assistant-stream
+in the same JavaScript realm. Existing parsers retain their backend. Snapshots,
+partial-field metadata, independent branches, and native fallback are owned by
+assistant-stream. Unsupported prefixes fall back; completed and rejected WASM
+sessions dispose immediately. Complete single-call input keeps the native fast
+path. Provider SDK parsers are unaffected. Small deltas can be slower, so measure
+representative arguments before opting in.
+
 The assistant-ui adapter accepts native assistant-stream events: `part-start`
 uses the root path `[]`, while deltas and completion use the part index such as
 `[0]`. Every part, including text and reasoning, advances that index. Explicitly
