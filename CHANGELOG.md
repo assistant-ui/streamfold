@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.18
+
 - Export `createToolInputParser` from `streamfold/vercel-ai` for generic Vercel AI
   SDK and Harness parser hooks, with immutable values, limits, and safe key handling.
 - Avoid copying numeric prefixes solely to compare them and decode large numeric
