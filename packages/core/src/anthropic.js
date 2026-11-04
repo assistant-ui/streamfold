@@ -9,6 +9,9 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
   return createIntegration(
     pool,
     (event, calls) => {
+      if (event.type === "error") {
+        throw new Error(event.error?.message ?? "Anthropic stream failed", { cause: event.error });
+      }
       if (
         event.type === "content_block_start" &&
         (event.content_block.type === "tool_use" ||
