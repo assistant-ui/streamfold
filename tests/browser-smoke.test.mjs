@@ -97,6 +97,20 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const value = JSON.parse(JSON.stringify(update.partialValue));
       stream.dispose();
 
+      const longStream = createStructuredStream({ snapshots: "immutable" });
+      const longKey = "\uFEFF" + "key".repeat(50);
+      const firstText = "\uFEFF" + "é界🚀".repeat(80);
+      const nextText = "\uDC00" + "x".repeat(128) + "\uD800";
+      longStream.push(`{${JSON.stringify(longKey)}:"`);
+      const firstLong = longStream.push(JSON.stringify(firstText).slice(1, -1));
+      longStream.push(JSON.stringify(nextText).slice(1, -1) + '"}');
+      const longStrings = {
+        first: firstLong.partialValue,
+        final: longStream.finish().partialValue,
+        fieldState: longStream.getFieldState([longKey]),
+      };
+      longStream.dispose();
+
       let limitError = "";
       let errorCode;
       try {
@@ -183,6 +197,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       catch (error) { aborted = error === abortController.signal.reason; }
 
       return {
+        longStrings,
         cancellation: { aborted, cancelled, locked: stalled.locked },
         managedValue,
         readerOnly: { value: readerOnlyValue, locked: readerOnlySource.locked },
@@ -199,6 +214,11 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      longStrings: {
+        first: { ["\uFEFF" + "key".repeat(50)]: "\uFEFF" + "é界🚀".repeat(80) },
+        final: { ["\uFEFF" + "key".repeat(50)]: "\uFEFF" + "é界🚀".repeat(80) + "\uDC00" + "x".repeat(128) + "\uD800" },
+        fieldState: "complete",
+      },
       cancellation: { aborted: true, cancelled: true, locked: false },
       managedSdk: ["start", "update", "complete"],
       managedValue: 42,

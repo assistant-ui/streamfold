@@ -29,6 +29,18 @@ for (const snapshots of ["live", "immutable"]) {
         for (let offset = 0; offset < input.length; offset += chunkSize) {
           chunks.push(input.slice(offset, offset + chunkSize));
         }
+        const scanners = [baseline, current].map((implementation) =>
+          implementation.createStructuredStream({ snapshots })
+        );
+        try {
+          for (const chunk of chunks) {
+            assert.deepEqual(scanners[1].push(chunk), scanners[0].push(chunk));
+            assert.equal(scanners[1].getFieldState(["value"]), scanners[0].getFieldState(["value"]));
+          }
+          assert.deepEqual(scanners[1].finish(), scanners[0].finish());
+        } finally {
+          for (const scanner of scanners) scanner.dispose();
+        }
         const timings = { baseline: [], current: [] };
         for (let iteration = 0; iteration < warmups + samples; iteration++) {
           const order = iteration % 2 ? ["current", "baseline"] : ["baseline", "current"];

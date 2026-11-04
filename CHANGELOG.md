@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Decode large string append patches with the platform UTF-16 decoder, avoiding
+  temporary code-unit arrays while preserving BOM characters, escaped lone
+  surrogates, and runtimes without UTF-16 decoding support.
 - Reject assistant-ui error finish reasons before pending tool arguments can
   complete at EOF, preserving the failed step or message event.
 - Reject Vercel AI error finish reasons and defer pending arguments at UI step

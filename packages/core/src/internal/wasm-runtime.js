@@ -17,6 +17,13 @@ const PATCH_COMPLETE = 8;
 const PATCH_INVALIDATE = 9;
 
 const encoder = new TextEncoder();
+const utf16Decoder = (() => {
+  try {
+    return new TextDecoder("utf-16le", { fatal: true, ignoreBOM: true });
+  } catch {
+    return undefined;
+  }
+})();
 let exports;
 let compiledModule;
 let compiling;
@@ -142,6 +149,27 @@ const readString = (view, cursor, length) => {
   return value;
 };
 
+const readAppendString = (view, cursor, length) => {
+  if (length >= 128 && utf16Decoder !== undefined) {
+    const first = view.getUint16(cursor.offset, true);
+    const last = view.getUint16(cursor.offset + (length - 1) * 2, true);
+    if (
+      (first >= 0xdc00 && first <= 0xdfff) ||
+      (last >= 0xd800 && last <= 0xdbff)
+    ) return readString(view, cursor, length);
+    try {
+      const value = utf16Decoder.decode(new Uint8Array(
+        view.buffer, view.byteOffset + cursor.offset, length * 2,
+      ));
+      cursor.offset += length * 2;
+      return value;
+    } catch {
+      // JSON Unicode escapes may contain lone surrogates, which must stay lossless.
+    }
+  }
+  return readString(view, cursor, length);
+};
+
 const readPath = (view, cursor) => {
   const length = view.getUint16(cursor.offset, true);
   cursor.offset += 2;
@@ -193,7 +221,7 @@ const readPatches = (wasm, handle) => {
       patches.push({
         op: "append",
         path,
-        value: readString(view, cursor, units),
+        value: readAppendString(view, cursor, units),
       });
     } else if (operation === PATCH_SET_NUMBER) {
       patches.push({ op: "set", path, value: readNumber(view, cursor) });
