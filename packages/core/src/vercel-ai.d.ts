@@ -3,6 +3,8 @@ import type {
   BatchStructuredStreamIntegration,
   StructuredStreamIntegrationOptions,
   StructuredStreamPool,
+  StructuredStreamOptions,
+  JsonValue,
 } from "./index.js";
 
 export type VercelAiToolInputEvent =
@@ -60,3 +62,15 @@ export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
   options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<VercelAiToolInputEvent, string>;
+
+export type ToolInputParserOptions = Pick<StructuredStreamOptions, "maxBytes" | "maxDepth">;
+
+export interface ToolInputParser {
+  /** Consume a JSON delta and return a stable, deeply frozen partial value. */
+  push(delta: string): JsonValue | undefined;
+  /** Release the parser when its host completes, resets, or cancels the input. */
+  dispose(): void;
+}
+
+/** Create a parser for generic Vercel AI SDK and Harness tool-input hooks. */
+export function createToolInputParser(options?: ToolInputParserOptions): ToolInputParser;

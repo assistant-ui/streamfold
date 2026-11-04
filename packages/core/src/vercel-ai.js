@@ -1,4 +1,4 @@
-import { createStructuredStreamPool } from "./index.js";
+import { createStructuredStream, createStructuredStreamPool } from "./index.js";
 import { annotateError } from "./internal/errors.js";
 import { createIntegration } from "./internal/integration.js";
 
@@ -71,3 +71,22 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
 };
 
 export { vercelAI as createStructuredStream };
+
+export const createToolInputParser = (options = {}) => {
+  const parser = createStructuredStream({ ...options, snapshots: "immutable" });
+  return {
+    push(delta) {
+      const update = parser.push(delta);
+      for (const { path } of update.changes) {
+        if (path.some((key, index) =>
+          key === "__proto__" || (key === "prototype" && path[index - 1] === "constructor"),
+        )) {
+          parser.dispose();
+          throw new SyntaxError("Streamfold: unsafe key in tool input");
+        }
+      }
+      return update.partialValue;
+    },
+    dispose: () => parser.dispose(),
+  };
+};
