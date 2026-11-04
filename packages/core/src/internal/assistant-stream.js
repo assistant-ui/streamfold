@@ -7,28 +7,18 @@ class StreamfoldParser {
   owner = Symbol();
 
   session;
-  chunks;
   args;
   createSnapshot;
 
-  constructor(session, chunks, args, createSnapshot) {
+  constructor(session, args, createSnapshot) {
     this.createSnapshot = createSnapshot;
     this.session = session;
-    this.chunks = chunks;
     this.args = args;
     session.owner = this.owner;
   }
 
-  get currentTextLength() {
-    return this.chunks?.length ?? 0;
-  }
   get currentArgs() {
     return this.args;
-  }
-  get text() {
-    const values = [];
-    for (let chunk = this.chunks; chunk; chunk = chunk.previous) values.push(chunk.value);
-    return values.reverse().join("");
   }
 
   static create(createScanner, text, fallback, createSnapshot) {
@@ -39,7 +29,7 @@ class StreamfoldParser {
       token: undefined,
       closed: false,
     };
-    const parser = new StreamfoldParser(session, undefined, fallback, createSnapshot);
+    const parser = new StreamfoldParser(session, fallback, createSnapshot);
     return text.length ? parser.append(text) : parser;
   }
 
@@ -61,16 +51,7 @@ class StreamfoldParser {
           : this.createSnapshot(root, update.complete ? "complete" : "partial", [
               ...(session.token ?? session.containers.at(-1) ?? []),
             ]);
-      const next = new StreamfoldParser(
-        session,
-        {
-          value: delta,
-          previous: this.chunks,
-          length: this.currentTextLength + delta.length,
-        },
-        args,
-        this.createSnapshot,
-      );
+      const next = new StreamfoldParser(session, args, this.createSnapshot);
       if (update.complete) this.close();
       return next;
     } catch {

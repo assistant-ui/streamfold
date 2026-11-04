@@ -57,8 +57,8 @@ importers:
   packages/core:
     devDependencies:
       assistant-stream:
-        specifier: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2
-        version: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2(ai@7.0.154(zod@4.6.7))
+        specifier: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27
+        version: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27(ai@7.0.154(zod@4.6.7))
 
 packages:
 
@@ -490,8 +490,8 @@ packages:
       redis:
         optional: true
 
-  assistant-stream@https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2:
-    resolution: {integrity: sha512-OUIdXLi5nBxrw33bb/jUx4LvW3BAWWn44vpG1Xm3c6xCHVsU/j1bYbBdrWA6zSMII7uxHpddg9LTle95rtInig==, tarball: https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2}
+  assistant-stream@https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27:
+    resolution: {integrity: sha512-nGRQBatJzJ2RvyK0C7DoEqzkKcMGEq4DL4eY+NNoJJuA/kVD/irwBb4JdB30ydoAMwGqJHzhxo2OoX3L4Q52vA==, tarball: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27}
     version: 0.3.55
     peerDependencies:
       ai: ^6.0.0 || ^7.0.0
@@ -1670,7 +1670,7 @@ snapshots:
     optionalDependencies:
       ai: 7.0.154(zod@4.6.7)
 
-  assistant-stream@https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2(ai@7.0.154(zod@4.6.7)):
+  assistant-stream@https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27(ai@7.0.154(zod@4.6.7)):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15

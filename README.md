@@ -122,8 +122,8 @@ share initialization; a failed attempt can be retried.
 
 Once enabled, new shared parsers use Streamfold across copies of assistant-stream
 in the same JavaScript realm. Existing parsers retain their backend. Snapshots,
-partial-field metadata, independent branches, and native fallback are owned by
-assistant-stream. Unsupported prefixes fall back; completed and rejected WASM
+partial-field metadata, accepted text, independent branches, and native fallback
+are owned by assistant-stream. Unsupported prefixes fall back; completed and rejected WASM
 sessions dispose immediately. Complete single-call input keeps the native fast
 path. Provider SDK parsers are unaffected. Small deltas can be slower, so measure
 representative arguments before opting in.

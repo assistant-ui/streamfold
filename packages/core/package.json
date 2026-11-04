@@ -95,6 +95,6 @@
     }
   },
   "devDependencies": {
-    "assistant-stream": "https://pkg.pr.new/assistant-stream@5527cfe088f939b46674e9e7752fe35fe417a2d2"
+    "assistant-stream": "https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27"
   }
 }
