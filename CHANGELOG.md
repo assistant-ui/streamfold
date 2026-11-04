@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Allocate completion child maps only for nodes with descendants and release
+  them when a field completes, reducing memory retained by open streams.
 - Decode large string append patches with the platform UTF-16 decoder, avoiding
   temporary code-unit arrays while preserving BOM characters, escaped lone
   surrogates, and runtimes without UTF-16 decoding support.

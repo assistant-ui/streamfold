@@ -338,43 +338,43 @@ const setAtPath = (root, path, value) => {
   return root;
 };
 
-const createCompletionNode = () => ({ complete: false, children: new Map() });
+const createCompletionNode = () => ({ complete: false, children: undefined });
 
 const markFieldComplete = (root, path) => {
   let node = root;
   for (const segment of path) {
     const key = String(segment);
-    let child = node.children.get(key);
+    let child = node.children?.get(key);
     if (child === undefined) {
       child = createCompletionNode();
-      node.children.set(key, child);
+      (node.children ??= new Map()).set(key, child);
     }
     node = child;
   }
   node.complete = true;
-  node.children.clear();
+  node.children = undefined;
 };
 
 const invalidateField = (root, path) => {
   if (path.length === 0) {
     root.complete = false;
-    root.children.clear();
+    root.children = undefined;
     return;
   }
 
   let node = root;
   for (let index = 0; index < path.length - 1; index++) {
-    node = node.children.get(String(path[index]));
+    node = node.children?.get(String(path[index]));
     if (node === undefined) return;
   }
-  node.children.delete(String(path.at(-1)));
+  node.children?.delete(String(path.at(-1)));
 };
 
 const isFieldComplete = (root, path) => {
   let node = root;
   if (node.complete) return true;
   for (const segment of path) {
-    node = node.children.get(String(segment));
+    node = node.children?.get(String(segment));
     if (node === undefined) return false;
     if (node.complete) return true;
   }
