@@ -22,7 +22,7 @@ import {
   initializeAssistantStream,
   createStructuredStream as createAssistantUiStream,
 } from "streamfold/assistant-ui";
-import { createStructuredStream as createVercelAiStream } from "streamfold/vercel-ai";
+import { createStructuredStream as createVercelAiStream, createToolInputParser } from "streamfold/vercel-ai";
 import { agUI } from "streamfold/ag-ui";
 import { anthropic } from "streamfold/anthropic";
 import { gemini } from "streamfold/gemini";
@@ -32,6 +32,12 @@ import { adapterContractTests } from "streamfold/testing";
 import type { AssistantStreamChunk } from "assistant-stream";
 
 initializeAssistantStream satisfies () => Promise<boolean>;
+createToolInputParser satisfies () => { push(delta: string): unknown; dispose(): void };
+const toolInput = createToolInputParser({ maxBytes: 1024, maxDepth: 8 });
+toolInput.push('{"ok":true}') satisfies JsonValue | undefined;
+toolInput.dispose();
+// @ts-expect-error Embedded parsers always return immutable snapshots.
+createToolInputParser({ snapshots: "live" });
 
 declare const assistantSdkEvents: ReadableStream<AssistantStreamChunk>;
 readStructured(assistantSdkEvents, { integration: assistantUI });

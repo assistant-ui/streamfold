@@ -482,6 +482,28 @@ without finalizing its arguments. The run message becomes the error message;
 the original event, including its provider code, is preserved as `cause`.
 Tool execution results remain outside the argument parser's lifecycle.
 
+### Embedded tool-input parser
+
+`createToolInputParser({ maxBytes?, maxDepth? })` from `streamfold/vercel-ai`
+returns `{ push(delta), dispose() }` for hosts with a generic parser factory.
+Pass the function directly to Vercel's proposed `experimental_createToolInputParser`
+or Harness's proposed `initialToolInputParser`, or use a closure to set limits.
+The host hooks are tracked in [vercel/ai#24197](https://github.com/vercel/ai/pull/24197)
+and [harness-sdk#527](https://github.com/assistant-ui/harness-sdk/pull/527).
+
+`push` returns a deeply frozen partial JSON value. Earlier values remain stable,
+and each factory invocation owns a separate scanner. The defaults are 16 MiB
+of UTF-8 input and 128 nesting levels. Malformed JSON, exceeded limits, and unsafe
+`__proto__` or `constructor.prototype` paths throw. Raw surrogate pairs split
+across deltas become visible once both halves arrive; escaped lone surrogates
+remain lossless. These are Streamfold's partial-value semantics.
+
+The host feeds restored raw input before new deltas and calls `dispose` on
+completion, errors, reset, and cancellation. Disposal is idempotent and rejects
+later pushes. Final provider input remains authoritative; partial values are
+not schema-validated tool arguments. This factory does not register globally or
+import a provider SDK. The existing event adapter exports remain available.
+
 ### Errors and diagnostics
 
 ```ts

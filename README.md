@@ -145,6 +145,26 @@ The Vercel AI SDK adapter uses the final `tool-call` input from `fullStream` or
 and transforms after streamed deltas. It also accepts these events without
 preceding deltas and emits their completed input once.
 
+For hosts exposing a tool-input parser factory, embed Streamfold directly:
+
+```ts
+import { createToolInputParser } from "streamfold/vercel-ai";
+
+const messages = readUIMessageStream({
+  stream,
+  experimental_createToolInputParser: createToolInputParser,
+});
+```
+
+The generic Vercel hook is proposed in [vercel/ai#24197](https://github.com/vercel/ai/pull/24197).
+[Harness#527](https://github.com/assistant-ui/harness-sdk/pull/527) accepts the same
+factory through `initialToolInputParser`. These host APIs are not yet published.
+Each call gets an isolated parser with immutable snapshots. Supply a closure
+such as `() => createToolInputParser({ maxBytes: 1024 })` to configure limits.
+The host owns completion, cancellation, and authoritative final input. See the
+[embedded parser contract](API.md#embedded-tool-input-parser) for lifecycle and
+partial-value behavior.
+
 Pass `{ onDiagnostic(diagnostic) { /* report diagnostic */ } }` as an adapter's
 second argument for opt-in event-matching and error diagnostics. Parser errors
 preserve their native `SyntaxError` or `RangeError` type and include a stable
