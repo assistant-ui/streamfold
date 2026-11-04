@@ -12,6 +12,7 @@ const run = (source, inheritLoader = true) =>
     process.execPath,
     [...(inheritLoader ? process.execArgv : []), "--input-type=module", "-e", source],
     {
+      cwd: new URL("../", import.meta.url),
       encoding: "utf8",
       timeout: 10_000,
     },
@@ -53,8 +54,15 @@ for (const global of ["WebAssembly", "FinalizationRegistry"]) {
       const native=IncrementalJsonObjectParser.from('{"value":"');
       assert.equal(native.append('fallback"}').currentArgs.value,'fallback');
       globalThis[${JSON.stringify(global)}]=saved;
+      let registered=0;
+      if (${JSON.stringify(global)}==='FinalizationRegistry') {
+        globalThis.FinalizationRegistry=class extends saved {
+          register(...args) { registered++; return super.register(...args); }
+        };
+      }
       assert.equal(await initializeAssistantStream(),true);
       assert.equal(IncrementalJsonObjectParser.from('{"value":"').append('enabled"}').currentArgs.value,'enabled');
+      if (${JSON.stringify(global)}==='FinalizationRegistry') assert.equal(registered,2);
     `);
   });
 }

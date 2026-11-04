@@ -60,7 +60,7 @@ export { assistantUI as createStructuredStream };
 let initialization;
 
 const initialize = async () => {
-  if (typeof FinalizationRegistry !== "function") return false;
+  if (typeof WebAssembly !== "object" || typeof FinalizationRegistry !== "function") return false;
   try {
     const { registerJsonParserBackend } = await import("assistant-stream");
     if (typeof registerJsonParserBackend !== "function") return false;
