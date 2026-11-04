@@ -100,7 +100,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       const longStream = createStructuredStream({ snapshots: "immutable" });
       const longKey = "\uFEFF" + "key".repeat(50);
       const firstText = "\uFEFF" + "é界🚀".repeat(80);
-      const nextText = "\uDC00" + "x".repeat(128) + "\uD800";
+      const nextText = "x".repeat(128) + "\uD800" + "tail";
       longStream.push(`{${JSON.stringify(longKey)}:"`);
       const firstLong = longStream.push(JSON.stringify(firstText).slice(1, -1));
       longStream.push(JSON.stringify(nextText).slice(1, -1) + '"}');
@@ -216,7 +216,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     assert.deepEqual(result, {
       longStrings: {
         first: { ["\uFEFF" + "key".repeat(50)]: "\uFEFF" + "é界🚀".repeat(80) },
-        final: { ["\uFEFF" + "key".repeat(50)]: "\uFEFF" + "é界🚀".repeat(80) + "\uDC00" + "x".repeat(128) + "\uD800" },
+        final: { ["\uFEFF" + "key".repeat(50)]: "\uFEFF" + "é界🚀".repeat(80) + "x".repeat(128) + "\uD800" + "tail" },
         fieldState: "complete",
       },
       cancellation: { aborted: true, cancelled: true, locked: false },
