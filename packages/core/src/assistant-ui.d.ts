@@ -53,3 +53,11 @@ export function createStructuredStream(
   pool?: StructuredStreamPool<string>,
   options?: StructuredStreamIntegrationOptions,
 ): BatchEventStructuredStream<AssistantUiStreamEvent, string>;
+
+/**
+ * Prepares Streamfold and registers it for subsequent assistant-stream JSON parsers.
+ * Requires an assistant-stream version exposing registerJsonParserBackend.
+ * Existing parsers keep their backend. Repeated calls share initialization.
+ * Returns false when the host API, WebAssembly, or finalization support is unavailable.
+ */
+export function initializeAssistantStream(): Promise<boolean>;

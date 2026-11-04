@@ -20,10 +20,7 @@ export const DEFAULT_STREAM_LIMITS = Object.freeze({
   maxDepth: 128,
 });
 
-const parserFinalizer =
-  typeof FinalizationRegistry === "function"
-    ? new FinalizationRegistry(freeWasmParser)
-    : undefined;
+let parserFinalizer;
 
 export class IncrementalJsonScanner {
   #parser;
@@ -36,6 +33,8 @@ export class IncrementalJsonScanner {
     const limits = normalizeStreamLimits(options);
     this.#immutable = limits.snapshots === "immutable";
     this.#parser = createWasmParser(limits);
+    if (typeof FinalizationRegistry === "function")
+      parserFinalizer ??= new FinalizationRegistry(freeWasmParser);
     parserFinalizer?.register(this, this.#parser, this);
   }
 
