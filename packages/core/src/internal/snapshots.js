@@ -1,4 +1,8 @@
-const setOwn = (target, key, value) => {
+const setOwn = (target, key, value, exists) => {
+  if (exists) {
+    target[key] = value;
+    return;
+  }
   Object.defineProperty(target, key, {
     value,
     enumerable: true,
@@ -34,16 +38,19 @@ export const applyImmutableChanges = (previous, changes) => {
     next = copy(next);
     let target = next;
     for (const key of change.path.slice(0, -1)) {
-      const current = Object.hasOwn(target, key) ? target[key] : undefined;
+      const exists = Object.hasOwn(target, key);
+      const current = exists ? target[key] : undefined;
       const child = copy(current);
-      if (child !== current) setOwn(target, key, child);
+      if (child !== current) setOwn(target, key, child, exists);
       target = child;
     }
     const key = change.path.at(-1);
+    const exists = Object.hasOwn(target, key);
     setOwn(
       target,
       key,
-      replacement(Object.hasOwn(target, key) ? target[key] : undefined),
+      replacement(exists ? target[key] : undefined),
+      exists,
     );
   }
   for (const value of owned) Object.freeze(value);

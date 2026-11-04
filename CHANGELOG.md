@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Update existing properties directly on owned immutable snapshot copies,
+  reducing repeated writes while preserving frozen history and safe key handling.
+
 ## 0.1.18
 
 - Export `createToolInputParser` from `streamfold/vercel-ai` for generic Vercel AI
