@@ -260,7 +260,7 @@ struct LiteralToken {
 struct NumberToken {
     path: Path,
     raw: Vec<u8>,
-    emitted: Vec<u8>,
+    emitted_length: usize,
 }
 
 #[derive(Debug)]
@@ -511,7 +511,7 @@ impl PartialValueParser {
                 self.token = Token::Number(NumberToken {
                     path,
                     raw: vec![byte],
-                    emitted: Vec::new(),
+                    emitted_length: 0,
                 });
             }
             _ => return Err(StreamError::InvalidJson { offset }),
@@ -680,32 +680,26 @@ impl PartialValueParser {
             }
         }
 
-        if let Token::Number(number) = &self.token
-            && number.raw == b"-"
-        {
-            let path = number.path.clone();
-            self.emit_path_patch(PATCH_INVALIDATE, &path);
-        }
-
-        let number = if let Token::Number(number) = &self.token {
-            longest_valid_number_prefix(&number.raw)
-                .map(|prefix| (number.path.clone(), prefix.to_vec(), number.emitted.clone()))
-        } else {
-            None
-        };
-        if let Some((path, prefix, emitted)) = number
-            && prefix != emitted
-        {
-            self.emit_number(&path, &prefix);
-            if let Token::Number(number) = &mut self.token {
-                number.emitted = prefix;
+        if let Token::Number(number) = &mut self.token {
+            if number.raw == b"-" {
+                self.output.push(PATCH_INVALIDATE);
+                encode_path(&mut self.output, &number.path);
+            }
+            if let Some(prefix) = longest_valid_number_prefix(&number.raw)
+                && prefix.len() != number.emitted_length
+            {
+                self.output.push(PATCH_SET_NUMBER);
+                encode_path(&mut self.output, &number.path);
+                write_u32(&mut self.output, prefix.len());
+                self.output.extend_from_slice(prefix);
+                number.emitted_length = prefix.len();
             }
         }
         Ok(())
     }
 
     fn emit_number_if_changed(&mut self, number: &NumberToken) {
-        if number.raw != number.emitted {
+        if number.raw.len() != number.emitted_length {
             self.emit_number(&number.path, &number.raw);
         }
     }

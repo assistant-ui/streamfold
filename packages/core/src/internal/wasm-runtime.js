@@ -17,6 +17,13 @@ const PATCH_COMPLETE = 8;
 const PATCH_INVALIDATE = 9;
 
 const encoder = new TextEncoder();
+const numberDecoder = (() => {
+  try {
+    return new TextDecoder();
+  } catch {
+    return undefined;
+  }
+})();
 const utf16Decoder = (() => {
   try {
     return new TextDecoder("utf-16le", { fatal: true, ignoreBOM: true });
@@ -191,6 +198,13 @@ const readPath = (view, cursor) => {
 const readNumber = (view, cursor) => {
   const length = view.getUint32(cursor.offset, true);
   cursor.offset += 4;
+  if (length >= 128 && numberDecoder !== undefined) {
+    const text = numberDecoder.decode(new Uint8Array(
+      view.buffer, view.byteOffset + cursor.offset, length,
+    ));
+    cursor.offset += length;
+    return Number(text);
+  }
   let text = "";
   for (let index = 0; index < length; index++) {
     text += String.fromCharCode(view.getUint8(cursor.offset++));
