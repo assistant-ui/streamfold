@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.17
+
 - Add explicit `initializeAssistantStream()` to `streamfold/assistant-ui` for
   hosts exposing generic JSON parser registration, preserving the existing event
   adapter and native fallback when the host or WASM support is unavailable.
