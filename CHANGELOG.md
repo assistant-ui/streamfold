@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Avoid copying numeric prefixes solely to compare them and decode large numeric
+  patches natively while preserving JavaScript number rounding, partial values,
+  and malformed-input rejection.
+
 ## 0.1.17
 
 - Add explicit `initializeAssistantStream()` to `streamfold/assistant-ui` for

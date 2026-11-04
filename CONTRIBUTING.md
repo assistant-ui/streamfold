@@ -34,6 +34,13 @@ For numeric-parser changes, run `node benchmarks/number-prefixes.mjs
 exponents with matching partial values and final validation, recording medians
 and p95s in `artifacts/number-prefixes.json`.
 
+For streamed-number changes, run `node benchmarks/streamed-numbers.mjs
+/path/to/baseline/src/index.js`. It compares long fractional prefixes and ordinary
+numeric records with 16- and 512-character chunks in both snapshot modes. Every
+prefix's value, patches, and field state are checked before alternating timed
+runs; final values are checked against JSON.parse. Medians and p95s are written
+to `artifacts/streamed-numbers.json`.
+
 For completion-tracking changes, run `pnpm bench:completion-memory
 /path/to/baseline/src/index.js`. It compares retained JavaScript heap in fresh
 Node processes after explicit garbage collection, with 16 streams of 2,000

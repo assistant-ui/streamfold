@@ -449,3 +449,75 @@ test("keeps numeric prefixes while validating their completed grammar", () => {
     }
   }
 });
+
+test("long numeric prefixes preserve rounding, signed zero, and exponent recovery", () => {
+  const inputs = [
+    "-0." + "0".repeat(512),
+    "1" + "0".repeat(600) + "e-600",
+    "0." + "0".repeat(323) + "5",
+    "1.7976931348623157" + "0".repeat(512) + "e308",
+    "9007199254740993" + "0".repeat(512) + "e-512",
+  ];
+  for (const snapshots of ["live", "immutable"]) {
+    for (const input of inputs) {
+      const scanner = new IncrementalJsonScanner({ snapshots });
+      try {
+        scanner.push('{"n":');
+        let prefix = "";
+        for (let offset = 0; offset < input.length; offset += 16) {
+          const chunk = input.slice(offset, offset + 16);
+          prefix += chunk;
+          const completePrefix = prefix.replace(/(?:\.|[eE][+-]?)$/, "");
+          const update = scanner.push(chunk);
+          assert.deepEqual(update.partialValue, { n: JSON.parse(completePrefix) });
+          assert.equal(scanner.getFieldState(["n"]), "partial");
+        }
+        scanner.push("}");
+        assert.deepEqual(scanner.finish().partialValue, { n: JSON.parse(input) });
+        assert.equal(scanner.getFieldState(["n"]), "complete");
+      } finally {
+        scanner.dispose();
+      }
+    }
+  }
+});
+
+test("malformed numeric continuations retain their last valid prefix until rejection", () => {
+  for (const [initial, suffix, expected] of [
+    ["0", "1".repeat(512), 0],
+    ["1e2", "e" + "9".repeat(512), 100],
+    ["-12.5", "." + "0".repeat(512), -12.5],
+    ["1", "e+", 1],
+  ]) {
+    const scanner = new IncrementalJsonScanner();
+    try {
+      scanner.push(initial);
+      for (const chunk of suffix) {
+        const update = scanner.push(chunk);
+        assert.equal(update.partialValue, expected);
+        assert.deepEqual(update.changes, []);
+      }
+      assert.throws(() => scanner.finish(), { code: "INVALID_JSON" });
+    } finally {
+      scanner.dispose();
+    }
+  }
+});
+
+test("decodes long numeric patches without a platform TextDecoder", () => {
+  execFileSync(process.execPath, ["--input-type=module", "-e", `
+    import assert from "node:assert/strict";
+    globalThis.TextDecoder = undefined;
+    const { IncrementalJsonScanner } = await import(${JSON.stringify(new URL("./index.js", import.meta.url).href)});
+    for (const number of ["0." + "1".repeat(512), "-0." + "0".repeat(512)]) {
+      const scanner = new IncrementalJsonScanner();
+      try {
+        scanner.push('{"n":' + number);
+        assert.deepEqual(scanner.push("}").partialValue, { n: JSON.parse(number) });
+        assert.deepEqual(scanner.finish().partialValue, { n: JSON.parse(number) });
+      } finally {
+        scanner.dispose();
+      }
+    }
+  `], { timeout: 10_000 });
+});
