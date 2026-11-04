@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Surface decoded Anthropic stream errors and discard pending tool arguments,
+  preserving the provider failure instead of completing calls at EOF.
+
 ## 0.1.17
 
 - Add explicit `initializeAssistantStream()` to `streamfold/assistant-ui` for
