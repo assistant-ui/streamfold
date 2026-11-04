@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid retaining empty chunks in active parser pools while preserving their
+  updates, byte limits, and final text.
 - Surface decoded Anthropic stream errors and discard pending tool arguments,
   preserving the provider failure instead of completing calls at EOF.
 
