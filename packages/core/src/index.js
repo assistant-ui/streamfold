@@ -237,7 +237,7 @@ export class StructuredStreamPool {
         { id, operation: "push" },
       );
     }
-    entry.chunks.push(delta);
+    if (delta !== "") entry.chunks.push(delta);
     try {
       return { id, ...entry.scanner.push(delta) };
     } catch (error) {

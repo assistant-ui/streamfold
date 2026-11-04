@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Avoid retaining empty chunks in active parser pools while preserving their
+  updates, byte limits, and final text.
+
 ## 0.1.17
 
 - Add explicit `initializeAssistantStream()` to `streamfold/assistant-ui` for

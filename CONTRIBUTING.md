@@ -34,6 +34,13 @@ For numeric-parser changes, run `node benchmarks/number-prefixes.mjs
 exponents with matching partial values and final validation, recording medians
 and p95s in `artifacts/number-prefixes.json`.
 
+For pool input-storage changes, run `node benchmarks/empty-deltas-memory.mjs
+/path/to/baseline/src/index.js`. It measures retained JavaScript heap in fresh
+Node processes after explicit garbage collection, comparing active pools fed
+100,000 and 500,000 empty deltas in both snapshot modes. Three alternating trials
+check byte counts, updates, and final text; results are written to
+`artifacts/empty-deltas-memory.json`.
+
 For completion-tracking changes, run `pnpm bench:completion-memory
 /path/to/baseline/src/index.js`. It compares retained JavaScript heap in fresh
 Node processes after explicit garbage collection, with 16 streams of 2,000
