@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import {
   IncrementalJsonScanner,
@@ -126,6 +127,58 @@ test("preserves surrogate pairs split across separate pushes", () => {
   assert.deepEqual(update.partialValue, JSON.parse(input));
   assert.equal(update.bytesSeen, Buffer.byteLength(input));
   scanner.dispose();
+});
+
+test("preserves UTF-16 code units in long paths and retained string patches", () => {
+  const cases = [
+    ["\uFEFF" + "key".repeat(50), ["\uFEFF" + "é界🚀".repeat(80), "tail"]],
+    ["key".repeat(50) + "\uD800", ["x".repeat(128) + "\uD83D", "\uDE80" + "y".repeat(128)]],
+    ["\uDC00" + "key".repeat(50), ["\uDC00" + "z".repeat(5000) + "\uD800", "\uFEFF" + "ok".repeat(100)]],
+    ["middle", ["x".repeat(128) + "\uD800" + "tail", "\uFEFF" + "ok".repeat(100)]],
+  ];
+  for (const snapshots of ["live", "immutable"]) {
+    for (const [key, pieces] of cases) {
+      const scanner = new IncrementalJsonScanner({ snapshots });
+      const history = [];
+      const patches = [];
+      let value = "";
+      try {
+        scanner.push(`{${JSON.stringify(key)}:"`);
+        for (const piece of pieces) {
+          const update = scanner.push(JSON.stringify(piece).slice(1, -1));
+          value += piece;
+          assert.deepEqual(update.changes, [{ op: "append", path: [key], value: piece }]);
+          assert.deepEqual(update.partialValue, { [key]: value });
+          patches.push([update.changes, structuredClone(update.changes)]);
+          if (snapshots === "immutable") history.push([update.partialValue, value]);
+        }
+        scanner.push('"}');
+        assert.deepEqual(scanner.finish().partialValue, { [key]: value });
+        assert.equal(scanner.getFieldState([key]), "complete");
+        for (const [patch, saved] of patches) assert.deepEqual(patch, saved);
+        for (const [snapshot, expected] of history) assert.deepEqual(snapshot, { [key]: expected });
+      } finally {
+        scanner.dispose();
+      }
+    }
+  }
+});
+
+test("decodes long string patches without a platform TextDecoder", () => {
+  execFileSync(process.execPath, ["--input-type=module", "-e", `
+    import assert from "node:assert/strict";
+    globalThis.TextDecoder = undefined;
+    const { IncrementalJsonScanner } = await import(${JSON.stringify(new URL("./index.js", import.meta.url).href)});
+    const scanner = new IncrementalJsonScanner();
+    try {
+      const value = "\\uFEFF" + "é界🚀".repeat(100);
+      const update = scanner.push(JSON.stringify({ value }));
+      assert.deepEqual(update.partialValue, { value });
+      assert.deepEqual(scanner.finish().partialValue, { value });
+    } finally {
+      scanner.dispose();
+    }
+  `], { timeout: 10_000 });
 });
 
 test("rejects raw controls after string runs at the original byte offset", () => {
