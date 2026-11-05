@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reduce allocations when decoding long property names with bounded UTF-16
+  batches while preserving escaped lone surrogates.
+
 ## 0.1.18
 
 - Export `createToolInputParser` from `streamfold/vercel-ai` for generic Vercel AI

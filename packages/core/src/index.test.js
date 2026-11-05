@@ -134,6 +134,10 @@ test("preserves UTF-16 code units in long paths and retained string patches", ()
     ["\uFEFF" + "key".repeat(50), ["\uFEFF" + "é界🚀".repeat(80), "tail"]],
     ["key".repeat(50) + "\uD800", ["x".repeat(128) + "\uD83D", "\uDE80" + "y".repeat(128)]],
     ["\uDC00" + "key".repeat(50), ["\uDC00" + "z".repeat(5000) + "\uD800", "\uFEFF" + "ok".repeat(100)]],
+    ["é界🚀".repeat(64), ["first", "second"]],
+    ["key".repeat(50) + "\uD800" + "tail", ["first", "second"]],
+    ["key".repeat(50) + "🚀\uFFFD\uD800tail", ["x".repeat(128) + "🚀\uFFFD\uD800tail", "next"]],
+    ["k".repeat(4095) + "🚀tail", ["first", "second"]],
     ["middle", ["x".repeat(128) + "\uD800" + "tail", "\uFEFF" + "ok".repeat(100)]],
   ];
   for (const snapshots of ["live", "immutable"]) {
@@ -164,7 +168,7 @@ test("preserves UTF-16 code units in long paths and retained string patches", ()
   }
 });
 
-test("decodes long string patches without a platform TextDecoder", () => {
+test("decodes long paths and string patches without a platform TextDecoder", () => {
   execFileSync(process.execPath, ["--input-type=module", "-e", `
     import assert from "node:assert/strict";
     globalThis.TextDecoder = undefined;
@@ -172,9 +176,11 @@ test("decodes long string patches without a platform TextDecoder", () => {
     const scanner = new IncrementalJsonScanner();
     try {
       const value = "\\uFEFF" + "é界🚀".repeat(100);
-      const update = scanner.push(JSON.stringify({ value }));
-      assert.deepEqual(update.partialValue, { value });
-      assert.deepEqual(scanner.finish().partialValue, { value });
+      const key = "key".repeat(50) + "\\uD800" + "tail";
+      const update = scanner.push(JSON.stringify({ [key]: value }));
+      assert.deepEqual(update.partialValue, { [key]: value });
+      assert.deepEqual(scanner.finish().partialValue, { [key]: value });
+      assert.equal(scanner.getFieldState([key]), "complete");
     } finally {
       scanner.dispose();
     }
