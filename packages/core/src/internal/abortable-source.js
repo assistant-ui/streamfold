@@ -13,7 +13,8 @@ export function abortableSource(events, signal, onAbort) {
     }
     return synchronous ? { done: next.done, value: await next.value } : next;
   };
-  const pull = signal === undefined ? read : () => Promise.resolve().then(read);
+  const scheduled = signal === undefined ? undefined : Promise.resolve();
+  const pull = signal === undefined ? read : () => scheduled.then(read);
   let closed = false;
   // Each read removes its listener; one shared pending promise would retain
   // a Promise.race reaction for every event until the session ends.

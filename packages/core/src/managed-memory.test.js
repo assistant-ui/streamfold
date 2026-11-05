@@ -22,10 +22,11 @@ test("managed SDK readers release consumed payloads while manual streams retain 
         }
       }
     }
-    async function consume(custom) {
+    async function consume(custom, signalled = false) {
       const reader = readStructured(events(custom), {
         ...(custom ? { adapter: defineAdapter(event => event) } : { integration: vercelAI }),
         limits: { maxActiveStreams: 1 },
+        signal: signalled ? new AbortController().signal : undefined,
       });
       const references = [];
       while (references.length < calls) {
@@ -39,14 +40,21 @@ test("managed SDK readers release consumed payloads while manual streams retain 
     }
     const sdk = await consume(false);
     const custom = await consume(true);
+    const signalledSdk = await consume(false, true);
+    const signalledCustom = await consume(true, true);
     for (let attempt = 0; attempt < 5; attempt++) {
       await setImmediate();
       global.gc();
     }
     const retained = references => references.filter(ref => ref.deref() !== undefined).length;
-    const result = { sdk: retained(sdk.references), custom: retained(custom.references) };
+    const result = {
+      sdk: retained(sdk.references), custom: retained(custom.references),
+      signalledSdk: retained(signalledSdk.references), signalledCustom: retained(signalledCustom.references),
+    };
     await sdk.reader.return();
     await custom.reader.return();
+    await signalledSdk.reader.return();
+    await signalledCustom.reader.return();
 
     const manual = vercelAI();
     for (const event of events()) manual.pushAll(event);
@@ -57,4 +65,6 @@ test("managed SDK readers release consumed payloads while manual streams retain 
   const retained = JSON.parse(output);
   assert.ok(retained.custom <= 1, `custom reader retained ${retained.custom} payloads`);
   assert.ok(retained.sdk <= 1, `SDK reader retained ${retained.sdk} payloads`);
+  assert.ok(retained.signalledCustom <= 1, `signalled custom reader retained ${retained.signalledCustom} payloads`);
+  assert.ok(retained.signalledSdk <= 1, `signalled SDK reader retained ${retained.signalledSdk} payloads`);
 });
