@@ -51,6 +51,8 @@ For empty-delta parser changes, run `node benchmarks/empty-deltas.mjs
 /path/to/baseline/src/index.js`. It compares empty updates during pending numeric
 values against an ordinary string control, verifies partial updates and field
 states, and records median and p95 parsing time in `artifacts/empty-deltas.json`.
+It also measures unchanged object snapshots and repeats the baseline as an A/A
+control to show timing noise alongside the candidate.
 
 For pool input-storage changes, run `node benchmarks/empty-deltas-memory.mjs
 /path/to/baseline/src/index.js`. It measures retained JavaScript heap in fresh

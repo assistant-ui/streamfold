@@ -4,6 +4,8 @@
 
 - Avoid temporary per-field completion maps when a patch batch completes the
   document, while preserving partial field states and public patches.
+- Skip immutable snapshot allocations for empty patch batches while preserving
+  value identity and parser state.
 - Reduce allocations when decoding long property names with bounded UTF-16
   batches while preserving escaped lone surrogates.
 - Update existing properties directly on owned immutable snapshot copies,

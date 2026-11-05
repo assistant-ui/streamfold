@@ -12,6 +12,7 @@ const setOwn = (target, key, value, exists) => {
 };
 
 export const applyImmutableChanges = (previous, changes) => {
+  if (changes.length === 0) return previous;
   const owned = new Set();
   const copy = (value) => {
     if (owned.has(value)) return value;
