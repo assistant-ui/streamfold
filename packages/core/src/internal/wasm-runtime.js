@@ -290,6 +290,8 @@ export const createWasmParser = ({ maxBytes, maxDepth }) => {
 };
 
 const pushChunk = (parser, chunk) => {
+  if (chunk.length === 0) return { state: readWasmParser(parser), changes: [] };
+
   // In Unicode mode this range matches lone surrogate code units, not valid
   // pairs. TextEncoder would silently replace them with U+FFFD, while the
   // pool's final JSON.parse would preserve them, producing different values.

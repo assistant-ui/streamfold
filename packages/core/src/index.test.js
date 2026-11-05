@@ -129,6 +129,42 @@ test("preserves surrogate pairs split across separate pushes", () => {
   scanner.dispose();
 });
 
+test("empty deltas preserve pending tokens and buffered Unicode", () => {
+  const cases = [
+    ["", "null", undefined, null],
+    ["0.", "5", 0, 0.5],
+    ["1e", "+2", 1, 100],
+    ["tru", "e", true, true],
+    ['{"a":1,"a":-', "2}", { a: 1 }, { a: -2 }],
+    ['{"value":"\uD83D', '\uDE80"}', { value: "" }, { value: "🚀" }],
+  ];
+  for (const snapshots of ["live", "immutable"]) {
+    for (const [prefix, suffix, partial, expected] of cases) {
+      const scanner = new IncrementalJsonScanner({ snapshots });
+      try {
+        assert.deepEqual(scanner.push(prefix).partialValue, partial);
+        const state = scanner.state;
+        const rootState = scanner.getFieldState([]);
+        const fieldState = scanner.getFieldState(["a"]);
+        for (let index = 0; index < 3; index++) {
+          const update = scanner.push("");
+          assert.deepEqual(update, state);
+          assert.equal(update.partialValue, state.partialValue);
+          assert.equal(scanner.getFieldState([]), rootState);
+          assert.equal(scanner.getFieldState(["a"]), fieldState);
+        }
+        scanner.push(suffix);
+        assert.deepEqual(scanner.finish().partialValue, expected);
+        assert.deepEqual(scanner.push(""), scanner.state);
+        assert.equal(scanner.getFieldState([]), "complete");
+      } finally {
+        scanner.dispose();
+      }
+      assert.throws(() => scanner.push(""), { code: "STREAM_DISPOSED" });
+    }
+  }
+});
+
 test("preserves UTF-16 code units in long paths and retained string patches", () => {
   const cases = [
     ["\uFEFF" + "key".repeat(50), ["\uFEFF" + "é界🚀".repeat(80), "tail"]],

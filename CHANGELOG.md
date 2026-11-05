@@ -4,6 +4,8 @@
 
 - Reduce allocations when decoding long property names with bounded UTF-16
   batches while preserving escaped lone surrogates.
+- Skip parser work for empty deltas while preserving pending tokens, buffered
+  Unicode, completion state, and lifecycle errors.
 
 ## 0.1.18
 
