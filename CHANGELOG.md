@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Await synchronous iterator cleanup values on early exit, propagating cleanup
+  rejections while preserving original failures and prompt cancellation.
 - Reuse one lifetime abort listener for managed reads, preserving cancellation,
   source cleanup and release of consumed payloads.
 - Avoid temporary path-prefix arrays when applying immutable snapshot patches.
