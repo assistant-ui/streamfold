@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reduce allocations when decoding long property names with bounded UTF-16
+  batches while preserving escaped lone surrogates.
 - Update existing properties directly on owned immutable snapshot copies,
   reducing repeated writes while preserving frozen history and safe key handling.
 - Skip parser work for empty deltas while preserving pending tokens, buffered

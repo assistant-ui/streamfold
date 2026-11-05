@@ -177,6 +177,23 @@ const readAppendString = (view, cursor, length) => {
   return readString(view, cursor, length);
 };
 
+const littleEndian = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+const readPathString = (view, cursor, length) => {
+  if (!littleEndian) return readString(view, cursor, length);
+  let value = "";
+  for (let index = 0; index < length; index += 4096) {
+    const units = Math.min(length - index, 4096);
+    const offset = view.byteOffset + cursor.offset;
+    const input = offset % 2 === 0
+      ? new Uint16Array(view.buffer, offset, units)
+      : new Uint16Array(view.buffer.slice(offset, offset + units * 2));
+    value += String.fromCharCode.apply(null, input);
+    cursor.offset += units * 2;
+  }
+  return value;
+};
+
 const readPath = (view, cursor) => {
   const length = view.getUint16(cursor.offset, true);
   cursor.offset += 2;
@@ -186,7 +203,9 @@ const readPath = (view, cursor) => {
     if (kind === 0) {
       const units = view.getUint32(cursor.offset, true);
       cursor.offset += 4;
-      path.push(readString(view, cursor, units));
+      path.push(units >= 128
+        ? readPathString(view, cursor, units)
+        : readString(view, cursor, units));
     } else {
       path.push(view.getUint32(cursor.offset, true));
       cursor.offset += 4;

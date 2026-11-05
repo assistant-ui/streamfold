@@ -25,6 +25,12 @@ identical ASCII, Unicode, and escaped strings with live and immutable snapshots,
 checks every partial update and field state before timing, validates final
 values after timing, and records medians and p95s in `artifacts/string-runs.json`.
 
+For property-key decoding changes, run `node benchmarks/property-keys.mjs
+/path/to/baseline/src/index.js`. It compares short keys, long ASCII and Unicode
+keys, escaped lone surrogates, and literal replacement characters in both
+snapshot modes. Partial values, patches, field states, and final values must
+match; alternating timings are written to `artifacts/property-keys.json`.
+
 For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
 It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
 checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
