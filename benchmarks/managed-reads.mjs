@@ -54,7 +54,8 @@ const consume = async (name, source, signal, capture = false) => {
   }
   return { count, completed, updates };
 };
-if (process.argv.includes("--allocations")) {
+const countScheduling = process.argv.includes("--scheduling");
+if (process.argv.includes("--allocations") || countScheduling) {
   const rows = [];
   for (const length of [10, 100, 1000])
     for (const signalled of [false, true]) {
@@ -80,14 +81,21 @@ if (process.argv.includes("--allocations")) {
           assert.equal(result.count, 0);
           counts[name].push(promises);
         }
+        assert.equal(counts[name][1], counts[name][0]);
+        assert.equal(counts[name][2], counts[name][0]);
       }
       assert.deepEqual(counts.baseline, counts.control);
-      if (signalled) assert.deepEqual(counts.current, counts.baseline);
+      if (countScheduling) {
+        assert.equal(counts.baseline[0] - counts.current[0], signalled ? length : 0);
+      } else if (signalled) assert.deepEqual(counts.current, counts.baseline);
       else assert.equal(counts.baseline[0] - counts.current[0], 3 * (length + 1));
       rows.push({ events: length, signalled, counts });
     }
   writeFileSync(
-    new URL("../artifacts/managed-read-allocations.json", import.meta.url),
+    new URL(
+      `../artifacts/managed-read-${countScheduling ? "scheduling" : "allocations"}.json`,
+      import.meta.url,
+    ),
     JSON.stringify({ environment, baselineEntry: resolve(baselineEntry), rows }, null, 2) + "\n",
   );
   console.log(JSON.stringify(rows));
