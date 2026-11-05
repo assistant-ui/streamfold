@@ -41,6 +41,11 @@ prefix's value, patches, and field state are checked before alternating timed
 runs; final values are checked against JSON.parse. Medians and p95s are written
 to `artifacts/streamed-numbers.json`.
 
+For empty-delta parser changes, run `node benchmarks/empty-deltas.mjs
+/path/to/baseline/src/index.js`. It compares empty updates during pending numeric
+values against an ordinary string control, verifies partial updates and field
+states, and records median and p95 parsing time in `artifacts/empty-deltas.json`.
+
 For pool input-storage changes, run `node benchmarks/empty-deltas-memory.mjs
 /path/to/baseline/src/index.js`. It measures retained JavaScript heap in fresh
 Node processes after explicit garbage collection, comparing active pools fed

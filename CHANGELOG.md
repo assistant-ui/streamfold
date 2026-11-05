@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Skip parser work for empty deltas while preserving pending tokens, buffered
+  Unicode, completion state, and lifecycle errors.
+
 ## 0.1.18
 
 - Export `createToolInputParser` from `streamfold/vercel-ai` for generic Vercel AI
