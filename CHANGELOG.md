@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse one lifetime abort listener for managed reads, preserving cancellation,
+  source cleanup and release of consumed payloads.
 - Avoid temporary path-prefix arrays when applying immutable snapshot patches.
 - Isolate rejected diagnostic callback promises without delaying parsing or
   cleanup, preserving the original stream failure.
