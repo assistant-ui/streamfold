@@ -4,6 +4,8 @@
 
 - Update existing properties directly on owned immutable snapshot copies,
   reducing repeated writes while preserving frozen history and safe key handling.
+- Skip parser work for empty deltas while preserving pending tokens, buffered
+  Unicode, completion state, and lifecycle errors.
 
 ## 0.1.18
 
