@@ -5,6 +5,15 @@ export function abortableSource(events, signal, onAbort) {
   const iterator = reader === undefined
     ? (asyncFactory ?? events[Symbol.iterator]).call(events)
     : undefined;
+  const read = async () => {
+    signal?.throwIfAborted();
+    const next = reader !== undefined ? await reader.read() : await iterator.next();
+    if (next === null || typeof next !== "object") {
+      throw new TypeError("Iterator result must be an object");
+    }
+    return synchronous ? { done: next.done, value: await next.value } : next;
+  };
+  const pull = signal === undefined ? read : () => Promise.resolve().then(read);
   let closed = false;
   // Each read removes its listener; one shared pending promise would retain
   // a Promise.race reaction for every event until the session ends.
@@ -51,16 +60,7 @@ export function abortableSource(events, signal, onAbort) {
     [Symbol.asyncIterator]() { return this; },
     async next() {
       signal?.throwIfAborted();
-      const result = await waitFor(
-        Promise.resolve().then(async () => {
-          signal?.throwIfAborted();
-          const next = reader !== undefined ? await reader.read() : await iterator.next();
-          if (next === null || typeof next !== "object") {
-            throw new TypeError("Iterator result must be an object");
-          }
-          return synchronous ? { done: next.done, value: await next.value } : next;
-        }),
-      );
+      const result = await waitFor(pull());
       signal?.throwIfAborted();
       if (result.done) {
         closed = true;

@@ -19,6 +19,13 @@ tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
 and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
 directory.
 
+For managed reader changes, run `node benchmarks/managed-reads.mjs
+/path/to/baseline/src/index.js`. It compares arrays, async iterators, and reader-only
+streams, with and without an abort signal, using ignored events and real tool
+updates. Output parity and cleanup are checked outside rotating A/A/B timings.
+Run it separately with `--allocations` to count promises using `async_hooks`.
+Raw samples, median/p95, controls, and counts go to `artifacts/managed-read*.json`.
+
 For string-parser changes, run `pnpm bench:strings /path/to/baseline/src/index.js`
 against an unpacked baseline package. It alternates the two implementations on
 identical ASCII, Unicode, and escaped strings with live and immutable snapshots,

@@ -4,6 +4,8 @@
 
 - Isolate rejected diagnostic callback promises without delaying parsing or
   cleanup, preserving the original stream failure.
+- Reduce promise allocations in managed readers without an abort signal while
+  preserving iterator cleanup and signalled cancellation.
 - Avoid temporary per-field completion maps when a patch batch completes the
   document, while preserving partial field states and public patches.
 - Skip immutable snapshot allocations for empty patch batches while preserving
