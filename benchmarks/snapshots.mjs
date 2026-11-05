@@ -15,6 +15,8 @@ const cases = [
   ["dense-array", { values }],
   ["nested-array", { rows: values.slice(0, 250).map((n) => ({ n, tags: [n, "ok"] })) }],
   ["dense-object", Object.fromEntries(values.map((n, index) => [`key${index}`, n]))],
+  ["string-updates", { value: "hello world ".repeat(4000) }],
+  ["nested-string-updates", { rows: [{ value: "hello world ".repeat(4000) }] }],
 ];
 const implementations = { baseline, current };
 const warmups = 5;
