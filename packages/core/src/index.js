@@ -41,7 +41,7 @@ export class IncrementalJsonScanner {
   push(chunk) {
     try {
       const update = pushWasmParser(this.#getParser(), chunk);
-      const changes = this.#apply(update.changes);
+      const changes = this.#apply(update.changes, update.state.complete);
       return {
         ...update.state,
         changes,
@@ -55,7 +55,7 @@ export class IncrementalJsonScanner {
   finish() {
     try {
       const update = finishWasmParser(this.#getParser());
-      const changes = this.#apply(update.changes);
+      const changes = this.#apply(update.changes, update.state.complete);
       return {
         ...update.state,
         changes,
@@ -119,18 +119,18 @@ export class IncrementalJsonScanner {
     return failure;
   }
 
-  #apply(changes) {
+  #apply(changes, complete) {
     let invalidated = false;
     if (this.#immutable)
       this.#value = applyImmutableChanges(this.#value, changes);
     for (const change of changes) {
       if (change.op === "invalidate") {
-        invalidateField(this.#completion, change.path);
+        if (!complete) invalidateField(this.#completion, change.path);
         invalidated = true;
       } else if (change.op === "complete") {
-        markFieldComplete(this.#completion, change.path);
+        if (!complete) markFieldComplete(this.#completion, change.path);
       } else if (change.op === "set") {
-        invalidateField(this.#completion, change.path);
+        if (!complete) invalidateField(this.#completion, change.path);
         if (this.#immutable) continue;
         const value = Array.isArray(change.value)
           ? []
@@ -147,6 +147,7 @@ export class IncrementalJsonScanner {
         );
       }
     }
+    if (complete) markFieldComplete(this.#completion, []);
     return invalidated ? changes.filter(({ op }) => op !== "invalidate") : changes;
   }
 }

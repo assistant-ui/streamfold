@@ -67,6 +67,13 @@ Node processes after explicit garbage collection, with 16 streams of 2,000
 nested records in both snapshot modes. It checks field states and final values
 and records three alternating trials in `artifacts/completion-memory.json`.
 
+Run `node benchmarks/completion-batches.mjs /path/to/baseline/src/index.js` to
+compare parsing time for whole-document batches, 1,024-character chunks, and an
+ordinary string control in both snapshot modes. It checks partial values,
+patches, and field states before timing, validates final values, and records
+median, p95, raw samples, and an A/A baseline repeat in
+`artifacts/completion-batches.json`.
+
 For pool finalization changes, run `pnpm bench:final-value-memory
 /path/to/baseline/src/index.js`. It measures retained JavaScript heap for 16
 completed results containing 2,000 nested records each, in live and immutable
