@@ -554,7 +554,9 @@ unchanged if metadata cannot be attached.
 
 Diagnostics do not attach event payloads or argument text. They do contain
 IDs and original error messages; redact sensitive application identifiers in
-your logger. Callback exceptions are ignored so logging cannot break parsing.
+your logger. Callback exceptions and rejected callback promises are ignored so
+logging cannot break parsing. Callback promises are not awaited and cannot delay
+parsing or cleanup.
 
 Custom factories accept the same callback in their options:
 `weatherAdapter({ snapshots: "immutable", onDiagnostic })`. Custom diagnostics
