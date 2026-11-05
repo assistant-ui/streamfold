@@ -9,24 +9,41 @@ const baselineEntry = process.argv[2];
 if (!baselineEntry) throw new Error("Pass the baseline package's src/index.js path");
 const baseline = await import(pathToFileURL(resolve(baselineEntry)));
 await Promise.all([baseline.prepareStreamfold(), current.prepareStreamfold()]);
-const implementations = { baseline, current };
-const fixtures = [[8, 64], [32768, 64], [32768, 1000]].map(([digits, emptyDeltas]) => {
+const implementations = { baseline, control: baseline, current };
+const fixtures = [
+  [8, 64],
+  [32768, 64],
+  [32768, 1000],
+].map(([digits, emptyDeltas]) => {
   const text = '{"value":0.' + "1".repeat(digits) + "}";
   return {
-    name: `fraction-${digits}-${emptyDeltas}-empty`, text, emptyDeltas,
+    name: `fraction-${digits}-${emptyDeltas}-empty`,
+    text,
+    emptyDeltas,
     chunks: [text.slice(0, -1), ...Array(emptyDeltas).fill(""), "}"],
   };
 });
+fixtures.push({
+  name: "unchanged-object-10000-empty",
+  text: '{"value":1}',
+  emptyDeltas: 10000,
+  chunks: ['{"value":1', ...Array(10000).fill(""), "}"],
+});
 const text = JSON.stringify({ value: "hello world ".repeat(400) });
 fixtures.push({
-  name: "ordinary-string-control", text, emptyDeltas: 0, chunkSize: 16,
-  chunks: Array.from({ length: Math.ceil(text.length / 16) }, (_, index) => text.slice(index * 16, (index + 1) * 16)),
+  name: "ordinary-string-control",
+  text,
+  emptyDeltas: 0,
+  chunkSize: 16,
+  chunks: Array.from({ length: Math.ceil(text.length / 16) }, (_, index) =>
+    text.slice(index * 16, (index + 1) * 16),
+  ),
 });
 const warmups = 10;
 const samples = 31;
-const batch = 10;
 const rows = [];
 for (const fixture of fixtures) {
+  const batch = fixture.text.length < 100 && fixture.chunks.length < 100 ? 1000 : 10;
   const expected = JSON.parse(fixture.text);
   for (const snapshots of ["live", "immutable"]) {
     const left = baseline.createStructuredStream({ snapshots });
@@ -42,9 +59,11 @@ for (const fixture of fixtures) {
       left.dispose();
       right.dispose();
     }
-    const timings = { baseline: [], current: [] };
+    const timings = { baseline: [], control: [], current: [] };
     for (let trial = 0; trial < warmups + samples; trial++) {
-      for (const name of trial % 2 ? ["current", "baseline"] : ["baseline", "current"]) {
+      const order =
+        trial % 2 ? ["current", "control", "baseline"] : ["baseline", "control", "current"];
+      for (const name of order) {
         let value;
         const start = performance.now();
         for (let repeat = 0; repeat < batch; repeat++) {
@@ -61,17 +80,40 @@ for (const fixture of fixtures) {
         if (trial >= warmups) timings[name].push(duration);
       }
     }
-    const row = { name: fixture.name, snapshots, bytes: Buffer.byteLength(fixture.text), chunks: fixture.chunks.length, emptyDeltas: fixture.emptyDeltas, chunkSize: fixture.chunkSize };
+    const row = {
+      name: fixture.name,
+      snapshots,
+      bytes: Buffer.byteLength(fixture.text),
+      chunks: fixture.chunks.length,
+      emptyDeltas: fixture.emptyDeltas,
+      chunkSize: fixture.chunkSize,
+      batch,
+    };
     for (const name of Object.keys(implementations)) {
       const sorted = timings[name].toSorted((a, b) => a - b);
-      row[name] = { medianMs: sorted[15], p95Ms: sorted[29] };
+      row[name] = { medianMs: sorted[15], p95Ms: sorted[29], samplesMs: timings[name] };
     }
     rows.push(row);
     console.log(JSON.stringify(row));
   }
 }
 mkdirSync(new URL("../artifacts/", import.meta.url), { recursive: true });
-writeFileSync(new URL("../artifacts/empty-deltas.json", import.meta.url), JSON.stringify({
-  environment: { node: process.version, platform: process.platform, arch: process.arch, cpu: cpus()[0].model },
-  baselineEntry: resolve(baselineEntry), warmups, samples, batch, rows,
-}, null, 2) + "\n");
+writeFileSync(
+  new URL("../artifacts/empty-deltas.json", import.meta.url),
+  JSON.stringify(
+    {
+      environment: {
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        cpu: cpus()[0].model,
+      },
+      baselineEntry: resolve(baselineEntry),
+      warmups,
+      samples,
+      rows,
+    },
+    null,
+    2,
+  ) + "\n",
+);
