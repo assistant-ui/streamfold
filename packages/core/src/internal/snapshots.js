@@ -38,7 +38,8 @@ export const applyImmutableChanges = (previous, changes) => {
     // Copy each changed container once per batch, even for many array appends.
     next = copy(next);
     let target = next;
-    for (const key of change.path.slice(0, -1)) {
+    for (let index = 0; index < change.path.length - 1; index++) {
+      const key = change.path[index];
       const exists = Object.hasOwn(target, key);
       const current = exists ? target[key] : undefined;
       const child = copy(current);
@@ -47,12 +48,7 @@ export const applyImmutableChanges = (previous, changes) => {
     }
     const key = change.path.at(-1);
     const exists = Object.hasOwn(target, key);
-    setOwn(
-      target,
-      key,
-      replacement(exists ? target[key] : undefined),
-      exists,
-    );
+    setOwn(target, key, replacement(exists ? target[key] : undefined), exists);
   }
   for (const value of owned) Object.freeze(value);
   return next;
