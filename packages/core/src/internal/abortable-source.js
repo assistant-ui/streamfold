@@ -15,17 +15,12 @@ export function abortableSource(events, signal, onAbort) {
   };
   const pull = signal === undefined ? read : () => Promise.resolve().then(read);
   let closed = false;
-  // Each read removes its listener; one shared pending promise would retain
-  // a Promise.race reaction for every event until the session ends.
+  // Managed consumption serializes reads and cleanup, so only one wait is active.
+  let rejectPending;
   const waitFor = (promise) => signal === undefined ? Promise.resolve(promise) : new Promise((resolve, reject) => {
-    let listening = true;
-    const detach = () => {
-      if (!listening) return;
-      listening = false;
-      signal.removeEventListener("abort", stop);
-    };
-    const stop = () => { detach(); reject(signal.reason); };
-    signal.addEventListener("abort", stop, { once: true });
+    const stop = () => reject(signal.reason);
+    rejectPending = stop;
+    const detach = () => { if (rejectPending === stop) rejectPending = undefined; };
     Promise.resolve(promise).then(
       (value) => {
         detach();
@@ -34,7 +29,7 @@ export function abortableSource(events, signal, onAbort) {
       },
       (error) => { detach(); reject(signal.aborted ? signal.reason : error); },
     );
-    if (signal.aborted) stop();
+    if (signal.aborted) { detach(); stop(); }
   });
 
   const close = (reason) => {
@@ -53,6 +48,9 @@ export function abortableSource(events, signal, onAbort) {
   const abort = () => {
     try { onAbort(); } catch { /* Cancellation preserves the signal's reason. */ }
     close(signal.reason).catch(() => {});
+    const stop = rejectPending;
+    rejectPending = undefined;
+    stop?.();
   };
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) abort();
