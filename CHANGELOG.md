@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Avoid temporary path-prefix arrays when applying immutable snapshot patches.
+- Isolate rejected diagnostic callback promises without delaying parsing or
+  cleanup, preserving the original stream failure.
 - Avoid temporary per-field completion maps when a patch batch completes the
   document, while preserving partial field states and public patches.
 - Skip immutable snapshot allocations for empty patch batches while preserving
