@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import test from "node:test";
 import { defineAdapter, IncrementalJsonScanner, readStructured } from "./index.js";
 import { vercelAI } from "./vercel-ai.js";
@@ -87,7 +88,7 @@ test("abort cancels and unlocks a ReadableStream even if cancel never settles", 
   assert.equal(source.locked, false);
 });
 
-test("normal EOF and early break remove abort listeners and preserve cleanup", async (t) => {
+test("normal EOF and early break release one lifetime abort listener", async (t) => {
   for (const early of [false, true]) {
     const controller = new AbortController();
     const add = t.mock.method(controller.signal, "addEventListener");
@@ -106,8 +107,9 @@ test("normal EOF and early break remove abort listeners and preserve cleanup", a
     }
     assert.equal(returned, true);
     assert.equal(values.at(-1).type, early ? "start" : "complete");
-    assert.ok(add.mock.callCount() > 0);
-    assert.equal(remove.mock.callCount(), add.mock.callCount());
+    assert.equal(add.mock.callCount(), 1);
+    assert.equal(remove.mock.callCount(), 1);
+    assert.equal(getEventListeners(controller.signal, "abort").length, 0);
   }
 });
 
@@ -169,4 +171,81 @@ test("an adapter cleanup failure cannot replace the abort reason", async () => {
   await updates.next();
   controller.abort(reason);
   await assert.rejects(updates.next(), (error) => error === reason);
+});
+
+test("queued consumer reads close on abort and ignore a late source result", async () => {
+  const controller = new AbortController();
+  const reason = new Error("cancelled");
+  let started, finishRead;
+  const ready = new Promise((resolve) => {
+    started = resolve;
+  });
+  let reads = 0,
+    closes = 0,
+    mapped = 0;
+  const source = {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next() {
+      if (reads++ === 0) return { done: false, value: start };
+      started();
+      return new Promise((resolve) => {
+        finishRead = resolve;
+      });
+    },
+    return() {
+      closes++;
+      return { done: true };
+    },
+  };
+  const updates = readStructured(source, {
+    adapter: defineAdapter((event) => {
+      mapped++;
+      return event;
+    }),
+    signal: controller.signal,
+  });
+  assert.equal((await updates.next()).value.type, "start");
+  const waiting = Promise.allSettled([updates.next(), updates.next()]);
+  await ready;
+  controller.abort(reason);
+  assert.deepEqual(await waiting, [
+    { status: "rejected", reason },
+    { status: "fulfilled", value: { done: true, value: undefined } },
+  ]);
+  finishRead({ done: false, value: [{ type: "delta", id: "a", text: "{}" }] });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(reads, 2);
+  assert.equal(closes, 1);
+  assert.equal(mapped, 1);
+  assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+});
+
+test("abort inside the source read rejects before mapping its result", async () => {
+  const controller = new AbortController();
+  const reason = new Error("cancelled during read");
+  let closes = 0;
+  const source = {
+    [Symbol.iterator]() {
+      return this;
+    },
+    next() {
+      controller.abort(reason);
+      return { done: false, value: start };
+    },
+    return() {
+      closes++;
+      return { done: true };
+    },
+  };
+  const updates = readStructured(source, {
+    adapter: defineAdapter(() => {
+      assert.fail("mapped an aborted read");
+    }),
+    signal: controller.signal,
+  });
+  await assert.rejects(updates.next(), (error) => error === reason);
+  assert.equal(closes, 1);
+  assert.equal(getEventListeners(controller.signal, "abort").length, 0);
 });

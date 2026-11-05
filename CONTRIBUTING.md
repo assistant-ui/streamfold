@@ -24,6 +24,8 @@ For managed reader changes, run `node benchmarks/managed-reads.mjs
 streams, with and without an abort signal, using ignored events and real tool
 updates. Output parity and cleanup are checked outside rotating A/A/B timings.
 Run it separately with `--allocations` to count promises using `async_hooks`.
+Use `--listeners` in a separate run to count abort-listener additions/removals
+and verify that completed sources retain no abort listeners.
 Raw samples, median/p95, controls, and counts go to `artifacts/managed-read*.json`.
 
 For string-parser changes, run `pnpm bench:strings /path/to/baseline/src/index.js`

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHook } from "node:async_hooks";
+import { getEventListeners } from "node:events";
 import { mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import { resolve } from "node:path";
@@ -54,6 +55,49 @@ const consume = async (name, source, signal, capture = false) => {
   }
   return { count, completed, updates };
 };
+if (process.argv.includes("--listeners")) {
+  const rows = [];
+  for (const length of [10, 100, 1000])
+    for (const signalled of [false, true]) {
+      const events = Array.from({ length }, () => []),
+        counts = {};
+      for (const name of names) {
+        counts[name] = [];
+        for (let trial = 0; trial < 3; trial++) {
+          const signal = signalled ? new AbortController().signal : undefined;
+          let adds = 0,
+            removes = 0;
+          if (signal) {
+            const add = signal.addEventListener.bind(signal);
+            const remove = signal.removeEventListener.bind(signal);
+            signal.addEventListener = (...args) => {
+              adds++;
+              return add(...args);
+            };
+            signal.removeEventListener = (...args) => {
+              removes++;
+              return remove(...args);
+            };
+          }
+          const result = await consume(name, events, signal);
+          assert.equal(result.count, 0);
+          if (signal) assert.equal(getEventListeners(signal, "abort").length, 0);
+          counts[name].push({ adds, removes });
+        }
+        assert.deepEqual(counts[name][1], counts[name][0]);
+        assert.deepEqual(counts[name][2], counts[name][0]);
+      }
+      assert.deepEqual(counts.baseline, counts.control);
+      assert.deepEqual(counts.current[0], { adds: signalled ? 1 : 0, removes: signalled ? 1 : 0 });
+      rows.push({ events: length, signalled, counts });
+    }
+  writeFileSync(
+    new URL("../artifacts/managed-read-listeners.json", import.meta.url),
+    JSON.stringify({ environment, baselineEntry: resolve(baselineEntry), rows }, null, 2) + "\n",
+  );
+  console.log(JSON.stringify(rows));
+  process.exit(0);
+}
 if (process.argv.includes("--allocations")) {
   const rows = [];
   for (const length of [10, 100, 1000])
