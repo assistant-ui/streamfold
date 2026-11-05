@@ -196,7 +196,24 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       try { await waiting; }
       catch (error) { aborted = error === abortController.signal.reason; }
 
+      const cleanupResults = [];
+      for (const signal of [undefined, new AbortController().signal]) {
+        const failure = new Error("cleanup failed");
+        let closes = 0;
+        const source = {
+          [Symbol.iterator]() { return this; },
+          next() { return { done: false, value: [{ type: "start", id: "cleanup" }] }; },
+          return() { closes++; return { done: true, value: Promise.reject(failure) }; },
+        };
+        let caught = false;
+        try {
+          for await (const _update of readStructured(source, { adapter, signal })) break;
+        } catch (error) { caught = error === failure; }
+        cleanupResults.push({ caught, closes });
+      }
+
       return {
+        cleanupResults,
         longStrings,
         cancellation: { aborted, cancelled, locked: stalled.locked },
         managedValue,
@@ -214,6 +231,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      cleanupResults: [{ caught: true, closes: 1 }, { caught: true, closes: 1 }],
       longStrings: {
         first: { ["\uFEFF" + "k".repeat(4094) + "🚀tail"]: "\uFEFF" + "é界🚀".repeat(80) },
         final: { ["\uFEFF" + "k".repeat(4094) + "🚀tail"]: "\uFEFF" + "é界🚀".repeat(80) + "x".repeat(128) + "\uD800" + "tail" },

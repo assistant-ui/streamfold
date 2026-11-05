@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Await synchronous iterator cleanup values on early exit, propagating cleanup
+  rejections while preserving original failures and prompt cancellation.
 - Avoid temporary path-prefix arrays when applying immutable snapshot patches.
 - Isolate rejected diagnostic callback promises without delaying parsing or
   cleanup, preserving the original stream failure.

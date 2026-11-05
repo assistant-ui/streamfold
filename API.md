@@ -295,6 +295,9 @@ wait for that cleanup, and observes late rejections without replacing the abort
 reason. Pass the same signal to the SDK or transport to stop network activity.
 Without a signal, Streamfold still closes failed or abandoned sources and
 releases reader locks, but waits for cleanup to settle.
+For synchronous iterators, a promised `value` returned by `iterator.return()`
+is also awaited, as in native `for await`. Its rejection propagates unless a
+source or consumer failure, or cancellation, already determines the result.
 
 For a built-in SDK integration, use `integration` instead of `adapter`:
 

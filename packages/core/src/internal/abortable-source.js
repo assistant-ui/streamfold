@@ -45,7 +45,8 @@ export function abortableSource(events, signal, onAbort) {
         try { return reader.cancel(reason); }
         finally { reader.releaseLock(); }
       } else {
-        await iterator.return?.();
+        const result = await iterator.return?.();
+        if (synchronous && result !== undefined) await result.value;
       }
     });
   };
