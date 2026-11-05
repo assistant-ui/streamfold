@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Avoid temporary path-prefix arrays when applying immutable snapshot patches.
 - Isolate rejected diagnostic callback promises without delaying parsing or
   cleanup, preserving the original stream failure.
 - Reduce promise allocations in managed readers without an abort signal while

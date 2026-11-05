@@ -42,6 +42,13 @@ For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
 It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
 checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
 
+For immutable patch traversal, run `node benchmarks/immutable-paths.mjs
+/path/to/baseline/src/index.js`. It compares whole and chunked arrays, nested
+records, and root-string controls in both snapshot modes with rotating A/A/B
+timings, output parity, and raw median/p95 samples. Run the same command with
+`--allocations` in a separate process to count temporary path arrays without
+instrumenting timings. Results are saved under `artifacts/immutable-path*.json`.
+
 For numeric-parser changes, run `node benchmarks/number-prefixes.mjs
 /path/to/baseline/src/index.js`. It compares valid integers and malformed
 exponents with matching partial values and final validation, recording medians
