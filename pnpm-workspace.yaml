@@ -3,3 +3,7 @@ packages:
 allowBuilds:
   "@google/genai": false
   protobufjs: false
+# An explicit value turns on strict mode: too-new versions fail the install instead of being auto-excluded.
+minimumReleaseAge: 1440
+# Fail the install when a package loses the trusted publishing or provenance it used to have.
+trustPolicy: no-downgrade
