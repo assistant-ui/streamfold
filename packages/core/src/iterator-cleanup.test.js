@@ -101,13 +101,16 @@ test("cleanup failures preserve source, consumer, and abort failures", async () 
         closes++;
         return undefined;
       });
+      let failRead = false;
+      const next = source.next;
+      source.next = function () {
+        if (failRead) throw primary;
+        return Reflect.apply(next, this, []);
+      };
       const consume = async () => {
         for await (const update of readStructured(source, { adapter, signal: controller.signal })) {
           assert.equal(update.id, "a");
-          if (mode === "source")
-            source.next = () => {
-              throw primary;
-            };
+          if (mode === "source") failRead = true;
           if (mode === "consumer") throw primary;
           if (mode === "abort") controller.abort(primary);
         }
