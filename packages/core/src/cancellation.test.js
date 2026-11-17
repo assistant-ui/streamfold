@@ -249,3 +249,32 @@ test("abort inside the source read rejects before mapping its result", async () 
   assert.equal(closes, 1);
   assert.equal(getEventListeners(controller.signal, "abort").length, 0);
 });
+
+test("same-turn abort prevents the deferred upstream pull", async () => {
+  for (const alreadyStarted of [false, true]) {
+    const controller = new AbortController();
+    const reason = new Error("cancelled before pull");
+    let reads = 0,
+      closes = 0;
+    const source = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      next() {
+        reads++;
+        return { done: false, value: start };
+      },
+      return() {
+        closes++;
+        return { done: true };
+      },
+    };
+    const updates = readStructured(source, { adapter, signal: controller.signal });
+    if (alreadyStarted) assert.equal((await updates.next()).value.type, "start");
+    const pending = updates.next();
+    controller.abort(reason);
+    await assert.rejects(pending, (error) => error === reason);
+    assert.equal(reads, alreadyStarted ? 1 : 0);
+    assert.equal(closes, 1);
+  }
+});
