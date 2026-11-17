@@ -5,11 +5,18 @@ import {
 } from "./errors.js";
 import { emitDiagnostic } from "./diagnostics.js";
 
-const completionHistories = new WeakMap();
+const integrationStates = new WeakMap();
 
 export const clearCompletionHistory = (stream) => {
-  const history = completionHistories.get(stream);
-  if (history !== undefined) history.length = 0;
+  const state = integrationStates.get(stream);
+  if (state !== undefined) state.completed.length = 0;
+};
+
+export const disposeIntegration = (stream) => {
+  const state = integrationStates.get(stream);
+  if (state === undefined) return;
+  state.completed.length = 0;
+  state.clearActive?.();
 };
 
 export const createIntegration = (
@@ -18,6 +25,7 @@ export const createIntegration = (
   finishActive,
   adapter,
   options = {},
+  clearActive,
 ) => {
   const completed = [];
   const completedIds = new Set();
@@ -79,6 +87,7 @@ export const createIntegration = (
     failure = isStructuredStreamError(original)
       ? annotateError(original, { adapter, eventType })
       : streamError(original, "INTEGRATION_ERROR", { adapter, eventType });
+    clearActive?.();
     for (const id of pool.activeIds) pool.abort(id);
     diagnose({
       code: "STREAM_ERROR",
@@ -133,7 +142,7 @@ export const createIntegration = (
       }
     },
   };
-  completionHistories.set(stream, completed);
+  integrationStates.set(stream, { completed, clearActive });
   return stream;
 };
 

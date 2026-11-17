@@ -133,6 +133,14 @@ Start a production preview on port 4173 and run `npm run test:browser` to check
 the UI. Set `CHROME_EXECUTABLE` to use an installed Chrome binary instead of
 Playwright's bundled Chromium; core browser tests accept the same override.
 
+For Anthropic input cleanup, run `node benchmarks/anthropic-retention.mjs
+/path/to/baseline/src/index.js`. It retains failed integrations with eight
+1 MiB initial inputs, verifies terminal errors and empty pools, and compares
+retained heap after garbage collection in fresh Node processes. Three alternating
+A/control/B trials include a repeated baseline and a small-delta control that
+replaces initial input before failure. Results and environment details go to
+`artifacts/anthropic-retention.json`.
+
 ## Pull requests
 
 - Keep one concern per pull request.
