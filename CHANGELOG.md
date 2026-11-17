@@ -4,6 +4,8 @@
 
 - Reject invalid iterator cleanup results and preserve native sync/async cleanup
   semantics, original failures, and prompt cancellation.
+- Preserve complete Anthropic initial tool inputs when no argument text arrives,
+  while retaining delta precedence, strict JSON validation, and parser limits.
 - Await synchronous iterator cleanup values on early exit, propagating cleanup
   rejections while preserving original failures and prompt cancellation.
 - Reuse one lifetime abort listener for managed reads, preserving cancellation,

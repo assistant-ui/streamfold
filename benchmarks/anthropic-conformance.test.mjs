@@ -5,9 +5,13 @@ import { readStructured } from "../packages/core/src/index.js";
 import { anthropic } from "../packages/core/src/anthropic.js";
 
 for (const api of ["standard", "beta"]) {
-  test(`Anthropic ${api} SDK accepts empty inputs without masking truncated arguments`, async () => {
-    for (const [deltas, expected] of [
+  test(`Anthropic ${api} SDK retains initial inputs without masking truncated arguments`, async () => {
+    for (const [deltas, expected, initial = {}, type = "tool_use"] of [
       [[], {}],
+      [[], { city: "Paris" }, { city: "Paris" }],
+      [[], { query: "weather" }, { query: "weather" }, "server_tool_use"],
+      [['{"city":'], undefined, { city: "Paris" }],
+      [['{"city":"Rome"}'], { city: "Rome" }, { city: "Paris" }],
       [[""], {}],
       [["{}"], {}],
       [["", '{"city":', '"Paris"}'], { city: "Paris" }],
@@ -15,7 +19,7 @@ for (const api of ["standard", "beta"]) {
     ]) {
       const events = [
         { type: "message_start", message: { id: "message", type: "message", role: "assistant", content: [], model: "test-model", stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 0 } } },
-        { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "weather", name: "weather", input: {} } },
+        { type: "content_block_start", index: 0, content_block: { type, id: "weather", name: "weather", input: initial } },
         ...deltas.map((partial_json) => ({ type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json } })),
         { type: "content_block_stop", index: 0 },
         { type: "message_delta", delta: { stop_reason: "tool_use", stop_sequence: null }, usage: { output_tokens: 5 } },

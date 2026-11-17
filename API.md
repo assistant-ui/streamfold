@@ -361,9 +361,11 @@ existing argument completion timing and strict JSON validation unchanged.
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
 and other non-tool SDK events can remain in the stream and are ignored.
-An initial tool input of `{}` is retained at block completion or EOF when no
-nonempty argument delta arrives. Once argument text arrives, it must form valid
-JSON; the empty placeholder never replaces incomplete or malformed arguments.
+Initial `tool_use` and `server_tool_use` input is retained at block completion
+or EOF when no nonempty argument delta arrives, including complete nonempty
+objects. Initial input is subject to the same parser limits as streamed input.
+Once argument text arrives, it replaces the initial input and must form valid
+JSON; initial input never replaces incomplete or malformed arguments.
 
 The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
 directly, including SDK event interfaces for text and other non-tool events.
