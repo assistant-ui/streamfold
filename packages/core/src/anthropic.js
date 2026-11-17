@@ -15,7 +15,8 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
       if (
         event.type === "content_block_start" &&
         (event.content_block.type === "tool_use" ||
-          event.content_block.type === "server_tool_use")
+          event.content_block.type === "server_tool_use" ||
+          event.content_block.type === "mcp_tool_use")
       ) {
         callsByIndex.set(event.index, {
           id: event.content_block.id,
