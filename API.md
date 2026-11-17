@@ -295,9 +295,13 @@ wait for that cleanup, and observes late rejections without replacing the abort
 reason. Pass the same signal to the SDK or transport to stop network activity.
 Without a signal, Streamfold still closes failed or abandoned sources and
 releases reader locks, but waits for cleanup to settle.
-For synchronous iterators, a promised `value` returned by `iterator.return()`
-is also awaited, as in native `for await`. Its rejection propagates unless a
-source or consumer failure, or cancellation, already determines the result.
+When present, `iterator.return()` must return an object, or resolve to one for
+an async iterator. Invalid results reject with `TypeError`, as in native
+`for await`; an absent or `null` method needs no cleanup.
+For synchronous iterators, cleanup reads `done` and then awaits `value` without
+awaiting the result object itself. Async cleanup does not read either field.
+Cleanup failures propagate unless a source or consumer failure, or cancellation,
+already determines the result.
 
 For a built-in SDK integration, use `integration` instead of `adapter`:
 
@@ -357,9 +361,11 @@ existing argument completion timing and strict JSON validation unchanged.
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
 and other non-tool SDK events can remain in the stream and are ignored.
-An initial tool input of `{}` is retained at block completion or EOF when no
-nonempty argument delta arrives. Once argument text arrives, it must form valid
-JSON; the empty placeholder never replaces incomplete or malformed arguments.
+Initial `tool_use` and `server_tool_use` input is retained at block completion
+or EOF when no nonempty argument delta arrives, including complete nonempty
+objects. Initial input is subject to the same parser limits as streamed input.
+Once argument text arrives, it replaces the initial input and must form valid
+JSON; initial input never replaces incomplete or malformed arguments.
 
 The OpenAI integration accepts `client.responses.create({ ..., stream: true })`
 directly, including SDK event interfaces for text and other non-tool events.

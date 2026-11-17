@@ -41,8 +41,18 @@ export function abortableSource(events, signal, onAbort) {
         try { return reader.cancel(reason); }
         finally { reader.releaseLock(); }
       } else {
-        const result = await iterator.return?.();
-        if (synchronous && result !== undefined) await result.value;
+        const finish = iterator.return;
+        if (finish == null) return;
+        let result = Reflect.apply(finish, iterator, []);
+        if (!synchronous) result = await result;
+        if (result === null || (typeof result !== "object" && typeof result !== "function")) {
+          throw new TypeError("Iterator `return()` must return an object; return `{ done: true }` after cleanup.");
+        }
+        if (synchronous) {
+          // Native async-from-sync cleanup reads done before unwrapping value.
+          void result.done;
+          await result.value;
+        }
       }
     });
   };

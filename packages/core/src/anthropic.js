@@ -3,8 +3,8 @@ import { createIntegration } from "./internal/integration.js";
 
 export const anthropic = (pool = createStructuredStreamPool(), options) => {
   const callsByIndex = new Map();
-  const completeCall = (complete, { id, emptyArguments }) =>
-    complete(id, emptyArguments ? () => "{}" : undefined);
+  const completeCall = (complete, { id, initialArguments }) =>
+    complete(id, initialArguments === undefined ? undefined : () => initialArguments);
 
   return createIntegration(
     pool,
@@ -19,7 +19,7 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
       ) {
         callsByIndex.set(event.index, {
           id: event.content_block.id,
-          emptyArguments: JSON.stringify(event.content_block.input) === "{}",
+          initialArguments: JSON.stringify(event.content_block.input),
         });
         return calls.start(event.content_block.id);
       }
@@ -39,7 +39,7 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
         event.type === "content_block_delta" &&
         event.delta.type === "input_json_delta"
       ) {
-        if (event.delta.partial_json !== "") call.emptyArguments = false;
+        if (event.delta.partial_json !== "") call.initialArguments = undefined;
         return calls.push(call.id, event.delta.partial_json);
       }
       if (event.type === "content_block_stop") {
