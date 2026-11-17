@@ -295,9 +295,13 @@ wait for that cleanup, and observes late rejections without replacing the abort
 reason. Pass the same signal to the SDK or transport to stop network activity.
 Without a signal, Streamfold still closes failed or abandoned sources and
 releases reader locks, but waits for cleanup to settle.
-For synchronous iterators, a promised `value` returned by `iterator.return()`
-is also awaited, as in native `for await`. Its rejection propagates unless a
-source or consumer failure, or cancellation, already determines the result.
+When present, `iterator.return()` must return an object, or resolve to one for
+an async iterator. Invalid results reject with `TypeError`, as in native
+`for await`; an absent or `null` method needs no cleanup.
+For synchronous iterators, cleanup reads `done` and then awaits `value` without
+awaiting the result object itself. Async cleanup does not read either field.
+Cleanup failures propagate unless a source or consumer failure, or cancellation,
+already determines the result.
 
 For a built-in SDK integration, use `integration` instead of `adapter`:
 
