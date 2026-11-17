@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.19
+
 - Release retained Anthropic initial arguments on terminal failures and managed
   disposal, including failed finalization, cancellation, and early return.
 - Capture iterator methods once and normalize read results without repeated
