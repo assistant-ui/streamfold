@@ -13,7 +13,8 @@ export function abortableSource(events, signal, onAbort) {
     }
     return synchronous ? { done: next.done, value: await next.value } : next;
   };
-  const pull = signal === undefined ? read : () => Promise.resolve().then(read);
+  const scheduled = signal === undefined ? undefined : Promise.resolve();
+  const pull = signal === undefined ? read : () => scheduled.then(read);
   let closed = false;
   // Managed consumption serializes reads and cleanup, so only one wait is active.
   let rejectPending;

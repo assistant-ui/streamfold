@@ -26,6 +26,11 @@ updates. Output parity and cleanup are checked outside rotating A/A/B timings.
 Run it separately with `--allocations` to count promises using `async_hooks`.
 Use `--listeners` in a separate run to count abort-listener additions/removals
 and verify that completed sources retain no abort listeners.
+Use `--scheduling` against a baseline before scheduling-promise reuse to verify
+one fewer allocation per signalled event and unchanged unsignalled counts.
+Check timing noise with independently loaded identical package copies as well
+as the repeated baseline. If those controls shift similarly, report timing
+as inconclusive rather than claiming a speedup.
 Raw samples, median/p95, controls, and counts go to `artifacts/managed-read*.json`.
 
 For string-parser changes, run `pnpm bench:strings /path/to/baseline/src/index.js`
