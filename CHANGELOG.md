@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Release retained Anthropic initial arguments on terminal failures and managed
+  disposal, including failed finalization, cancellation, and early return.
 - Reject missing own paths in live snapshots so consumer-deleted properties
   cannot redirect later patches into inherited objects or getters.
 - Match native iterator reads for callable result objects and synchronous
