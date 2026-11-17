@@ -97,6 +97,13 @@ Patches have one of three shapes:
 `set` creates or replaces a value, `append` extends a string, and `complete`
 marks a path as structurally complete.
 
+Live values are shared with the scanner. Copy them before removing properties
+that may still receive updates. Later patches require existing path segments to
+be own properties: a deleted container or string append target throws
+`TypeError` and ends that stream, without reading or writing inherited values.
+This check does not isolate objects or accessors deliberately assigned into a
+live value. Use immutable snapshots when consumers should not mutate values.
+
 ## Event integrations
 
 ### Immutable snapshots

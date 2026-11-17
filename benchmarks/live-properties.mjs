@@ -29,6 +29,12 @@ const fixtures = [
   ["object-string", JSON.stringify({ text: "abcdefgh".repeat(1000) }), 8, [["text"]]],
   ["array-string", JSON.stringify(["abcdefgh".repeat(1000)]), 8, [[0]]],
   [
+    "nested-string",
+    JSON.stringify({ rows: [{ nested: { text: "abcdefgh".repeat(1000) } }] }),
+    8,
+    [["rows", 0, "nested", "text"]],
+  ],
+  [
     "duplicate-key",
     `{${Array.from({ length: 1000 }, (_, i) => `"value":${i}`).join(",")}}`,
     Infinity,

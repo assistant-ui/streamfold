@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject missing own paths in live snapshots so consumer-deleted properties
+  cannot redirect later patches into inherited objects or getters.
 - Update existing live string properties directly during appends, reducing
   repeated property definitions while preserving safe keys and descriptor checks.
 - Reject invalid iterator cleanup results and preserve native sync/async cleanup
