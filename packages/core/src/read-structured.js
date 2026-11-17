@@ -1,7 +1,7 @@
 import { createStructuredStreamPool } from "./index.js";
 import { streamError } from "./internal/errors.js";
 import { abortableSource } from "./internal/abortable-source.js";
-import { clearCompletionHistory } from "./internal/integration.js";
+import { clearCompletionHistory, disposeIntegration } from "./internal/integration.js";
 
 export async function* readStructured(
   events,
@@ -22,7 +22,7 @@ export async function* readStructured(
   let source;
   let failed = false;
   const dispose = () => {
-    clearCompletionHistory(stream);
+    disposeIntegration(stream);
     if (pool === undefined) stream?.dispose();
     else for (const id of pool.activeIds) pool.abort(id);
   };

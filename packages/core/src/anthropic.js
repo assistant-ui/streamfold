@@ -55,6 +55,7 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
     },
     "anthropic",
     options,
+    () => callsByIndex.clear(),
   );
 };
 
