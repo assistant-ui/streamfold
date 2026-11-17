@@ -6,7 +6,13 @@ import { anthropic } from "./anthropic.js";
 const start = (input, type = "tool_use") => ({
   type: "content_block_start",
   index: 0,
-  content_block: { type, id: "weather", name: "weather", input },
+  content_block: {
+    type,
+    id: "weather",
+    name: "weather",
+    input,
+    ...(type === "mcp_tool_use" ? { server_name: "weather-tools" } : {}),
+  },
 });
 const delta = (partial_json) => ({
   type: "content_block_delta",
@@ -17,7 +23,7 @@ const stop = { type: "content_block_stop", index: 0 };
 
 test("Anthropic retains initial arguments at block stop and EOF", () => {
   const input = JSON.parse('{"city":"Paris","__proto__":{"safe":true}}');
-  for (const type of ["tool_use", "server_tool_use"]) {
+  for (const type of ["tool_use", "server_tool_use", "mcp_tool_use"]) {
     for (const method of ["push", "pushAll"]) {
       for (const blockStop of [false, true]) {
         const pool = createStructuredStreamPool();

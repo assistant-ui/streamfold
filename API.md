@@ -275,6 +275,11 @@ The source can be a synchronous iterable, an async iterable from an SDK, or a
 native async iteration is unavailable. Streamfold does not decode
 HTTP bytes or SSE frames and does not start network requests.
 
+Iterator `next()` results must be objects (including callable objects), as in
+native `for await`. Synchronous results are read directly, with `done` read before
+awaiting `value`; their result object itself is not awaited. Async results are
+awaited without unwrapping their `value`. Invalid results reject with `TypeError`.
+
 | Situation | Behavior |
 | --- | --- |
 | Iteration starts | Create one fresh session with the supplied limits |
@@ -368,7 +373,9 @@ existing argument completion timing and strict JSON validation unchanged.
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
 and other non-tool SDK events can remain in the stream and are ignored.
-Initial `tool_use` and `server_tool_use` input is retained at block completion
+It collects `tool_use`, `server_tool_use`, and beta `mcp_tool_use` arguments;
+MCP tool-result blocks remain execution outcomes and are ignored.
+Initial tool input is retained at block completion
 or EOF when no nonempty argument delta arrives, including complete nonempty
 objects. Initial input is subject to the same parser limits as streamed input.
 Once argument text arrives, it replaces the initial input and must form valid
