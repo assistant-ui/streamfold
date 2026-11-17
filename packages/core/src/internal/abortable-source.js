@@ -5,14 +5,16 @@ export function abortableSource(events, signal, onAbort) {
   const iterator = reader === undefined
     ? (asyncFactory ?? events[Symbol.iterator]).call(events)
     : undefined;
+  const nextMethod = reader === undefined ? iterator.next : undefined;
   const read = async () => {
     signal?.throwIfAborted();
-    let next = reader !== undefined ? reader.read() : iterator.next();
+    let next = reader !== undefined ? reader.read() : Reflect.apply(nextMethod, iterator, []);
     if (!synchronous) next = await next;
     if (next === null || (typeof next !== "object" && typeof next !== "function")) {
       throw new TypeError("Iterator `next()` must return an object; return `{ done, value }` for each read.");
     }
-    return synchronous ? { done: next.done, value: await next.value } : next;
+    const done = Boolean(next.done);
+    return { done, value: synchronous ? await next.value : done ? undefined : next.value };
   };
   const scheduled = signal === undefined ? undefined : Promise.resolve();
   const pull = signal === undefined ? read : () => scheduled.then(read);

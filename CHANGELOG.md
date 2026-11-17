@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Capture iterator methods once and normalize read results without repeated
+  protocol getter access, preserving native completion and promise behavior.
 - Reject missing own paths in live snapshots so consumer-deleted properties
   cannot redirect later patches into inherited objects or getters.
 - Match native iterator reads for callable result objects and synchronous

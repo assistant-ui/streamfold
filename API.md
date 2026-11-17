@@ -279,6 +279,10 @@ Iterator `next()` results must be objects (including callable objects), as in
 native `for await`. Synchronous results are read directly, with `done` read before
 awaiting `value`; their result object itself is not awaited. Async results are
 awaited without unwrapping their `value`. Invalid results reject with `TypeError`.
+The source's `next` method is captured once. Each result's `done` is read once;
+async completion does not read `value`. Original async result objects are not
+assimilated again after their first await, so observable getters follow the
+native iteration protocol.
 
 | Situation | Behavior |
 | --- | --- |
