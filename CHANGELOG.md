@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update existing live string properties directly during appends, reducing
+  repeated property definitions while preserving safe keys and descriptor checks.
 - Reject invalid iterator cleanup results and preserve native sync/async cleanup
   semantics, original failures, and prompt cancellation.
 - Preserve complete Anthropic initial tool inputs when no argument text arrives,
