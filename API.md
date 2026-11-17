@@ -268,6 +268,11 @@ The source can be a synchronous iterable, an async iterable from an SDK, or a
 native async iteration is unavailable. Streamfold does not decode
 HTTP bytes or SSE frames and does not start network requests.
 
+Iterator `next()` results must be objects (including callable objects), as in
+native `for await`. Synchronous results are read directly, with `done` read before
+awaiting `value`; their result object itself is not awaited. Async results are
+awaited without unwrapping their `value`. Invalid results reject with `TypeError`.
+
 | Situation | Behavior |
 | --- | --- |
 | Iteration starts | Create one fresh session with the supplied limits |

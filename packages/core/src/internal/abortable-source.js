@@ -7,9 +7,10 @@ export function abortableSource(events, signal, onAbort) {
     : undefined;
   const read = async () => {
     signal?.throwIfAborted();
-    const next = reader !== undefined ? await reader.read() : await iterator.next();
-    if (next === null || typeof next !== "object") {
-      throw new TypeError("Iterator result must be an object");
+    let next = reader !== undefined ? reader.read() : iterator.next();
+    if (!synchronous) next = await next;
+    if (next === null || (typeof next !== "object" && typeof next !== "function")) {
+      throw new TypeError("Iterator `next()` must return an object; return `{ done, value }` for each read.");
     }
     return synchronous ? { done: next.done, value: await next.value } : next;
   };
