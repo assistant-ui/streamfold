@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject missing own paths in live snapshots so consumer-deleted properties
+  cannot redirect later patches into inherited objects or getters.
 - Match native iterator reads for callable result objects and synchronous
   thenable results, preserving promised events, cleanup, and cancellation.
 - Collect Anthropic beta MCP tool inputs through the existing argument parser,

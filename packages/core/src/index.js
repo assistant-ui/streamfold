@@ -317,19 +317,24 @@ export class StructuredStreamPool {
 export const createStructuredStreamPool = (options) =>
   new StructuredStreamPool(options);
 
-const getAtPath = (root, path) => {
+const getAtPath = (root, path, end = path.length) => {
   let current = root;
-  for (const segment of path) current = current[segment];
+  for (let index = 0; index < end; index++) {
+    const segment = path[index];
+    if (current == null || !Object.hasOwn(current, segment)) {
+      throw new TypeError(
+        "Live snapshot path requires an own property; do not delete properties from `partialValue` while they are still receiving updates.",
+      );
+    }
+    current = current[segment];
+  }
   return current;
 };
 
 const setAtPath = (root, path, value, append = false) => {
   if (path.length === 0) return value;
 
-  let target = root;
-  for (let index = 0; index < path.length - 1; index++) {
-    target = target[path[index]];
-  }
+  const target = getAtPath(root, path, path.length - 1);
   const key = path.at(-1);
   if (append) {
     const descriptor = Object.getOwnPropertyDescriptor(target, key);
