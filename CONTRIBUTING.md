@@ -49,6 +49,19 @@ For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
 It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
 checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
 
+For live property updates, run `node benchmarks/live-properties.mjs
+/path/to/baseline/src/index.js /path/to/independent-baseline-copy/src/index.js`.
+Use two identical package copies so the A/A control loads independently. The
+benchmark checks partial values, patches, field states, and final values before
+rotating A/control/B timings for string appends, duplicate keys, new properties,
+new array items, and root-string controls in both snapshot modes. An optional
+third package entry replaces the candidate for an all-identical control run.
+Run separately with `--definitions` to count `Object.defineProperty` calls;
+these are operation counts, not heap allocations. Raw samples, median/p95, and
+environment details go to `artifacts/live-properties.json`; operation counts go
+to `artifacts/live-property-definitions.json`. Preserve each output before the
+next run and report control noise and regressions alongside improvements.
+
 For immutable patch traversal, run `node benchmarks/immutable-paths.mjs
 /path/to/baseline/src/index.js`. It compares whole and chunked arrays, nested
 records, and root-string controls in both snapshot modes with rotating A/A/B

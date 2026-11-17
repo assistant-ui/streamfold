@@ -144,6 +144,7 @@ export class IncrementalJsonScanner {
           this.#value,
           change.path,
           `${current}${change.value}`,
+          true,
         );
       }
     }
@@ -322,14 +323,22 @@ const getAtPath = (root, path) => {
   return current;
 };
 
-const setAtPath = (root, path, value) => {
+const setAtPath = (root, path, value, append = false) => {
   if (path.length === 0) return value;
 
   let target = root;
   for (let index = 0; index < path.length - 1; index++) {
     target = target[path[index]];
   }
-  Object.defineProperty(target, path.at(-1), {
+  const key = path.at(-1);
+  if (append) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (descriptor?.writable && descriptor.enumerable && descriptor.configurable) {
+      target[key] = value;
+      return root;
+    }
+  }
+  Object.defineProperty(target, key, {
     configurable: true,
     enumerable: true,
     value,

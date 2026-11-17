@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Update existing live string properties directly during appends, reducing
+  repeated property definitions while preserving safe keys and descriptor checks.
 - Await synchronous iterator cleanup values on early exit, propagating cleanup
   rejections while preserving original failures and prompt cancellation.
 - Reuse one lifetime abort listener for managed reads, preserving cancellation,
