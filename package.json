@@ -42,7 +42,7 @@
     "bumpp": "^12.3.0",
     "cohere-ai": "8.3.0",
     "fast-check": "4.10.2",
-    "openai": "7.45.1",
+    "openai": "7.47.0",
     "playwright": "^1.64.1",
     "streamfold": "workspace:*",
     "typescript": "^7.0.2",
