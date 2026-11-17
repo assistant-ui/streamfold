@@ -3,9 +3,9 @@ import test from "node:test";
 import { createStructuredStreamPool, readStructured } from "./index.js";
 import { anthropic } from "./anthropic.js";
 
-const start = (index, id, type = "tool_use") => ({
+const start = (index, id, type = "tool_use", input = {}) => ({
   type: "content_block_start", index,
-  content_block: { type, id, name: "weather", input: {} },
+  content_block: { type, id, name: "weather", input, ...(type === "mcp_tool_use" ? { server_name: "weather-tools" } : {}) },
 });
 const delta = (index, partial_json) => ({
   type: "content_block_delta", index,
@@ -14,7 +14,7 @@ const delta = (index, partial_json) => ({
 const stop = (index) => ({ type: "content_block_stop", index });
 
 test("Anthropic completes empty tool inputs at block stop and EOF", () => {
-  for (const type of ["tool_use", "server_tool_use"]) {
+  for (const type of ["tool_use", "server_tool_use", "mcp_tool_use"]) {
     for (const method of ["push", "pushAll"]) {
       for (const blockStop of [false, true]) {
         const pool = createStructuredStreamPool();
@@ -37,7 +37,7 @@ test("Anthropic completes empty tool inputs at block stop and EOF", () => {
 
 test("Anthropic keeps empty and streamed inputs separate across tool blocks", () => {
   const stream = anthropic();
-  assert.equal(stream.pushAll(start(0, "empty"))[0].partialValue, undefined);
+  assert.equal(stream.pushAll(start(0, "empty", "mcp_tool_use"))[0].partialValue, undefined);
   stream.pushAll(start(1, "paris"));
   const partial = stream.pushAll(delta(1, '{"city":"Pa'))[0];
   assert.deepEqual(partial.partialValue, { city: "Pa" });
@@ -45,6 +45,10 @@ test("Anthropic keeps empty and streamed inputs separate across tool blocks", ()
   assert.deepEqual(stream.pushAll(stop(1))[0].value, { city: "Paris" });
   assert.deepEqual(stream.pushAll(stop(0))[0].value, {});
   assert.deepEqual(stream.pushAll(stop(0)), []);
+  assert.deepEqual(stream.pushAll({
+    type: "content_block_start", index: 2,
+    content_block: { type: "mcp_tool_result", tool_use_id: "empty", content: "Done", is_error: false },
+  }), []);
   assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [
     { id: "paris", value: { city: "Paris" } },
     { id: "empty", value: {} },
@@ -111,4 +115,25 @@ test("managed Anthropic reads do not complete arguments after a decoded provider
     }
   }, { message: "Overloaded", code: "INTEGRATION_ERROR", adapter: "anthropic" });
   assert.deepEqual(completed, []);
+});
+
+test("Anthropic MCP initial inputs retain byte/depth limits and clean up failures", () => {
+  for (const [limits, code] of [
+    [{ maxBytes: 2 }, "MAX_BYTES_EXCEEDED"],
+    [{ maxDepth: 1 }, "MAX_DEPTH_EXCEEDED"],
+  ]) {
+    for (const blockStop of [false, true]) {
+      const pool = createStructuredStreamPool(limits);
+      const stream = anthropic(pool);
+      stream.push(start(0, "mcp", "mcp_tool_use", { city: { name: "Paris" } }));
+      assert.throws(
+        () => {
+          if (blockStop) stream.push(stop(0));
+          else stream.finish();
+        },
+        { code, id: "mcp", adapter: "anthropic" },
+      );
+      assert.equal(pool.size, 0);
+    }
+  }
 });

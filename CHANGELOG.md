@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Collect Anthropic beta MCP tool inputs through the existing argument parser,
+  including initial values, streamed deltas, limits, and block/EOF completion.
 - Update existing live string properties directly during appends, reducing
   repeated property definitions while preserving safe keys and descriptor checks.
 - Reject invalid iterator cleanup results and preserve native sync/async cleanup

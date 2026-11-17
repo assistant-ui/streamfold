@@ -361,7 +361,9 @@ existing argument completion timing and strict JSON validation unchanged.
 The Anthropic integration accepts both `client.messages.create({ ..., stream: true })`
 and `client.beta.messages.create({ ..., stream: true })` directly. Text, thinking,
 and other non-tool SDK events can remain in the stream and are ignored.
-Initial `tool_use` and `server_tool_use` input is retained at block completion
+It collects `tool_use`, `server_tool_use`, and beta `mcp_tool_use` arguments;
+MCP tool-result blocks remain execution outcomes and are ignored.
+Initial tool input is retained at block completion
 or EOF when no nonempty argument delta arrives, including complete nonempty
 objects. Initial input is subject to the same parser limits as streamed input.
 Once argument text arrives, it replaces the initial input and must form valid
