@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Match native iterator reads for callable result objects and synchronous
+  thenable results, preserving promised events, cleanup, and cancellation.
 - Update existing live string properties directly during appends, reducing
   repeated property definitions while preserving safe keys and descriptor checks.
 - Reject invalid iterator cleanup results and preserve native sync/async cleanup
