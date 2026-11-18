@@ -4,6 +4,10 @@
 
 - Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.
 
+- Add a runnable Ollama/Groq Chat Completions example with credential-free SDK protocol fixtures.
+- Add `openAIChatCompletions` for streamed Chat Completions function arguments, with interleaved tool calls, strict completion handling, and managed cleanup.
+- Add a runnable OpenAI Responses tool-argument preview example with immutable
+  snapshots, cancellation, and tests through the SDK's stream decoder.
 - Use npm trusted publishing for releases without a stored-token fallback.
 - Report the publishing client's version and npm OIDC exchange failures in the
   release log.

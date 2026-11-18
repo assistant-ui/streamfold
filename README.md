@@ -77,7 +77,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | --- | --- |
 | `streamfold/assistant-ui` | assistant-stream |
 | `streamfold/vercel-ai` | Vercel AI SDK |
-| `streamfold/openai` | OpenAI Responses |
+| `streamfold/openai` | OpenAI Responses; Chat Completions via `openAIChatCompletions` (unreleased) |
 | `streamfold/anthropic` | Anthropic Messages |
 | `streamfold/cohere` | Cohere v2 Chat |
 | `streamfold/bedrock` | Amazon Bedrock ConverseStream |
@@ -137,6 +137,8 @@ Adapters consume structural event shapes and do not install or load the
 provider SDKs. `pushAll()` returns every update when one event contains
 multiple calls; existing `push()` usage remains supported. Lifecycle
 completion means the arguments are finalized, not that a tool has executed.
+The [OpenAI Responses example](examples/README.md#openai-responses) runs a tool
+request and previews immutable arguments from the SDK's decoded stream.
 The [Mistral Responses example](examples/README.md#mistral-responses) reuses
 `streamfold/openai` after unwrapping SDK frames and converting their `itemId`
 field to `item_id`.
