@@ -8,7 +8,7 @@ pnpm examples
 node --test examples/integrations.test.mjs
 ```
 
-These examples replay decoded event fixtures, not live model requests. They
+The commands above replay decoded event fixtures, not live model requests. They
 require no API keys and use public `streamfold` imports. The assistant-ui and
 Vercel fixtures are typechecked against the development SDK versions in this
 repository. Runtime adapters do not import either SDK.
@@ -21,7 +21,7 @@ repository. Runtime adapters do not import either SDK.
 | `run.mjs` | Runs all three and demonstrates cancellation |
 | `integrations.test.mjs` | Examples plus the custom-adapter contract suite |
 
-Each `readToolInputs(source, { signal })` function accepts a synchronous or
+Each reader in the table accepts a synchronous or
 asynchronous event source. Replace its default fixture with your already-decoded
 stream. Do not pass raw SSE frames or response-body bytes. Do not iterate a
 single-use source twice; place parsing in its existing transport/runtime loop.
@@ -47,6 +47,58 @@ network request too. The explicit signal and testing subpath require Streamfold
 
 The assistant-ui adapter is an event translator. This example does not replace
 assistant-ui's internal parser or claim an end-to-end performance improvement.
+
+## OpenAI Responses
+
+[`openai.mjs`](./openai.mjs) makes a live OpenAI Responses request and prints
+immutable tool-argument previews followed by completed JSON values. It does not
+execute the requested tool. From the repository root, set `OPENAI_API_KEY` and
+`OPENAI_MODEL` in your environment, then run:
+
+```bash
+node examples/openai.mjs
+```
+
+Choose a Responses API model that supports function calling. The example forces
+the `weather` function so the request produces tool arguments. Press Ctrl+C to
+abort; the same signal reaches the SDK request and Streamfold's reader.
+
+To reuse the reader, copy `openai.mjs` alongside your application and install
+`openai` and `streamfold`. Importing it makes no request:
+
+```js
+import OpenAI from "openai";
+import { readToolInputs } from "./openai.mjs";
+
+const client = new OpenAI();
+const controller = new AbortController();
+const events = await client.responses.create({
+  model: process.env.OPENAI_MODEL,
+  input: "What is the weather in Paris?",
+  tools, // Use your application's function definitions.
+  stream: true,
+}, { signal: controller.signal });
+
+for await (const update of readToolInputs(events, { signal: controller.signal })) {
+  console.log(update.id, update.partialValue);
+  if (update.type === "complete") console.log("Final arguments:", update.value);
+}
+```
+
+`update.id` is the output item ID, not the function's `call_id`. Keep the mapping
+to `call_id` in your application's existing response handler if you send tool
+results back. Consume the SDK stream once; wrap that same event loop if you also
+need text, tool names, or response metadata. The reader ignores non-tool output,
+surfaces failed and terminal incomplete responses, and cancels its SDK iterator
+on failure or early exit. A complete value has passed JSON parsing; validate its
+schema and authorize any tool execution in your application.
+
+Run `node --test examples/openai.test.mjs` without credentials for fragmented SSE
+decoding, concurrent calls, immutable previews, final arguments, errors,
+cancellation, and the executable against a local HTTP fixture. `pnpm typecheck`
+checks the example against `openai@7.47.0`. These checks do not make live model
+requests or establish a performance improvement. The example uses the public
+`streamfold/openai` adapter; it does not replace the SDK's own parser.
 
 ## OpenAI Chat Completions
 
