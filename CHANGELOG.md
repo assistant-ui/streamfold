@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a runnable OpenAI Responses tool-argument preview example with immutable
+  snapshots, cancellation, and tests through the SDK's stream decoder.
+
 ## 0.1.19
 
 - Release retained Anthropic initial arguments on terminal failures and managed
