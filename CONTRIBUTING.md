@@ -157,12 +157,17 @@ Rust changes must include the regenerated
 
 ## Maintainer releases
 
-Releases publish through `.github/workflows/release.yml` with provenance.
-For token authentication, save a publishing token as the `NPM_TOKEN` secret
-in the GitHub environment named `npm`. The workflow exposes it only to the
-publish step through a temporary npm configuration. Never commit the token.
-Without that secret, npm can use trusted publishing; its configuration must
-match this repository, the `release.yml` workflow, and the `npm` environment.
+Releases publish through `.github/workflows/release.yml` using npm
+[trusted publishing](https://docs.npmjs.com/trusted-publishers/) with provenance.
+The npm package's trusted publisher must allow direct `npm publish` from GitHub
+organization `assistant-ui`, repository `streamfold`, workflow `release.yml`,
+and environment `npm`. The workflow grants `id-token: write` and installs a
+compatible npm client so npm can exchange the GitHub identity for a short-lived
+publishing credential. It does not read `NPM_TOKEN` or create a token npmrc.
+If authentication fails, check the trusted publisher settings and permissions
+on npm rather than adding a publishing token to the workflow. The publish step
+invokes the installed npm client directly, reports its version, and includes
+npm's OIDC exchange diagnostics in the release log.
 
 Start from a clean, up-to-date `main`. Update the **Unreleased** changelog for
 the version being prepared, then run the release checks:

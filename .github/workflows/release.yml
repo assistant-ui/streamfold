@@ -111,17 +111,10 @@ jobs:
 
       - name: Publish to npm
         if: env.NPM_ALREADY_PUBLISHED != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          set -euo pipefail
-          if [ -n "$NODE_AUTH_TOKEN" ]; then
-            export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/streamfold-publish.npmrc"
-            umask 077
-            printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > "$NPM_CONFIG_USERCONFIG"
-            trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
-          fi
-          pnpm publish:npm --access public --tag "$NPM_DIST_TAG" --provenance
+          node --version
+          npm --version
+          npm publish ./packages/core --access public --tag "$NPM_DIST_TAG" --provenance --loglevel verbose
 
       - name: Create GitHub release
         env:
