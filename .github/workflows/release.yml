@@ -1,135 +1,268 @@
 name: Release
 
+# Publishes only from main. A release is a commit on main that bumps the
+# package version (pnpm release); pushing it starts this workflow. A manual
+# run (workflow_dispatch on main) retries the current main version.
+# Tags and GitHub releases are created after npm publication, never before.
+
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths:
+      - package.json
+      - packages/core/package.json
   workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: npm-release
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish npm package
-    runs-on: ubuntu-latest
-    environment: npm
-
+  prepare:
+    name: Resolve release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      dist_tag: ${{ steps.release.outputs.dist_tag }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      needs_publish: ${{ steps.release.outputs.needs_publish }}
+      needs_release: ${{ steps.release.outputs.needs_release }}
     steps:
+      - name: Require main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases run only from main (got $GITHUB_REF)."
+            exit 1
+          fi
+
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve version and release commit
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          visibility="$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)"
+          if [ "$visibility" != "public" ]; then
+            echo "::error::Streamfold must be public before publishing to npm with provenance."
+            exit 1
+          fi
+
+          root_version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./packages/core/package.json').version")"
+          if [ "$root_version" != "$version" ]; then
+            echo "::error::Root version $root_version does not match package version $version."
+            exit 1
+          fi
+          tag="v$version"
+
+          if [[ "$version" == *-beta.* ]]; then
+            dist_tag=beta
+          else
+            dist_tag=latest
+          fi
+
+          # The commit on main that set the current package version.
+          release_sha="$(git log -1 --format=%H -G'^[[:space:]]*"version":' -- packages/core/package.json)"
+          if [ -z "$release_sha" ]; then
+            echo "::error::Could not find the commit that set version $version."
+            exit 1
+          fi
+
+          if npm view "streamfold@$version" version >/dev/null 2>&1; then
+            echo "streamfold@$version is already on npm; nothing to publish."
+            needs_publish=false
+          else
+            needs_publish=true
+            # Provenance names the commit this run builds (main HEAD). Refuse if
+            # package source or build inputs changed after the version bump.
+            if ! git diff --exit-code "$release_sha" HEAD -- \
+              packages/core crates scripts package.json pnpm-lock.yaml \
+              pnpm-workspace.yaml Cargo.toml Cargo.lock rust-toolchain.toml \
+              LICENSE .cargo .npmrc .pnpmfile.cjs .gitattributes; then
+              echo "::error::Package inputs changed on main after the $tag version bump ($release_sha). Bump the version again to release them."
+              exit 1
+            fi
+          fi
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            needs_release=false
+          else
+            needs_release=true
+          fi
+
+          echo "Version $version ($dist_tag), release commit $release_sha, publish=$needs_publish, github release=$needs_release"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "dist_tag=$dist_tag"
+            echo "release_sha=$release_sha"
+            echo "needs_publish=$needs_publish"
+            echo "needs_release=$needs_release"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build package
+    needs: prepare
+    if: needs.prepare.outputs.needs_publish == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm and Node.js
-        uses: pnpm/setup@v3
+        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # ratchet:pnpm/setup@v3.1.2
         with:
           runtime: node@22
           install: false
+          # No cache: hardened against cache poisoning for release builds.
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master 2026-10-16
         with:
           toolchain: 1.97.1
           components: clippy,rustfmt
           targets: wasm32-unknown-unknown
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source and package
+        run: pnpm check && pnpm pack:check
+
+      - name: Pack
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack ./packages/core --pack-destination "$RUNNER_TEMP/pack"
+          test -f "$RUNNER_TEMP/pack/streamfold-$VERSION.tgz"
+
+      - name: Upload package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7.0.1
+        with:
+          name: npm-package
+          path: ${{ runner.temp }}/pack/streamfold-${{ needs.prepare.outputs.version }}.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to npm
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.needs_publish == 'true'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      contents: read
+      # Required for npm trusted publishing (OIDC).
+      id-token: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      NPM_DIST_TAG: ${{ needs.prepare.outputs.dist_tag }}
+    steps:
+      # This job holds the publishing identity, so it runs no install script or
+      # build. It publishes the tarball the build job packed from this commit.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: package.json
+          sparse-checkout-cone-mode: false
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # ratchet:pnpm/setup@v3.1.2
+        with:
+          runtime: node@22
+          install: false
 
       - name: Install the npm publish client
         run: |
           pnpm add --global npm@11.15.0
           npm --version
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Download package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # ratchet:actions/download-artifact@v8.0.2
+        with:
+          name: npm-package
+          path: ${{ runner.temp }}/pack
 
-      - name: Verify release source
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check package
         run: |
           set -euo pipefail
-
-          git fetch origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "Release commit $GITHUB_SHA is not contained in origin/main."
+          tarball="$RUNNER_TEMP/pack/streamfold-$VERSION.tgz"
+          manifest="$(tar -xzOf "$tarball" package/package.json)"
+          name="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).name)' "$manifest")"
+          packed="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).version)' "$manifest")"
+          if [ "$name" != "streamfold" ] || [ "$packed" != "$VERSION" ]; then
+            echo "::error::Packed $name@$packed, expected streamfold@$VERSION."
             exit 1
           fi
-
-          visibility="$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility)"
-          if [ "$visibility" != "public" ]; then
-            echo "Streamfold must be public before publishing to npm with provenance."
-            exit 1
-          fi
-
-          root_version="$(node -p "require('./package.json').version")"
-          package_version="$(node -p "require('./packages/core/package.json').version")"
-          if [ "$root_version" != "$package_version" ]; then
-            echo "Root version $root_version does not match package version $package_version."
-            exit 1
-          fi
-
-          release_tag="v$package_version"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-              echo "Manual release retries must run from main."
-              exit 1
-            fi
-
-            # Build the workflow's own commit so provenance describes the source
-            # actually used. A retry may only publish unchanged tagged inputs.
-            git rev-parse --verify "refs/tags/$release_tag^{commit}"
-            git merge-base --is-ancestor "$release_tag" HEAD
-            git diff --exit-code "$release_tag" HEAD -- \
-              packages/core crates scripts package.json pnpm-lock.yaml \
-              pnpm-workspace.yaml Cargo.toml Cargo.lock rust-toolchain.toml \
-              LICENSE .cargo .npmrc .pnpmfile.cjs .gitattributes
-          elif [ "$release_tag" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match package version $package_version."
-            exit 1
-          fi
-          echo "RELEASE_TAG=$release_tag" >> "$GITHUB_ENV"
-
-          if npm view "streamfold@$package_version" version >/dev/null 2>&1; then
-            echo "streamfold@$package_version is already published; npm publish will be skipped."
-            echo "NPM_ALREADY_PUBLISHED=true" >> "$GITHUB_ENV"
-          else
-            echo "NPM_ALREADY_PUBLISHED=false" >> "$GITHUB_ENV"
-          fi
-
-          if [[ "$package_version" == *-beta.* ]]; then
-            echo "NPM_DIST_TAG=beta" >> "$GITHUB_ENV"
-          else
-            echo "NPM_DIST_TAG=latest" >> "$GITHUB_ENV"
-          fi
-
-      - name: Verify source and package
-        run: pnpm check && pnpm pack:check
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
 
       - name: Publish to npm
-        if: env.NPM_ALREADY_PUBLISHED != 'true'
         run: |
           node --version
           npm --version
-          npm publish ./packages/core --access public --tag "$NPM_DIST_TAG" --provenance --loglevel verbose
+          npm publish "$TARBALL" --access public --tag "$NPM_DIST_TAG" --provenance --loglevel verbose
 
+      - name: Recovery guidance
+        if: failure()
+        run: echo "::error::Publish failed for streamfold@$VERSION. Fix on main if needed, then run gh workflow run release.yml --ref main."
+
+  github-release:
+    name: Create tag and GitHub release
+    needs:
+      - prepare
+      - publish
+    # Also runs when npm already has the version, so a retry can add a
+    # missing tag or release. Never runs for a version that failed to publish.
+    if: >-
+      always() && !cancelled() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.needs_release == 'true' &&
+      (needs.publish.result == 'success' ||
+       (needs.prepare.outputs.needs_publish == 'false' && needs.publish.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      DIST_TAG: ${{ needs.prepare.outputs.dist_tag }}
+      # Tag the commit this run published from; for a reconcile-only run, the
+      # commit that bumped the version.
+      TARGET: ${{ needs.prepare.outputs.needs_publish == 'true' && github.sha || needs.prepare.outputs.release_sha }}
+    steps:
       - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "GitHub release $RELEASE_TAG already exists."
-          else
-            release_flags=()
-            if [ "$NPM_DIST_TAG" = "beta" ]; then
-              release_flags+=(--prerelease)
-            fi
-            gh release create "$RELEASE_TAG" \
-              --verify-tag \
-              --generate-notes \
-              --title "Streamfold $RELEASE_TAG" \
-              "${release_flags[@]}"
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub release $TAG already exists."
+            exit 0
           fi
+          release_flags=()
+          if [ "$DIST_TAG" = "beta" ]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET" \
+            --generate-notes \
+            --title "Streamfold $TAG" \
+            "${release_flags[@]}"

@@ -188,25 +188,26 @@ pnpm test:browser
 ```
 
 When ready to publish, use `pnpm release` (or `pnpm release:beta`). This bumps
-both package versions, checks the package, commits, tags, and pushes before
-waiting for publication.
-A release tag must point to a commit contained in `origin/main`. To resume
-waiting for an already-pushed release, use `pnpm release:await` from its commit.
+both package versions, checks the package, commits, and pushes the release
+commit to `main`, then waits for publication. Releases publish only from
+`main`; the workflow never runs from a tag. Pushing the version bump starts
+the Release workflow, which builds and packs the package, waits for approval
+in the `npm` environment, publishes, and then creates the `v<version>` tag and
+GitHub release at the published commit.
 
-If a tagged release failed and needs a workflow fix, merge the fix first,
-then run `gh workflow run release.yml --ref main`. This retry uses the
-current package version and requires its existing tag to be an ancestor of
-`main`, with identical package source and build inputs. It builds `main`
-so provenance identifies the actual build commit. It never moves the tag,
-and it skips npm publication if that version already exists. An existing
-GitHub release draft remains a draft until a maintainer publishes it after
-verifying the npm package.
+A run publishes the version on `main` only if npm does not have it yet and the
+package source and build inputs are unchanged since the commit that bumped the
+version. If later commits changed them, bump the version again. To resume
+waiting for a release, use `pnpm release:await` from its commit.
+
+If a release failed and needs a workflow fix, merge the fix first, then run
+`gh workflow run release.yml --ref main`. This retry builds `main`, so
+provenance identifies the actual build commit. It skips npm publication if the
+version already exists and only adds a missing tag or GitHub release.
 
 After dispatching a retry, run `pnpm release:await` from a checkout with the
-version being released. The waiter selects the latest matching tag run or
-manual retry on `main`, checking the retry commit's package version. It resolves
-the tag through GitHub, so workflow-fix commits and checkouts without local tags
-can wait for the same release. A failed retry still exits with failure; a
+version being released. The waiter selects the latest Release run on `main`
+for that commit or version. A failed run still exits with failure; a
 successful run must also be visible on npm before the command reports success.
 Npm verification retries for up to five minutes, with increasing delays capped
 at 30 seconds and each query limited to the remaining window or 30 seconds.
