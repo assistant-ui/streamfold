@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a runnable Ollama/Groq Chat Completions example with credential-free SDK protocol fixtures.
 - Add `openAIChatCompletions` for streamed Chat Completions function arguments, with interleaved tool calls, strict completion handling, and managed cleanup.
 - Add a runnable OpenAI Responses tool-argument preview example with immutable
   snapshots, cancellation, and tests through the SDK's stream decoder.
