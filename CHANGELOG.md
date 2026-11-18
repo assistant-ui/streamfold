@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use npm trusted publishing for releases without a stored-token fallback.
+
 ## 0.1.19
 
 - Release retained Anthropic initial arguments on terminal failures and managed
