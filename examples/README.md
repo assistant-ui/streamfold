@@ -103,8 +103,8 @@ requests or establish a performance improvement. The example uses the public
 ## OpenAI Chat Completions
 
 [`openai-chat-completions.mjs`](./openai-chat-completions.mjs) reads function tool
-arguments from `client.chat.completions.create()`. It requires the **unreleased**
-`openAIChatCompletions` export; Streamfold 0.1.19 does not include it. From this
+arguments from `client.chat.completions.create()`. It requires the
+`openAIChatCompletions` export from Streamfold 0.1.20 or newer. From this
 checkout, run `node --test examples/openai-chat-completions.test.mjs` for the
 credential-free example through the real OpenAI SDK and a local HTTP server.
 
@@ -154,7 +154,7 @@ Protocol reference: [OpenAI Chat Completions streaming events](https://developer
 
 [`openai-compatible.mjs`](./openai-compatible.mjs) makes a streaming weather-tool
 request with the OpenAI client and the same Chat Completions reader above. This
-also requires the **unreleased** adapter from PR #165, not npm 0.1.19.
+also requires Streamfold 0.1.20 or newer.
 
 ```bash
 # Use an already installed Ollama model that supports streaming function tools.

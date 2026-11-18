@@ -400,8 +400,7 @@ is a normal handoff and remains ignored.
 
 `openAIChatCompletions` accepts `client.chat.completions.create({ ..., stream: true })`
 from the same import. `openAI` and the `createStructuredStream` alias continue
-to accept Responses events. The Chat Completions adapter is unreleased and is
-not included in 0.1.19.
+to accept Responses events. The Chat Completions adapter requires Streamfold 0.1.20 or newer.
 
 ```ts
 import { readStructured } from "streamfold";

@@ -100,7 +100,7 @@ Import the adapter matching your decoded event stream:
 | assistant-stream / assistant-ui | `streamfold/assistant-ui` |
 | Vercel AI SDK | `streamfold/vercel-ai` |
 | OpenAI Responses | `openAI` from `streamfold/openai` |
-| OpenAI Chat Completions (unreleased) | `openAIChatCompletions` from `streamfold/openai` |
+| OpenAI Chat Completions (since 0.1.20) | `openAIChatCompletions` from `streamfold/openai` |
 | Anthropic Messages | `streamfold/anthropic` |
 | Gemini Interactions | `streamfold/gemini` |
 | LangChain message chunks | `streamfold/langchain` |
