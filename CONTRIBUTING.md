@@ -19,6 +19,15 @@ tests with `pnpm test:browser`. Performance work should also run `pnpm bench`
 and `pnpm bench:sdk`; results are written to the ignored `artifacts/`
 directory.
 
+For published-release comparisons, follow the setup in
+[`benchmarks/SDK_ADAPTER_REPORT.md`](benchmarks/SDK_ADAPTER_REPORT.md), then run
+`node --expose-gc benchmarks/release-comparison.mjs <baseline-src/index.js>
+<candidate-src/index.js>`. It checks every fixture prefix, rotates before/after
+and independent identical-copy controls, retains all samples, and measures
+fresh-process import/first-stream costs separately. The old release has no
+immutable snapshot mode; only its live mode is compared. Current immutable
+costs are measured explicitly. Raw results remain in ignored `artifacts/`.
+
 For managed reader changes, run `node benchmarks/managed-reads.mjs
 /path/to/baseline/src/index.js`. It compares arrays, async iterators, and reader-only
 streams, with and without an abort signal, using ignored events and real tool

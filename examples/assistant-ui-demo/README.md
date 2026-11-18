@@ -244,3 +244,15 @@ coverage. The candidate install does not change this demo's manifest or lockfile
 `vercel.json` configures a standalone Vite build from this directory. Run
 `vercel link` to select the demo project, then `vercel deploy --prod` to publish.
 No server-side credentials, model service, or database are required.
+
+## Playback measurements
+
+`npm run bench:playback` observes the production comparison page. Set `DEMO_URL`
+to its preview URL, `CHROME_EXECUTABLE` to installed Chrome, `PLAYBACK_SAMPLES`
+to the number of fresh pages per scenario, and `PLAYBACK_REPORT` to a new JSON
+output path. Each page runs the first playback and one replay after reset.
+The script verifies final arguments and browser errors, then records parser
+counters and Chrome whole-page script/style/layout/task durations through two
+animation frames after completion. Both panes and React rendering are included
+in whole-page metrics; they cannot identify per-parser React costs or prove an
+end-to-end speedup. All samples are retained; there is no performance threshold.

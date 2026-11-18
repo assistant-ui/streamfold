@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.
+
 - Use npm trusted publishing for releases without a stored-token fallback.
 - Report the publishing client's version and npm OIDC exchange failures in the
   release log.

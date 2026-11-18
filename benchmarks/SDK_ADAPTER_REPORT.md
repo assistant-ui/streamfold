@@ -1,136 +1,200 @@
-# Published package benchmark
+# Published package performance
 
-This report measures the npm-published `streamfold@0.1.1` artifact, not a
-repository-relative source import. The benchmark runner installs the package
-from:
+Published Streamfold 0.1.19 reduces parser time on the tested fragmented JSON
+streams. It costs more than the existing SDK parsers for tiny one-chunk input,
+and fresh-process import plus first parse is slower than 0.1.1. These are local
+measurements of fixed fixtures, not provider latency or application guarantees.
+
+## Artifacts and environment
+
+- Measured on 2026-11-18: Apple M1, macOS arm64 (Darwin 25.2.0), Node 24.21.0.
+- npm packages: Streamfold 0.1.1 and 0.1.19, assistant-stream 0.3.54, Vercel AI SDK 7.0.166.
+- Both Streamfold versions were installed from npm with lifecycle scripts disabled.
+- The candidate A/A control is an independent copy of the same installed 0.1.19 package, with its own module and Wasm instance.
+
+Registry SHA-512 integrity for 0.1.19:
 
 ```text
-https://registry.npmjs.org/streamfold/-/streamfold-0.1.1.tgz
+sha512-du2kp19IqITb4CyfaHewKY4QNuPGH3UflbJEfFVgZvoDxVZ3I2VWEN6RB/gnGJ08kB3FZ40hrGcpw6xdpYE2Sw==
 ```
 
-The measured tarball has this registry integrity:
+Registry SHA-512 integrity for 0.1.1:
 
 ```text
 sha512-+bVJfbiuWqXagmjmjw6SPDrDIgBYCHtkKVo1keunqFeYlsSDsxPjNzcNrCVJZW7+4lb9+sHPLzPiSPlo8ftaFw==
 ```
 
-## Environment
+The 0.1.19 release was manually published without npm provenance. Integrity
+identifies the measured artifact; it is not a provenance attestation.
 
-- Apple M1, macOS arm64
-- Node.js 23.11.0
-- `streamfold` 0.1.1 from npm
-- `assistant-stream` 0.3.25
-- Vercel AI SDK 7.0.22
+## Warm parsing
 
-Results are warmed medians from one local machine. They are evidence for the
-algorithmic difference in these fixtures, not universal latency guarantees.
+Each cell is **median / p95 milliseconds per completed argument stream**.
+Streamfold timings include pool/parser creation, every push, partial-value
+materialization, final validation, finalization, and parser disposal. SDK timings
+use the real accumulated-prefix partial parsers. They are not one final
+`JSON.parse` measurements. All paths produce equal partial JSON values at every
+fixture boundary and equal final values.
 
-## Real parser replacement
+| Payload / chunk | Deltas | 0.1.1 live | 0.1.19 live | 0.1.19 immutable | assistant-stream parser | Vercel parser |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 16 B / 4 chars | 4 | 0.0053 / 0.0084 | 0.0045 / 0.0079 | 0.0043 / 0.0076 | 0.0060 / 0.0089 | 0.0233 / 0.0262 |
+| 16 B / 4,096 chars | 1 | 0.0038 / 0.0070 | 0.0034 / 0.0050 | 0.0031 / 0.0056 | 0.0004 / 0.0005 | 0.0006 / 0.0008 |
+| 801 B / 16 chars | 51 | 0.1034 / 0.1323 | 0.0843 / 0.1207 | 0.0999 / 0.1302 | 0.4420 / 0.5082 | 0.5850 / 0.6660 |
+| 801 B / 256 chars | 4 | 0.0632 / 0.0690 | 0.0534 / 0.0748 | 0.0539 / 0.0588 | 0.0347 / 0.0373 | 0.0424 / 0.0446 |
+| 48,501 B / 16 chars | 3,032 | 5.583 / 7.058 | 4.694 / 5.927 | 6.324 / 7.157 | 1135.340 / 1194.012 | 839.675 / 900.905 |
+| 48,501 B / 4,096 chars | 12 | 3.426 / 3.902 | 2.851 / 3.282 | 2.849 / 3.170 | 4.432 / 4.505 | 3.295 / 3.523 |
 
-One 53,656-byte tool call is delivered as 3,354 16-character deltas. Each
-baseline reparses the complete accumulated prefix after every delta.
+The tiny fixture is `{"city":"Paris"}`. The record fixtures contain an array of
+10 or 600 objects with string `id`, `city`, and `summary` fields. All payloads
+are ASCII, so character and byte chunk sizes coincide. This does not measure
+every JSON shape or Unicode workload.
 
-| Existing path | Existing median | Streamfold event path | Streamfold median | Ratio |
-| --- | ---: | --- | ---: | ---: |
-| `assistant-stream` `parsePartialJsonObject` | 1,876.95 ms | `streamfold/assistant-ui` | 8.62 ms | 217.7× |
-| Vercel AI SDK `parsePartialJson` | 1,434.15 ms | `streamfold/vercel-ai` UIMessage | 8.63 ms | 166.1× |
-| Generic repair + `JSON.parse` | 1,145.55 ms | Published Rust/Wasm core | 7.91 ms | 144.8× |
+For 48,501 bytes in 3,032 deltas, the live path measures 4.695 ms versus
+5.583 ms for 0.1.1. Immutable snapshots cost 6.324 ms on that same fixture.
+The corresponding SDK medians are 1,135.340 and 839.675 ms. This comparison
+isolates repeated parsing/materialization, not a full SDK request or UI update.
 
-The Streamfold measurements include event dispatch, ID lookup, UTF-8 encoding,
-JavaScript/Wasm calls, Rust parsing, patch decoding, live partial-value updates,
-one final join, and one final `JSON.parse`.
+For the 16-byte single chunk, SDK medians are 0.00043 and 0.00056 ms versus
+0.00345 ms for Streamfold live mode. For 801 bytes in four chunks, both SDK
+parsers also beat Streamfold. Use incremental parsing when partial values
+are needed; do not add it to one-shot JSON for a presumed speed benefit.
 
-## Integration matrix
+## Sampling and noise
 
-All integrations process the same 53,656 bytes and 3,354 deltas.
+- Seven warmup batches and 28 measured batches per path and case.
+- Rotate all seven paths and reverse their order on alternating rounds.
+- Batches: 100 streams for tiny input, 10 for 801-byte input, one for 48,501-byte input. Report per-stream batch time.
+- Include one `await` per replay for every path; Vercel also awaits each public partial-parser call.
+- Check every prefix before timing and final values after every timed batch. Assertions are outside timing.
+- Independently loaded 0.1.19 copies provide live and immutable A/A controls.
+- Median is the upper middle sorted sample; p95 uses nearest rank.
+- No measured samples were discarded. Raw per-batch timings are retained.
 
-| Integration | Median | p95 |
-| --- | ---: | ---: |
-| assistant-stream | 8.62 ms | 11.26 ms |
-| Vercel AI SDK `fullStream` | 8.71 ms | 12.83 ms |
-| Vercel AI SDK UIMessage | 8.63 ms | 10.74 ms |
-| OpenAI Responses | 8.65 ms | 11.17 ms |
-| Anthropic Messages | 9.26 ms | 19.63 ms |
-| AG-UI | 9.50 ms | 15.06 ms |
-| Google Gemini Interactions | 9.01 ms | 12.96 ms |
-| LangChain `AIMessageChunk` | 9.02 ms | 11.22 ms |
+| Payload / chunk | Live A / control median (ms) | Difference | Immutable A / control median (ms) | Difference |
+| --- | ---: | ---: | ---: | ---: |
+| 16 B / 4 chars | 0.0045 / 0.0042 | 5.4% | 0.0043 / 0.0049 | 12.5% |
+| 16 B / 4,096 chars | 0.0034 / 0.0035 | 0.1% | 0.0031 / 0.0027 | 12.7% |
+| 801 B / 16 chars | 0.0843 / 0.0840 | 0.3% | 0.0999 / 0.1045 | 4.5% |
+| 801 B / 256 chars | 0.0534 / 0.0515 | 3.4% | 0.0539 / 0.0539 | 0.1% |
+| 48,501 B / 16 chars | 4.694 / 4.726 | 0.7% | 6.324 / 5.941 | 6.1% |
+| 48,501 B / 4,096 chars | 2.851 / 2.861 | 0.4% | 2.849 / 2.861 | 0.4% |
 
-The sub-millisecond ordering between adapters is benchmark noise, not evidence
-that one provider is faster. The useful result is that all event envelopes stay
-in the same narrow range.
+Identical copies differ by up to about 13% for tiny immutable timings. Do not
+rank live versus immutable from those microsecond differences. A/A differences
+also limit claims about small improvements. Large fragmented SDK-versus-core
+differences are much larger than the observed control spread. The report does
+not attribute version differences to any single optimization.
 
-Eight interleaved tool calls process 106,344 total bytes across 3,328 deltas:
+## Fresh-process startup
 
-| Integration | Median | p95 |
-| --- | ---: | ---: |
-| assistant-stream | 19.93 ms | 27.45 ms |
-| Vercel AI SDK `fullStream` | 19.03 ms | 27.43 ms |
-| Vercel AI SDK UIMessage | 17.41 ms | 23.56 ms |
-| OpenAI Responses | 17.06 ms | 21.20 ms |
-| Anthropic Messages | 16.41 ms | 20.38 ms |
-| AG-UI | 16.23 ms | 20.91 ms |
-| Google Gemini Interactions | 14.81 ms | 17.78 ms |
-| LangChain `AIMessageChunk` | 15.00 ms | 17.95 ms |
+Each sample starts a fresh Node process, imports the core, then creates a pool
+and parses the same complete 16-byte object. There are 21 samples per package,
+rotating/reversing package order, with no warmups. Node process startup is
+outside the timer; OS filesystem caches may already be warm. These measurements
+are not a cold-machine or serverless cold-start guarantee.
 
-## Crossover by payload and chunk size
+| Package | Import median / p95 (ms) | First stream median / p95 (ms) | Total median / p95 (ms) |
+| --- | ---: | ---: | ---: |
+| 0.1.1 | 1.073 / 1.121 | 2.098 / 2.296 | 3.178 / 3.384 |
+| 0.1.19 | 2.732 / 2.937 | 2.501 / 2.550 | 5.205 / 5.486 |
+| 0.1.19 independent control | 2.647 / 3.258 | 2.214 / 2.336 | 4.853 / 6.339 |
 
-This matrix compares generic repair-and-reparse with the published Streamfold
-core. A ratio below 1× means repair-and-reparse was faster.
+The candidate total median is 5.205 ms versus 3.178 ms for 0.1.1. Its independent
+control measures 4.853 ms. The extra startup work is a cost, even though warm
+fragmented parsing is faster in these fixtures.
 
-| Payload | Chunk | Repair + parse | Streamfold | Ratio |
-| ---: | ---: | ---: | ---: | ---: |
-| 953 B | 16 B | 0.893 ms | 0.263 ms | 3.4× |
-| 953 B | 256 B | 0.038 ms | 0.118 ms | 0.32× |
-| 953 B | 4,096 B | 0.005 ms | 0.112 ms | 0.04× |
-| 9,529 B | 16 B | 61.922 ms | 1.534 ms | 40.4× |
-| 9,529 B | 256 B | 3.126 ms | 1.125 ms | 2.8× |
-| 9,529 B | 4,096 B | 0.240 ms | 1.060 ms | 0.23× |
-| 48,449 B | 16 B | 1,145.550 ms | 7.913 ms | 144.8× |
-| 48,449 B | 256 B | 68.058 ms | 10.539 ms | 6.5× |
-| 48,449 B | 4,096 B | 4.764 ms | 8.016 ms | 0.59× |
+## Production demo rendering
 
-Streamfold is aimed at long structured values delivered as many small model
-deltas. It is not a replacement for one final `JSON.parse`, and it should not
-be added to one-shot or already-large JSON chunks merely because Rust is
-available.
+The production build from [demo PR #164](https://github.com/assistant-ui/streamfold/pull/164)
+uses npm Streamfold 0.1.19, assistant-stream 0.3.54, assistant-ui/react 0.15.32,
+and React 19.3.1. Chrome 157.0.8103.79 ran at 1440 × 1100 with the normal
+180 ms event delay. Five fresh pages per scenario each ran one playback and
+one replay after reset: **20 verified playbacks**, all with correct final
+arguments and no page errors. The page prepares both parsers during idle time
+before playback; these are not cold-start samples.
 
-## Scope
+The following Chrome DevTools Protocol counters include **both panes**, React
+execution, style, layout, animations, and other page tasks through two animation
+frames after completion. They cannot assign rendering costs to one parser.
+Task time overlaps its components; do not add these columns together.
+Cells are median / p95 milliseconds. With only five samples per row, nearest-rank
+p95 is the maximum observed sample, not a reliable production tail estimate.
 
-Measured:
+| Scenario / phase | Script work | Layout | Style recalculation | All page tasks |
+| --- | ---: | ---: | ---: | ---: |
+| weather / first | 148.64 / 248.13 | 48.24 / 63.78 | 27.25 / 41.62 | 406.30 / 616.88 |
+| weather / replay | 246.59 / 250.27 | 45.42 / 47.78 | 39.61 / 40.80 | 570.61 / 579.66 |
+| trip / first | 573.86 / 595.02 | 132.08 / 136.65 | 117.41 / 123.90 | 1721.52 / 1759.29 |
+| trip / replay | 585.30 / 594.40 | 137.34 / 141.51 | 136.16 / 142.04 | 1846.74 / 1916.43 |
 
-- published npm Rust/Wasm code;
-- real assistant-stream and Vercel partial parsers;
-- official-shaped events for every listed integration;
-- interleaved concurrent calls;
-- live partial values and final values.
+Parser counters from those same real UI playbacks are shown separately. They
+sum short per-event timing intervals and are subject to browser timer precision.
+The first/replay observations are not isolated, randomized per-parser UI trials.
 
-Not measured:
+| Scenario / phase | Existing parser | Streamfold immutable | Existing playback elapsed | Streamfold playback elapsed |
+| --- | ---: | ---: | ---: | ---: |
+| weather / first | 2.00 / 3.20 | 1.50 / 2.30 | 3786.10 / 3786.20 | 3786.20 / 3786.40 |
+| weather / replay | 2.40 / 2.40 | 2.20 / 2.70 | 3781.70 / 3782.40 | 3781.80 / 3782.50 |
+| trip / first | 8.20 / 8.90 | 7.70 / 8.60 | 12784.40 / 12784.60 | 12784.60 / 12784.80 |
+| trip / replay | 9.70 / 10.10 | 8.90 / 9.80 | 12782.00 / 12782.30 | 12782.10 / 12782.50 |
 
-- model, network, SSE decoding, or provider latency;
-- React rendering;
-- schema validation;
-- cold Wasm compilation before warmups;
-- provider SDK request creation;
-- every malformed provider payload.
+Elapsed playback remains about 3.8 seconds for weather and 12.8 seconds for the
+trip on both sides. The scheduled event delay dominates that measurement.
+**This run does not establish an end-to-end UI speedup.** It records rendering
+work that parser-only microbenchmarks exclude.
 
-OpenAI, Anthropic, Gemini, LangChain, and AG-UI expose streaming event
-envelopes, but do not provide an equivalent public partial-JSON materializer to
-benchmark directly. Their rows therefore measure Streamfold integration cost,
-not a claim that Streamfold makes those provider SDKs themselves faster.
+To reproduce this exact dependency combination, use the demo update in #164
+(or a later revision that contains its 0.1.19 lockfile), run `npm ci`,
+`npm run build`, and serve that production build with
+`npm exec vite -- preview --host 127.0.0.1 --port 4173 --strictPort`.
+From this report checkout, run:
+
+```bash
+CHROME_EXECUTABLE='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+PLAYBACK_SAMPLES=5 \
+PLAYBACK_REPORT=artifacts/paced-playback.json \
+node --experimental-strip-types examples/assistant-ui-demo/scripts/benchmark-playback.mjs
+```
+
+Use `DEMO_URL` for another preview address. The browser closes after the run.
+Raw results retain every page/phase observation. No model or network request
+to an LLM provider is involved.
 
 ## Reproduce
 
 ```bash
-pnpm install
-pnpm bench:published 0.1.1
+pnpm install --frozen-lockfile
+mkdir -p artifacts/release-packages
+printf '{"private":true,"type":"module"}\n' > artifacts/release-packages/package.json
+npm install --prefix artifacts/release-packages --ignore-scripts --no-audit --no-fund --save-exact \
+  streamfold-before@npm:streamfold@0.1.1 streamfold-after@npm:streamfold@0.1.19
+node --expose-gc benchmarks/release-comparison.mjs \
+  artifacts/release-packages/node_modules/streamfold-before/src/index.js \
+  artifacts/release-packages/node_modules/streamfold-after/src/index.js
 ```
 
-The runner installs the requested Streamfold version into a temporary project,
-checks the installed version, runs both benchmark suites, and removes the
-temporary project. Machine-readable output is written to:
+The runner retains its independent control under ignored `artifacts/release-control-*`
+and writes all measured samples to `artifacts/release-comparison.json`.
+The runner refuses to overwrite an existing report. Set
+`STREAMFOLD_RELEASE_REPORT` to a new path for each complete run. Keep the
+npm lockfile alongside each run to record tarball resolution and integrity.
 
-```text
-artifacts/published-package.json
-artifacts/published-benchmark-results.json
-artifacts/published-sdk-adapter-results.json
-```
+The older `pnpm bench:published 0.1.19` command still exercises the legacy core
+and adapter suites. Its separately ordered batches do not have the A/A controls
+above; do not combine its results with this report or infer tiny adapter rankings.
+
+## Scope and compatibility
+
+This report replaces the earlier 0.1.1-only report. The fixtures, SDK versions,
+and method changed, so the old report is not a controlled historical comparison.
+The 0.1.1 column here was rerun in the same experiment as 0.1.19.
+
+No model/network/SSE latency, tool execution, schema validation, serverless
+platform, or live provider speed was measured. The warm table excludes event
+adapter overhead and React rendering. Snapshot modes are explicit; live values
+mutate in place while immutable values retain earlier snapshots.
+
+See the [integration matrix](../INTEGRATIONS.md) for exact tested SDKs and the
+separate status of released event adapters and proposed host parser hooks.
+Neither an adapter benchmark nor a proposed hook proves an end-to-end speedup.

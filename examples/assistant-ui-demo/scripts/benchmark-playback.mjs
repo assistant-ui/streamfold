@@ -56,6 +56,14 @@ try {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       try {
+        const session = await page.context().newCDPSession(page);
+        await session.send("Performance.enable");
+        const metrics = async () =>
+          Object.fromEntries(
+            (await session.send("Performance.getMetrics")).metrics.map(
+              ({ name, value }) => [name, value],
+            ),
+          );
         await page.goto(url.href);
         await page.waitForFunction(
           () =>
@@ -66,6 +74,7 @@ try {
           .getByLabel("Scenario", { exact: true })
           .selectOption(scenario);
         for (let replay = 0; replay < 2; replay++) {
+          const before = await metrics();
           await page
             .getByRole("button", { name: "Play both", exact: true })
             .click();
@@ -74,6 +83,29 @@ try {
               (element) => element.textContent === "complete",
             ),
           );
+          await page.evaluate(
+            () =>
+              new Promise((resolvePaint) =>
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(resolvePaint),
+                ),
+              ),
+          );
+          const after = await metrics();
+          const pageWork = Object.fromEntries(
+            [
+              "ScriptDuration",
+              "LayoutDuration",
+              "RecalcStyleDuration",
+              "TaskDuration",
+            ].map((name) => [`${name}Ms`, (after[name] - before[name]) * 1000]),
+          );
+          for (const value of Object.values(pageWork)) {
+            assert.ok(
+              Number.isFinite(value) && value >= 0,
+              "Chrome performance metric is unavailable",
+            );
+          }
           const observation = await page.evaluate(() => ({
             preparation: document.querySelector('[data-testid="engine-warmup"]')
               .textContent,
@@ -106,7 +138,7 @@ try {
             delete side.args;
           }
           assert.deepEqual(errors, [], "browser errors");
-          results.push({ scenario, sample, replay, ...observation });
+          results.push({ scenario, sample, replay, pageWork, ...observation });
           console.log(JSON.stringify(results.at(-1)));
           await page
             .getByRole("button", { name: "Reset comparison", exact: true })
@@ -126,6 +158,8 @@ try {
         browser: browser.version(),
         url: url.href,
         samples,
+        methodology:
+          "Whole-page Chrome metrics include both parser panes and React rendering, style, and layout through two animation frames after completion. They are not per-parser React timings. All samples are retained; no performance thresholds.",
         results,
       },
       null,

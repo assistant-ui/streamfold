@@ -192,21 +192,22 @@ results. See the API reference for factory options.
 
 ## Performance
 
-On the published `streamfold@0.1.1` benchmark, retaining state was 144–217×
-faster than rebuilding the partial value after every 16-character delta for a
-48–54 KB tool call. The advantage is largest for frequent, small deltas; plain
-`JSON.parse` can be simpler and faster for one-shot JSON or large chunks.
+Published `streamfold@0.1.19` parses a 48.5 KB, 3,032-delta fixture in a
+4.69 ms median with live values and 6.32 ms with immutable snapshots on an
+Apple M1. The same run measures 1,135 ms for assistant-stream's accumulated-prefix
+parser and 840 ms for Vercel's. These are parser measurements, not response times.
 
-See the [benchmark report](benchmarks/SDK_ADAPTER_REPORT.md) for fixtures,
-methodology, raw commands, and crossover points.
-These results use default live values; immutable snapshots add copying and
-freezing costs, especially for wide, growing arrays or objects.
+Tiny one-chunk inputs favor the existing parsers, and fresh-process startup is
+slower than 0.1.1. See the [benchmark report](benchmarks/SDK_ADAPTER_REPORT.md)
+for median/p95 values, independent A/A controls, startup cost, production-demo
+rendering scope, and reproduction commands.
 
 ## Documentation
 
 - [Runnable integration examples](examples/README.md)
 - [API reference](API.md)
 - [Integration and migration guide](MIGRATION.md)
+- [Tested integration compatibility](INTEGRATIONS.md)
 - [Architecture](ARCHITECTURE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
