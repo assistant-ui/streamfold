@@ -88,13 +88,13 @@ test(
       await page.setViewportSize({ width: 1440, height: 1100 });
       await run().click();
       await button("Cancel benchmark").click();
-      await page.waitForTimeout(300);
+      await button("Play both").and(page.locator(":enabled")).waitFor();
       assert.equal(await results.count(), 0);
       assert.ok(await button("Play both").isEnabled());
 
       await run().click();
       await button("Reset comparison").click();
-      await page.waitForTimeout(300);
+      await button("Play both").and(page.locator(":enabled")).waitFor();
       assert.equal(await results.count(), 0);
       assert.ok(await button("Play both").isEnabled());
 
