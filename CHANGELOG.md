@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `openAIChatCompletions` for streamed Chat Completions function arguments, with interleaved tool calls, strict completion handling, and managed cleanup.
+
 - Use npm trusted publishing for releases without a stored-token fallback.
 - Report the publishing client's version and npm OIDC exchange failures in the
   release log.

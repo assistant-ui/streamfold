@@ -182,6 +182,16 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
         managedSdk.push(update.type);
       }
 
+      const { openAIChatCompletions } = await import("/src/openai.js");
+      const chat = openAIChatCompletions();
+      chat.pushAll({ choices: [{ index: 0, delta: { tool_calls: [{
+        index: 0, id: "chat", type: "function", function: { arguments: '{"ok":' },
+      }] }, finish_reason: null }] });
+      chat.pushAll({ choices: [{ index: 0, delta: { tool_calls: [{
+        index: 0, function: { arguments: "true}" },
+      }] }, finish_reason: "tool_calls" }] });
+      const chatValues = chat.finish().map(({ value }) => value);
+
       const abortController = new AbortController();
       let cancelled = false;
       const stalled = new ReadableStream({
@@ -213,6 +223,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
       }
 
       return {
+        chatValues,
         cleanupResults,
         longStrings,
         cancellation: { aborted, cancelled, locked: stalled.locked },
@@ -231,6 +242,7 @@ test(`runs the Rust/Wasm parser in ${browserName}`, async () => {
     });
 
     assert.deepEqual(result, {
+      chatValues: [{ ok: true }],
       cleanupResults: [{ caught: true, closes: 1 }, { caught: true, closes: 1 }],
       longStrings: {
         first: { ["\uFEFF" + "k".repeat(4094) + "🚀tail"]: "\uFEFF" + "é界🚀".repeat(80) },

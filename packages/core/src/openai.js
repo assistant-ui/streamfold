@@ -37,3 +37,5 @@ export const openAI = (pool = createStructuredStreamPool(), options) =>
   );
 
 export { openAI as createStructuredStream };
+
+export { openAIChatCompletions } from "./internal/openai-chat-completions.js";

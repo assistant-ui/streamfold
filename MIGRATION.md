@@ -99,13 +99,20 @@ Import the adapter matching your decoded event stream:
 | --- | --- |
 | assistant-stream / assistant-ui | `streamfold/assistant-ui` |
 | Vercel AI SDK | `streamfold/vercel-ai` |
-| OpenAI Responses | `streamfold/openai` |
+| OpenAI Responses | `openAI` from `streamfold/openai` |
+| OpenAI Chat Completions (unreleased) | `openAIChatCompletions` from `streamfold/openai` |
 | Anthropic Messages | `streamfold/anthropic` |
 | Gemini Interactions | `streamfold/gemini` |
 | LangChain message chunks | `streamfold/langchain` |
 | AG-UI events | `streamfold/ag-ui` |
 
-Every adapter follows the same pattern:
+Chat Completions requires its named `openAIChatCompletions` factory. The
+`createStructuredStream` alias in `streamfold/openai` remains Responses-only.
+Unlike adapters that finalize pending calls at EOF, Chat Completions requires a
+successful choice `finish_reason`; a truncated stream fails even if its current
+argument text is valid JSON.
+
+Every adapter follows the same pool and lifecycle pattern:
 
 ```ts
 import { createStructuredStreamPool } from "streamfold";
