@@ -165,7 +165,9 @@ and environment `npm`. The workflow grants `id-token: write` and installs a
 compatible npm client so npm can exchange the GitHub identity for a short-lived
 publishing credential. It does not read `NPM_TOKEN` or create a token npmrc.
 If authentication fails, check the trusted publisher settings and permissions
-on npm rather than adding a publishing token to the workflow.
+on npm rather than adding a publishing token to the workflow. The publish step
+invokes the installed npm client directly, reports its version, and includes
+npm's OIDC exchange diagnostics in the release log.
 
 Start from a clean, up-to-date `main`. Update the **Unreleased** changelog for
 the version being prepared, then run the release checks:
