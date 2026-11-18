@@ -98,6 +98,54 @@ They do not call a live provider or establish a performance improvement.
 
 Protocol reference: [OpenAI Chat Completions streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
 
+## Ollama and Groq
+
+[`openai-compatible.mjs`](./openai-compatible.mjs) makes a streaming weather-tool
+request with the OpenAI client and the same Chat Completions reader above. This
+also requires the **unreleased** adapter from PR #165, not npm 0.1.19.
+
+```bash
+# Use an already installed Ollama model that supports streaming function tools.
+node examples/openai-compatible.mjs ollama "$OLLAMA_MODEL"
+
+# Set GROQ_API_KEY and choose a Groq model with streaming function-tool support.
+node examples/openai-compatible.mjs groq "$GROQ_MODEL"
+
+# Credential-free protocol verification:
+node --test examples/openai-compatible.test.mjs
+```
+
+The Ollama command uses `http://localhost:11434/v1` with the placeholder key
+`ollama`. It requires your local server to be running and does not download a
+model. The Groq command uses `https://api.groq.com/openai/v1` and requires
+`GROQ_API_KEY`; it never falls back to `OPENAI_API_KEY`. Model names are explicit
+because availability and tool support vary. Both commands print argument
+updates, never execute tools, and cancel on Ctrl+C.
+
+For an existing application, pass your own configured OpenAI client:
+
+```js
+import { streamWeather } from "./openai-compatible.mjs";
+
+for await (const update of streamWeather(client, model, { signal })) {
+  renderInput(update.id, update.partialValue);
+}
+```
+
+The tests use **synthetic protocol fixtures**, not captured provider responses:
+whole-argument tool chunks with a `tool_calls` ending for Ollama, and interleaved
+argument fragments with a `tool_calls` ending and usage metadata for Groq.
+Both run through OpenAI SDK 7.47.0's real SSE decoder and verify request routing,
+immutable values, failed endings, provider errors, early return, and abort.
+The Ollama shape follows its [OpenAI conversion code](https://github.com/ollama/ollama/blob/508d8be9c8a43d6b9f98d6abca099f51320bff2b/openai/openai.go).
+No live Ollama or Groq model was tested. This establishes example wiring and
+fixture compatibility, not compatibility with every model or provider version.
+Ollama's native `/api/chat` object arguments are outside this example's scope.
+
+Provider references: [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility),
+[Groq OpenAI compatibility](https://console.groq.com/docs/openai), and
+[Groq local tool calling](https://console.groq.com/docs/tool-use/local-tool-calling).
+
 ## Mistral Responses
 
 [`mistral.mjs`](./mistral.mjs) accepts the asynchronous stream returned by

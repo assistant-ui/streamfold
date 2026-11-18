@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a runnable Ollama/Groq Chat Completions example with credential-free SDK protocol fixtures.
+
 - Add `openAIChatCompletions` for streamed Chat Completions function arguments, with interleaved tool calls, strict completion handling, and managed cleanup.
 
 - Use npm trusted publishing for releases without a stored-token fallback.
