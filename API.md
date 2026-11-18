@@ -355,7 +355,7 @@ composable integration value:
 | --- | --- |
 | `streamfold/assistant-ui` | `assistantUI` |
 | `streamfold/vercel-ai` | `vercelAI` |
-| `streamfold/openai` | `openAI` |
+| `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions) |
 | `streamfold/anthropic` | `anthropic` |
 | `streamfold/cohere` | `cohere` |
 | `streamfold/bedrock` | `bedrock` |
@@ -397,6 +397,38 @@ their pending arguments. Error messages and incomplete reasons are preserved;
 decoded failure details are available as the error's `cause`. Previously
 emitted completions are not retracted. The WebSocket `steered` incomplete reason
 is a normal handoff and remains ignored.
+
+`openAIChatCompletions` accepts `client.chat.completions.create({ ..., stream: true })`
+from the same import. `openAI` and the `createStructuredStream` alias continue
+to accept Responses events. The Chat Completions adapter is unreleased and is
+not included in 0.1.19.
+
+```ts
+import { readStructured } from "streamfold";
+import { openAIChatCompletions } from "streamfold/openai";
+
+for await (const update of readStructured(chunks, {
+  integration: openAIChatCompletions,
+  limits: { snapshots: "immutable" },
+})) {
+  renderToolInput(update.id, update.partialValue);
+}
+```
+
+Create one integration per Chat Completions request. It correlates function
+arguments by choice and tool index and emits the provider's call ID. The first
+chunk for each function must carry a nonempty, unique ID. Conflicting IDs,
+invalid indices, and tool data after a finished choice fail the stream.
+Use `pushAll` or `readStructured` to retain every update in multi-tool chunks.
+
+A choice completes only on `finish_reason: "tool_calls"` or `"stop"`, after any
+arguments in that chunk. Empty arguments remain invalid JSON; they are not
+replaced with `{}`. `length`, `content_filter`, unknown finish reasons, provider
+errors, and EOF with active calls fail terminally and abort pending parsers.
+Previously emitted completions are not retracted. Text, usage, and non-function
+custom tools are ignored. Deprecated `function_call` deltas are rejected;
+request function tools with `tools` instead. Streamfold parses JSON but does not
+validate the tool schema or execute the call.
 
 | Method | Returns |
 | --- | --- |

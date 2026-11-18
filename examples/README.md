@@ -100,6 +100,56 @@ checks the example against `openai@7.47.0`. These checks do not make live model
 requests or establish a performance improvement. The example uses the public
 `streamfold/openai` adapter; it does not replace the SDK's own parser.
 
+## OpenAI Chat Completions
+
+[`openai-chat-completions.mjs`](./openai-chat-completions.mjs) reads function tool
+arguments from `client.chat.completions.create()`. It requires the **unreleased**
+`openAIChatCompletions` export; Streamfold 0.1.19 does not include it. From this
+checkout, run `node --test examples/openai-chat-completions.test.mjs` for the
+credential-free example through the real OpenAI SDK and a local HTTP server.
+
+For your own request, supply a model supporting Chat Completions function tools:
+
+```js
+import OpenAI from "openai";
+import { readToolInputs } from "./openai-chat-completions.mjs";
+
+const client = new OpenAI();
+const controller = new AbortController();
+const chunks = await client.chat.completions.create({
+  model: process.env.OPENAI_MODEL,
+  messages: [{ role: "user", content: "Weather in Paris?" }],
+  tools: [{
+    type: "function",
+    function: {
+      name: "weather",
+      parameters: {
+        type: "object",
+        properties: { city: { type: "string" } },
+        required: ["city"],
+        additionalProperties: false,
+      },
+    },
+  }],
+  stream: true,
+}, { signal: controller.signal });
+
+for await (const update of readToolInputs(chunks, { signal: controller.signal })) {
+  console.log(update.id, update.partialValue);
+}
+```
+
+Set `OPENAI_API_KEY` and `OPENAI_MODEL` in your application's environment. The
+example never executes tools. Validate completed arguments against your schema
+before execution. It ignores text, usage, and non-function tools; successful
+choice endings complete arguments, while truncation, provider errors, malformed
+JSON, or unfinished EOF fail the reader. Pass the same signal to the SDK and
+reader to cancel pending network reads. Tests cover OpenAI SDK 7.47.0, local
+SSE decoding, interleaved tools, immutable previews, cancellation, and failures.
+They do not call a live provider or establish a performance improvement.
+
+Protocol reference: [OpenAI Chat Completions streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
+
 ## Mistral Responses
 
 [`mistral.mjs`](./mistral.mjs) accepts the asynchronous stream returned by
