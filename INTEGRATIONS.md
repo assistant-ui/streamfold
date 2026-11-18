@@ -1,6 +1,6 @@
 # Integration compatibility
 
-Streamfold 0.1.19 parses incremental JSON tool arguments. An event adapter reads
+Streamfold parses incremental JSON tool arguments. An event adapter reads
 already decoded SDK events; it does not replace the provider SDK's own parser,
 validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
@@ -9,15 +9,17 @@ This matrix records the pinned SDK versions and local evidence checked on
 2026-11-18. No live model request was made for this review. Fixture compatibility
 does not guarantee support for every model or future SDK version.
 
-## Released event adapters
+## Event adapters
 
-All nine subpaths below ship in npm 0.1.19. SDKs remain application dependencies.
+All nine subpaths below are available in Streamfold 0.1.19. The additional Chat
+Completions export requires 0.1.20 or newer. SDKs remain application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
 | assistant-stream chunks | `streamfold/assistant-ui` | `assistant-stream` 0.3.54 | Partial-value and field-state conformance; event/lifecycle fixtures; production demo |
 | Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs and failure tests |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
+| OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.4.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
 | Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.0 | Real SDK SSE decoder, camelCase conversion, interleaved calls, terminal failures |
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler |
@@ -36,17 +38,17 @@ arguments. The Ollama example below targets its OpenAI-compatible endpoint,
 not native `/api/chat` object arguments. Completed argument objects do not need
 incremental string parsing.
 
-## Proposed additions
+## Examples and version requirements
 
-These are implemented and locally tested in open PRs, but absent from npm
-0.1.19. No PR in this table has been merged by this work.
+The following changes are merged. Chat Completions and the compatible-provider
+examples require Streamfold 0.1.20 or newer; they are absent from 0.1.19.
 
-| Proposal | Evidence | Release boundary |
+| Example | Evidence | Version boundary |
 | --- | --- | --- |
-| [Chat Completions adapter #165](https://github.com/assistant-ui/streamfold/pull/165) | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke; OpenAI 7.47.0 | New `openAIChatCompletions` export from `streamfold/openai`; requires #165 and a later release |
-| [Ollama/Groq example #166](https://github.com/assistant-ui/streamfold/pull/166) | 11 fixture/CLI tests also pass against a packed candidate using OpenAI 7.47.0; no live providers | Stacked on #165; one shared parser, documented endpoint configuration |
-| [OpenAI Responses example #161](https://github.com/assistant-ui/streamfold/pull/161) | 9 example tests, including real SDK/local HTTP and cancellation | Example uses the existing released Responses adapter |
-| [Demo refresh #164](https://github.com/assistant-ui/streamfold/pull/164) | 24 unit tests, production build, 7 browser tests | Updates the standalone demo's consumer pin to npm 0.1.19 |
+| [Chat Completions](examples/openai-chat-completions.mjs) | Real OpenAI 7.47.0 SDK decoder, interleaved tools, immutable previews, cancellation and failures | Uses `openAIChatCompletions` from `streamfold/openai`, since 0.1.20 |
+| [Ollama/Groq](examples/openai-compatible.mjs) | 11 fixture/CLI tests also pass against a packed candidate using OpenAI 7.47.0; no live providers | Requires 0.1.20; one shared parser and explicit endpoint configuration |
+| [OpenAI Responses](examples/openai.mjs) | 9 example tests, including real SDK/local HTTP and cancellation | Uses the existing Responses adapter |
+| [Assistant-ui demo](examples/assistant-ui-demo) | 24 unit tests, production build, 7 browser tests | Published-release pin is recorded in its manifest and lockfile |
 
 ## Host parser hooks and upstream work
 
