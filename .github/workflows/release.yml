@@ -111,7 +111,10 @@ jobs:
 
       - name: Publish to npm
         if: env.NPM_ALREADY_PUBLISHED != 'true'
-        run: pnpm publish:npm --access public --tag "$NPM_DIST_TAG" --provenance
+        run: |
+          node --version
+          npm --version
+          npm publish ./packages/core --access public --tag "$NPM_DIST_TAG" --provenance --loglevel verbose
 
       - name: Create GitHub release
         env:
