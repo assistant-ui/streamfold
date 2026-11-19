@@ -304,7 +304,8 @@ source read. Aborting rejects with `signal.reason`, immediately disposes active
 parsers, and discards remaining batch updates without finalizing incomplete JSON.
 A pre-aborted signal does not create a session or acquire the source.
 
-For a `ReadableStream`, cancellation calls its reader's `cancel(reason)` and
+For a `ReadableStream`, `getReader` is captured once and called with the source
+as its receiver. Cancellation calls its reader's `cancel(reason)` and
 releases the lock. For other iterables it requests `iterator.return()`; arbitrary
 iterators may ignore that request or never settle. On abort, Streamfold does not
 wait for that cleanup, and observes late rejections without replacing the abort

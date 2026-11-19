@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Capture `getReader` once when acquiring managed readable sources, preserving accessor behavior and reader cleanup.
+
 - Add an opt-in manual provider smoke command with request plans, bounded execution, and offline SDK/transport checks for OpenAI, Anthropic, Groq, and Ollama.
 - Preserve Mistral incomplete-response reasons and error causes in the maintained Responses example.
 - Verify AG-UI client event normalization, error handling, cancellation, and SDK types; document subscriber error propagation.
