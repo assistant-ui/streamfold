@@ -9,6 +9,11 @@ async function* normalizeEvents(source) {
     if (data.type === "response.function_call_arguments.delta" ||
         data.type === "response.function_call_arguments.done") {
       yield { ...data, item_id: data.itemId };
+    } else if (data.type === "response.incomplete") {
+      yield {
+        ...data,
+        response: { ...data.response, incomplete_details: data.response.incompleteDetails },
+      };
     } else {
       yield data;
     }

@@ -43,6 +43,8 @@ patches in `changes`.
 Call `prepareStreamfold()` while the app is idle to compile and cache the
 embedded WebAssembly module asynchronously before first use. Scanner
 construction remains synchronous.
+See the [startup measurements](benchmarks/STARTUP_REPORT.md) for the scope and
+limits of initialization improvements.
 
 ```ts
 import { createStructuredStream, prepareStreamfold } from "streamfold";

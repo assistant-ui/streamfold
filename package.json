@@ -32,6 +32,8 @@
     "verify": "pnpm check && pnpm pack:check && pnpm bench && pnpm bench:sdk"
   },
   "devDependencies": {
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
     "@anthropic-ai/sdk": "1.4.0",
     "@aws-sdk/client-bedrock-runtime": "3.1161.0",
     "@google/genai": "2.31.0",
