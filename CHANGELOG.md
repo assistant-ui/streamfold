@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Verify AG-UI client event normalization, error handling, cancellation, and SDK types; document subscriber error propagation.
+
 ## 0.1.20
 
 - Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.
