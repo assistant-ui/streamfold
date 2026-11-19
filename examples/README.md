@@ -47,6 +47,21 @@ network request too. The explicit signal and testing subpath require Streamfold
 
 The assistant-ui adapter is an event translator. This example does not replace
 assistant-ui's internal parser or claim an end-to-end performance improvement.
+For the separate optional shared-parser backend, pair initialization with cleanup
+in the owning application:
+
+```ts
+import { initializeAssistantStream, disableAssistantStream } from "streamfold/assistant-ui";
+
+const enabled = await initializeAssistantStream();
+// Consume assistant-stream parsers here; false leaves native parsing enabled.
+// During application shutdown or hot-module disposal:
+disableAssistantStream();
+```
+
+Disabling is synchronous and idempotent, prevents pending initialization from
+registering later, and leaves existing parsers and other registrations intact.
+A cancelled initialization resolves to `false`; a later call can re-enable it.
 
 ## OpenAI Responses
 

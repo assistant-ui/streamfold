@@ -122,6 +122,13 @@ registration API, or WebAssembly/finalization support is unavailable. Older
 assistant-stream versions keep native parsing. Concurrent or repeated calls
 share initialization; a failed attempt can be retried.
 
+Call `disableAssistantStream()` from `streamfold/assistant-ui` when the owning
+application or hot module stops. It synchronously unregisters this module's
+backend and cancels pending initialization (which then resolves to `false`).
+Repeated calls are safe, and a later `initializeAssistantStream()` can re-enable
+it. Existing parsers and registrations owned by other modules keep their backend.
+Hot reloads must run the old module's cleanup; reimporting alone does not unregister it.
+
 Once enabled, new shared parsers use Streamfold across copies of assistant-stream
 in the same JavaScript realm. Existing parsers retain their backend. Snapshots,
 partial-field metadata, accepted text, independent branches, and native fallback
