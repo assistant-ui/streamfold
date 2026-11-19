@@ -198,6 +198,61 @@ Provider references: [Ollama OpenAI compatibility](https://docs.ollama.com/api/o
 [Groq OpenAI compatibility](https://console.groq.com/docs/openai), and
 [Groq local tool calling](https://console.groq.com/docs/tool-use/local-tool-calling).
 
+## Manual provider smoke checks
+
+[`live-smoke.mjs`](./live-smoke.mjs) checks one synthetic weather-tool response
+through the real SDK and Streamfold. Run a provider separately, using a model
+that supports streaming function tools:
+
+```bash
+node examples/live-smoke.mjs openai "$OPENAI_MODEL"
+node examples/live-smoke.mjs anthropic "$ANTHROPIC_MODEL"
+node examples/live-smoke.mjs groq "$GROQ_MODEL"
+node examples/live-smoke.mjs ollama "$OLLAMA_MODEL"
+```
+
+These commands only print a plan. After reviewing it, append `--apply` to send
+one request; `--plan` explicitly selects the default behavior. For example:
+
+```bash
+node examples/live-smoke.mjs openai "$OPENAI_MODEL" --apply
+```
+
+| Provider | Endpoint | Credential for `--apply` |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1/responses` | `OPENAI_API_KEY` |
+| Anthropic | `https://api.anthropic.com/v1/messages` | `ANTHROPIC_API_KEY` |
+| Groq | `https://api.groq.com/openai/v1/chat/completions` | `GROQ_API_KEY` |
+| Ollama | `http://localhost:11434/v1/chat/completions` | None; choose an already installed local model |
+
+The plan includes the exact prompt, expected `{ "city": "Paris" }` input,
+endpoint, credential variable name, 256-token output limit, 30-second deadline,
+and zero retries. The command does not read credential files or use base-URL
+environment overrides. `--apply` is refused when `CI` is set. SIGINT cancels the
+request. No tool is executed and no trace is uploaded.
+
+A pass requires exactly one completed input with that value and a successful
+terminal event after consuming the response. Text-only output, different
+arguments, missing endings, provider failures, and token exhaustion fail the
+check. OpenAI/Anthropic force the weather tool; Groq/Ollama receive the same
+instruction with a tool definition. Models that need a larger reasoning budget
+can exhaust this deliberately small limit; the command does not retry or raise
+it automatically.
+
+Stdout contains JSON lines with `schemaVersion: 1`: a `mode: "plan"` record,
+then a `mode: "passed"` summary after a successful live run. The summary reports
+`completedInputs` and `partialUpdates`, without response contents. SDK logs and
+Anthropic tracing are disabled. Errors print a stable code and corrective
+message, without raw provider error bodies or credentials. Exit codes are 0
+for a plan/pass, 1 for a failed run, 2 for usage/credential errors, and 3 for a
+CI refusal.
+
+Run `node --test examples/live-smoke.test.mjs` for offline coverage through the
+real SDKs and local HTTP/SSE fixtures, including deadlines and cancellation.
+Those tests make no live provider requests and do not establish model
+availability, network latency, or live compatibility. The manual command is
+not part of the test or release scripts.
+
 ## Mistral Responses
 
 [`mistral.mjs`](./mistral.mjs) accepts the asynchronous stream returned by
