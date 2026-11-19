@@ -2,7 +2,10 @@ import { pathToFileURL } from "node:url";
 import OpenAI from "openai";
 import { readToolInputs } from "./openai-chat-completions.mjs";
 
-export class ProviderConfigurationError extends Error {}
+export class ProviderConfigurationError extends Error {
+  name = "ProviderConfigurationError";
+  code = "PROVIDER_CONFIGURATION";
+}
 
 /**
  * @param {"ollama" | "groq"} provider

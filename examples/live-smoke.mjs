@@ -282,7 +282,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   main().catch((error) => {
     const safe =
       error instanceof ProviderConfigurationError
-        ? new SmokeError("PROVIDER_CONFIGURATION", error.message, 2)
+        ? new SmokeError(error.code, error.message, 2)
         : error instanceof SmokeError
           ? error
           : new SmokeError(

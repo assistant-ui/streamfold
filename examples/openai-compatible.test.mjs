@@ -179,7 +179,11 @@ for (const provider of ["ollama", "groq"]) {
               throw new Error("A request must not be sent.");
             },
           }),
-        /Unset `OPENAI_CUSTOM_HEADERS`/,
+        {
+          name: "ProviderConfigurationError",
+          code: "PROVIDER_CONFIGURATION",
+          message: /Unset `OPENAI_CUSTOM_HEADERS`/,
+        },
       );
     }
   });
