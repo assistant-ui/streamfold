@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Decode embedded Wasm with native byte-array or Buffer base64 support when
+  available, retaining the `atob` fallback and existing initialization lifecycle.
+
 ## 0.1.20
 
 - Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.
