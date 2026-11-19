@@ -25,7 +25,7 @@ Completions export requires 0.1.20 or newer. SDKs remain application dependencie
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler |
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 2.31.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.3.0 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
-| AG-UI tool argument events | `streamfold/ag-ui` | No AG-UI SDK dependency | Structural event fixtures and shared lifecycle tests only |
+| AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved calls, terminal errors, local HTTP cancellation, and SDK types |
 
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with
@@ -40,6 +40,46 @@ Gemini's adapter targets **Interactions**, not native GenerateContent object
 arguments. The Ollama example below targets its OpenAI-compatible endpoint,
 not native `/api/chat` object arguments. Completed argument objects do not need
 incremental string parsing.
+
+## AG-UI client boundary
+
+The AG-UI checks added on 2026-11-19 use the real `HttpAgent` client with
+synthetic responses and a local HTTP server. The client expands `TOOL_CALL_CHUNK`
+into `TOOL_CALL_START`, `TOOL_CALL_ARGS`, and `TOOL_CALL_END` before invoking
+subscribers. Feed those normalized events to `agUI`; raw compact chunks are not
+part of Streamfold's adapter contract.
+
+`HttpAgent` logs subscriber exceptions instead of rejecting `runAgent()` for
+them. Capture Streamfold errors inside `onEvent`, abort the request, and rethrow
+after the run. Dispose pending pool entries on every exit, including caller
+cancellation. For example (also type-checked in `tests/ag-ui-sdk.ts`):
+
+```ts
+const pool = createStructuredStreamPool({ snapshots: "immutable" });
+const stream = agUI(pool);
+const errors: unknown[] = [];
+try {
+  await agent.runAgent({}, {
+    onEvent({ event, agent }) {
+      if (errors.length) return;
+      try {
+        for (const update of stream.pushAll(event)) consume(update);
+      } catch (error) {
+        errors.push(error);
+        agent.abortRun();
+      }
+    },
+  });
+  if (errors.length) throw errors[0];
+} finally {
+  for (const id of pool.activeIds) pool.abort(id);
+}
+```
+
+Here `agent` is your `HttpAgent` and `consume` handles previews and completed
+inputs; act only on `complete` updates. Pending calls are discarded on exit.
+Import `createStructuredStreamPool` from `streamfold` and `agUI` from
+`streamfold/ag-ui`. These checks do not contact a live AG-UI backend.
 
 ## Examples and version requirements
 
@@ -72,7 +112,7 @@ Run the checked-in SDK fixtures and type boundaries without credentials:
 ```bash
 pnpm install --frozen-lockfile
 pnpm typecheck
-node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs examples/mistral.test.mjs
+node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs benchmarks/ag-ui-sdk.test.mjs examples/mistral.test.mjs
 pnpm check
 pnpm pack:check
 ```
