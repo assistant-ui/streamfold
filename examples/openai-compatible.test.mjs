@@ -157,3 +157,76 @@ test("compatible-provider CLI rejects missing model and Groq credentials before 
     assert.doesNotMatch(result.stderr, /must-not-be-used/);
   }
 });
+
+for (const provider of ["ollama", "groq"]) {
+  test(`${provider} rejects ambient custom headers before a request`, (t) => {
+    const previous = process.env.OPENAI_CUSTOM_HEADERS;
+    t.after(() => {
+      if (previous === undefined) delete process.env.OPENAI_CUSTOM_HEADERS;
+      else process.env.OPENAI_CUSTOM_HEADERS = previous;
+    });
+    for (const headers of [
+      "Authorization: Bearer openai-only-fixture",
+      "aUtHoRiZaTiOn: Bearer openai-only-fixture\nX-Route: private-fixture",
+      "X-Route: private-fixture",
+    ]) {
+      process.env.OPENAI_CUSTOM_HEADERS = headers;
+      assert.throws(
+        () =>
+          createProviderClient(provider, {
+            apiKey: "provider-fixture",
+            fetch: () => {
+              throw new Error("A request must not be sent.");
+            },
+          }),
+        /Unset `OPENAI_CUSTOM_HEADERS`/,
+      );
+    }
+  });
+
+  test(`${provider} isolates tenant and admin settings in direct and copied clients`, async (t) => {
+    const settings = {
+      OPENAI_CUSTOM_HEADERS: "",
+      OPENAI_API_KEY: "openai-only-fixture",
+      OPENAI_ADMIN_KEY: "admin-only-fixture",
+      OPENAI_ORG_ID: "org-only-fixture",
+      OPENAI_PROJECT_ID: "project-only-fixture",
+      OPENAI_BASE_URL: "https://unused.invalid/v1",
+    };
+    for (const [name, value] of Object.entries(settings)) {
+      const previous = process.env[name];
+      t.after(() => {
+        if (previous === undefined) delete process.env[name];
+        else process.env[name] = previous;
+      });
+      process.env[name] = value;
+    }
+    let requests = 0;
+    const client = createProviderClient(provider, {
+      apiKey: "provider-fixture",
+      fetch: async (url, options) => {
+        requests++;
+        assert.equal(
+          String(url),
+          provider === "ollama"
+            ? "http://localhost:11434/v1/chat/completions"
+            : "https://api.groq.com/openai/v1/chat/completions",
+        );
+        const headers = new Headers(options.headers);
+        assert.equal(
+          headers.get("authorization"),
+          provider === "ollama" ? "Bearer ollama" : "Bearer provider-fixture",
+        );
+        assert.equal(headers.has("openai-organization"), false);
+        assert.equal(headers.has("openai-project"), false);
+        assert.doesNotMatch(JSON.stringify([...headers]), /only-fixture/);
+        return Response.json({ choices: [] });
+      },
+    });
+    for (const configured of [client, client.withOptions({ maxRetries: 0 })]) {
+      assert.equal(configured.adminAPIKey, null);
+      await configured.chat.completions.create({ model: "fixture", messages: [] });
+    }
+    assert.equal(requests, 2);
+  });
+}
