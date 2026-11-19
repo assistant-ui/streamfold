@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clear SDK call indexes and completion-deduplication records when managed streams dispose.
+
 - Add an opt-in manual provider smoke command with request plans, bounded execution, and offline SDK/transport checks for OpenAI, Anthropic, Groq, and Ollama.
 - Preserve Mistral incomplete-response reasons and error causes in the maintained Responses example.
 - Verify AG-UI client event normalization, error handling, cancellation, and SDK types; document subscriber error propagation.
