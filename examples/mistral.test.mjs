@@ -63,3 +63,93 @@ test("stopping the Mistral example cancels the SDK response body", async () => {
   }
   assert.equal(cancelled, true);
 });
+
+const terminalResponse = {
+  id: "response-test",
+  created_at: 1,
+  model: "test-model",
+  object: "response",
+  output: [],
+  parallel_tool_calls: true,
+  tool_choice: "auto",
+  tools: [],
+};
+const providerError = { code: "server_error", message: "Provider unavailable" };
+const failures = [
+  {
+    name: "failed responses",
+    event: {
+      type: "response.failed",
+      response: { ...terminalResponse, status: "failed", error: providerError },
+    },
+    message: /Provider unavailable/,
+    cause: providerError,
+  },
+  {
+    name: "error events",
+    event: { type: "error", ...providerError, param: null },
+    message: /Provider unavailable/,
+  },
+  ...["max_output_tokens", "content_filter", null].map((reason) => ({
+    name: `incomplete responses (${reason})`,
+    event: {
+      type: "response.incomplete",
+      response: { ...terminalResponse, status: "incomplete", incomplete_details: { reason } },
+    },
+    message: reason ? new RegExp(`response incomplete: ${reason}`) : /response incomplete$/,
+    cause: { reason },
+  })),
+];
+
+for (const failure of failures) {
+  test(`Mistral ${failure.name} preserve failure details and cancel pending inputs`, async () => {
+    let cancelled = false;
+    const pending = [
+      events[0],
+      events[1],
+      { ...events[2], delta: '{"city":"Paris"}' },
+      failure.event,
+    ];
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            pending
+              .map(
+                (event, sequence_number) =>
+                  `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number })}\n\n`,
+              )
+              .join(""),
+          ),
+        );
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const source = await createStream(body);
+    const updates = [];
+    await assert.rejects(
+      async () => {
+        for await (const update of readToolInputs(source)) updates.push(update);
+      },
+      (error) => {
+        assert.match(error.message, failure.message);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.eventType, failure.event.type);
+        if (failure.cause) assert.deepEqual(error.cause, failure.cause);
+        else {
+          assert.equal(error.cause.message, providerError.message);
+          assert.equal(error.cause.code, providerError.code);
+        }
+        return true;
+      },
+    );
+    assert.equal(cancelled, true);
+    assert.deepEqual(
+      updates.map(({ type }) => type),
+      ["start", "start", "update"],
+    );
+    assert.deepEqual(updates.at(-1).partialValue, { city: "Paris" });
+  });
+}
