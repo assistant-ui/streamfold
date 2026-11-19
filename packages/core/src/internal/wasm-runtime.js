@@ -36,6 +36,10 @@ let compiledModule;
 let compiling;
 
 const decodeWasmBytes = () => {
+  if (typeof Uint8Array.fromBase64 === "function")
+    return Uint8Array.fromBase64(wasmBinaryBase64);
+  if (typeof globalThis.Buffer?.from === "function")
+    return globalThis.Buffer.from(wasmBinaryBase64, "base64");
   const binary = globalThis.atob(wasmBinaryBase64);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) {
