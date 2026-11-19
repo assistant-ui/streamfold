@@ -31,7 +31,10 @@ Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with
 `@mistralai/mistralai` 3.4.0's real decoder. It unwraps `frame.data` and converts
 `itemId` to the OpenAI adapter's `item_id`; it is an example, not a tenth provider
-subpath. Its response-level status handling remains the application's job.
+subpath. It also normalizes incomplete-response details so the existing adapter
+rejects failed, incomplete, and error events with their failure details intact.
+The example discards pending inputs on failure; completed tool arguments do not
+establish success of the entire response.
 
 Gemini's adapter targets **Interactions**, not native GenerateContent object
 arguments. The Ollama example below targets its OpenAI-compatible endpoint,

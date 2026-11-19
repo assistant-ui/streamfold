@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve Mistral incomplete-response reasons and error causes in the maintained Responses example.
+
 ## 0.1.20
 
 - Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.

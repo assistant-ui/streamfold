@@ -204,7 +204,8 @@ Provider references: [Ollama OpenAI compatibility](https://docs.ollama.com/api/o
 `@mistralai/mistralai`'s Responses API. Copy it into your application alongside
 the SDK and `streamfold`. It reuses `streamfold/openai`: Mistral emits compatible
 tool-argument events, but the SDK wraps them in `frame.data` and converts
-`item_id` to `itemId`. The example normalizes those differences before parsing.
+`item_id` to `itemId`. It also converts `incomplete_details` to
+`incompleteDetails`. The example normalizes these differences before parsing.
 
 ```js
 import { Mistral } from "@mistralai/mistralai";
@@ -236,10 +237,14 @@ for await (const update of readToolInputs(events, { signal: controller.signal })
 Set `MISTRAL_MODEL` to a model supported by the
 [Mistral Responses API](https://docs.mistral.ai/studio/conversations/responses).
 The example yields immutable tool-argument previews keyed by output item ID,
-not `callId`. It does not execute tools, validate their schema, or interpret
-response-level status events. Keep those responsibilities in the application's
-existing response handler. Breaking the loop closes the SDK iterator; pass the
-same signal to both calls to also cancel pending network reads.
+not `callId`. Failed responses, incomplete responses, and error events reject
+iteration and discard pending inputs. Incomplete reasons such as
+`max_output_tokens` and `content_filter` appear in the error message and `cause`.
+The reused adapter reports `code: "INTEGRATION_ERROR"` and `adapter: "openai"`.
+A completed tool input does not guarantee that the overall response succeeded;
+continue consuming the stream to observe a later failure. The example does not
+execute tools or validate their schema. Breaking the loop closes the SDK
+iterator; pass the same signal to both calls to also cancel pending network reads.
 
 Run `node --test examples/mistral.test.mjs` for a credential-free check through
 the real SDK's SSE decoder. `pnpm typecheck` also checks an actual
