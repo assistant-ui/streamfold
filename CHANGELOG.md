@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Verify AG-UI client event normalization, error handling, cancellation, and SDK types; document subscriber error propagation.
 - Decode embedded Wasm with native byte-array or Buffer base64 support when
   available, retaining the `atob` fallback and existing initialization lifecycle.
 
