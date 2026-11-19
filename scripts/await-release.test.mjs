@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const tagRun = (overrides = {}) => ({
-  databaseId: 1, event: "push", headBranch: "v0.1.14", headSha: "tag-commit",
+const pushRun = (overrides = {}) => ({
+  databaseId: 1, event: "push", headBranch: "main", headSha: "release-commit",
   status: "completed", conclusion: "success", url: "https://example.test/runs/1",
   ...overrides,
 });
@@ -16,7 +16,7 @@ const retryRun = (overrides = {}) => ({
   ...overrides,
 });
 
-function runWaiter(t, { runs, versions = {}, head = "tag-commit", npmVisibleAfter = 0, npmError = "npm error code E404", npmVersion = "0.1.14" }) {
+function runWaiter(t, { runs, versions = {}, head = "release-commit", npmVisibleAfter = 0, npmError = "npm error code E404", npmVersion = "0.1.14" }) {
   const root = mkdtempSync(join(tmpdir(), "streamfold-await-release-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const dir of ["scripts", "packages/core", "bin"]) mkdirSync(join(root, dir), { recursive: true });
@@ -38,7 +38,7 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit", npmVisibleAfte
       return schedule(callback, 0, ...args);
     };
   `);
-  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", ...versions }, head, npmVisibleAfter, npmError, npmVersion }));
+  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", "release-commit": "0.1.14", ...versions }, head, npmVisibleAfter, npmError, npmVersion }));
   const shim = `#!${process.execPath}
     const { appendFileSync, readFileSync } = require("node:fs");
     const name = require("node:path").basename(process.argv[1]);
@@ -62,8 +62,6 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit", npmVisibleAfte
     } else if (name === "gh" && args[0] === "run" && args[1] === "watch") {
       const run = fixture.runs.find(run => String(run.databaseId) === args[2]);
       process.exit(run.watchExit ?? (run.conclusion === "success" ? 0 : 1));
-    } else if (name === "gh" && args[0] === "api" && args[1].endsWith("/commits/v0.1.14")) {
-      console.log("tag-commit");
     } else if (name === "gh" && args[0] === "api" && args[1].includes("/contents/packages/core/package.json?ref=")) {
       const sha = args[1].split("?ref=")[1];
       if (!(sha in fixture.versions)) throw new Error("Unexpected commit: " + sha);
@@ -81,39 +79,40 @@ function runWaiter(t, { runs, versions = {}, head = "tag-commit", npmVisibleAfte
   return { ...result, calls, elapsed: Number(readFileSync(clock, "utf8")), watched: calls.find(({ name, args }) => name === "gh" && args[1] === "watch")?.args[2] };
 }
 
-test("recognizes a successful manual retry after a failed tag release", (t) => {
-  const result = runWaiter(t, { runs: [retryRun(), tagRun({ conclusion: "failure" })] });
+test("recognizes a successful manual retry after a failed release push", (t) => {
+  const result = runWaiter(t, { runs: [retryRun(), pushRun({ conclusion: "failure" })] });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "2");
   assert.match(result.stdout, /Published streamfold@0\.1\.14/);
 });
 
-test("finds the tagged release from a newer checkout without a local tag", (t) => {
-  const result = runWaiter(t, { head: "workflow-fix", runs: [tagRun()] });
+test("finds the release push from a newer checkout", (t) => {
+  const result = runWaiter(t, { head: "workflow-fix", runs: [pushRun()] });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "1");
 });
 
-test("ignores manual releases for other versions or branches and stale tag commits", (t) => {
+test("ignores runs for other versions or branches", (t) => {
   const result = runWaiter(t, { runs: [
     retryRun({ databaseId: 5, headSha: "next-version" }),
     retryRun({ databaseId: 4, headBranch: "feature" }),
-    tagRun({ databaseId: 3, headSha: "old-tag-commit" }),
-    tagRun(),
-  ], versions: { "next-version": "0.1.15" } });
+    pushRun({ databaseId: 3, headBranch: "feature", headSha: "feature-commit" }),
+    pushRun({ databaseId: 2, headSha: "old-release" }),
+    pushRun(),
+  ], versions: { "next-version": "0.1.15", "old-release": "0.1.13" } });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "1");
 });
 
 test("a failing matching retry is not hidden by an older successful release", (t) => {
-  const result = runWaiter(t, { runs: [retryRun({ conclusion: "failure" }), tagRun()] });
+  const result = runWaiter(t, { runs: [retryRun({ conclusion: "failure" }), pushRun()] });
   assert.equal(result.status, 1);
   assert.equal(result.watched, "2");
   assert.equal(result.calls.some(({ name }) => name === "npm"), false);
 });
 
 test("waits for an in-progress retry before verifying npm publication", (t) => {
-  const result = runWaiter(t, { runs: [retryRun({ status: "in_progress", conclusion: "", watchExit: 0 }), tagRun()] });
+  const result = runWaiter(t, { runs: [retryRun({ status: "in_progress", conclusion: "", watchExit: 0 }), pushRun()] });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "2");
   assert.deepEqual(result.calls.at(-1), { name: "npm", args: ["view", "streamfold@0.1.14", "version", "--json"] });
@@ -121,7 +120,7 @@ test("waits for an in-progress retry before verifying npm publication", (t) => {
 
 for (const npmError of ["npm error code E404", "npm error code ETIMEDOUT"]) {
   test(`verifies publication after delayed npm visibility (${npmError})`, (t) => {
-    const result = runWaiter(t, { runs: [tagRun()], npmVisibleAfter: 70_000, npmError });
+    const result = runWaiter(t, { runs: [pushRun()], npmVisibleAfter: 70_000, npmError });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Published streamfold@0\.1\.14/);
     assert.ok(result.elapsed >= 70_000);
@@ -130,7 +129,7 @@ for (const npmError of ["npm error code E404", "npm error code ETIMEDOUT"]) {
 }
 
 test("verification timeout preserves the registry error and identifies the successful workflow", (t) => {
-  const result = runWaiter(t, { runs: [tagRun()], npmVisibleAfter: 600_000, npmError: "npm error code E503: registry unavailable" });
+  const result = runWaiter(t, { runs: [pushRun()], npmVisibleAfter: 600_000, npmError: "npm error code E503: registry unavailable" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Release workflow succeeded/);
   assert.match(result.stderr, /npm error code E503: registry unavailable/);
@@ -141,7 +140,7 @@ test("verification timeout preserves the registry error and identifies the succe
 });
 
 test("a successful npm command with the wrong version is not a verified publication", (t) => {
-  const result = runWaiter(t, { runs: [tagRun()], npmVersion: "0.1.13" });
+  const result = runWaiter(t, { runs: [pushRun()], npmVersion: "0.1.13" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Expected streamfold@0\.1\.14, received "?0\.1\.13"?/);
   assert.doesNotMatch(result.stdout, /Published streamfold/);
