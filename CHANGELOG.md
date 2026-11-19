@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an opt-in manual provider smoke command with request plans, bounded execution, and offline SDK/transport checks for OpenAI, Anthropic, Groq, and Ollama.
+
 ## 0.1.20
 
 - Refresh published-package performance evidence with snapshot-mode, startup, and noise controls, and document tested integration boundaries.

@@ -50,6 +50,11 @@ examples require Streamfold 0.1.20 or newer; they are absent from 0.1.19.
 | [OpenAI Responses](examples/openai.mjs) | 9 example tests, including real SDK/local HTTP and cancellation | Uses the existing Responses adapter |
 | [Assistant-ui demo](examples/assistant-ui-demo) | 24 unit tests, production build, 7 browser tests | Published-release pin is recorded in its manifest and lockfile |
 
+The opt-in [manual provider smoke command](examples/README.md#manual-provider-smoke-checks)
+checks OpenAI, Anthropic, Groq, and Ollama one at a time. It prints a plan until
+`--apply` is supplied. Its SDK/local HTTP tests are offline evidence; no live
+provider result is claimed here.
+
 ## Host parser hooks and upstream work
 
 | Host | What ships in Streamfold | Upstream status and limit |
