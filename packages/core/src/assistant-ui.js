@@ -52,6 +52,7 @@ export const assistantUI = (pool = createStructuredStreamPool(), options) => {
     undefined,
     "assistant-ui",
     options,
+    () => idsByPath.clear(),
   );
 };
 

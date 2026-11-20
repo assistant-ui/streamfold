@@ -47,6 +47,7 @@ export const cohere = (pool = createStructuredStreamPool(), options) => {
     },
     "cohere",
     options,
+    () => idsByIndex.clear(),
   );
 };
 
