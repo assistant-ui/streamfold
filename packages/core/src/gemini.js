@@ -63,6 +63,7 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
     completeCalls,
     "gemini",
     options,
+    () => callsByIndex.clear(),
   );
 };
 

@@ -38,6 +38,10 @@ export const langchain = (pool = createStructuredStreamPool(), options) => {
     },
     "langchain",
     options,
+    () => {
+      idsByIndex.clear();
+      emptyArguments.clear();
+    },
   );
 };
 
