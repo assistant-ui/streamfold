@@ -2,6 +2,11 @@ import { pathToFileURL } from "node:url";
 import OpenAI from "openai";
 import { readToolInputs } from "./openai-chat-completions.mjs";
 
+export class ProviderConfigurationError extends Error {
+  name = "ProviderConfigurationError";
+  code = "PROVIDER_CONFIGURATION";
+}
+
 /**
  * @param {"ollama" | "groq"} provider
  * @param {{ apiKey?: string; fetch?: typeof fetch }} [options]
@@ -13,7 +18,15 @@ export function createProviderClient(provider, options = {}) {
   if (provider === "groq" && !options.apiKey?.trim()) {
     throw new Error("Set `GROQ_API_KEY` before running the Groq example.");
   }
+  if (process.env.OPENAI_CUSTOM_HEADERS?.trim()) {
+    throw new ProviderConfigurationError(
+      "Unset `OPENAI_CUSTOM_HEADERS` before running a compatible-provider example.",
+    );
+  }
   return new OpenAI({
+    adminAPIKey: null,
+    organization: null,
+    project: null,
     baseURL:
       provider === "ollama"
         ? "http://localhost:11434/v1"

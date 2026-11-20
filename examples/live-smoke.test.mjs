@@ -390,3 +390,37 @@ test("SIGINT cancels the CLI request and releases its deadline timer", async (t)
   assert.equal(signal, null);
   assert.doesNotMatch(output + errors, /fixture-key/);
 });
+
+for (const provider of ["groq", "ollama"]) {
+  test(`${provider} smoke rejects ambient custom headers before fetching`, async (t) => {
+    const previous = process.env.OPENAI_CUSTOM_HEADERS;
+    t.after(() => {
+      if (previous === undefined) delete process.env.OPENAI_CUSTOM_HEADERS;
+      else process.env.OPENAI_CUSTOM_HEADERS = previous;
+    });
+    process.env.OPENAI_CUSTOM_HEADERS = "Authorization: Bearer openai-only-fixture";
+    let fetched = false;
+    await assert.rejects(
+      runSmoke({
+        provider,
+        model: "fixture",
+        apiKey: "provider-fixture",
+        fetch: async () => {
+          fetched = true;
+          throw new Error("A request must not be sent.");
+        },
+      }),
+      /Unset `OPENAI_CUSTOM_HEADERS`/,
+    );
+    assert.equal(fetched, false);
+  });
+}
+
+test("CLI explains how to remove ambient provider headers without printing them", () => {
+  const result = command(["groq", "fixture", "--apply"], {
+    OPENAI_CUSTOM_HEADERS: "Authorization: Bearer secret-openai",
+  });
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /Unset `OPENAI_CUSTOM_HEADERS`/);
+  assert.doesNotMatch(result.stdout + result.stderr, /secret-/);
+});
