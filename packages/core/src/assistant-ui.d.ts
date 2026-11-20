@@ -58,6 +58,15 @@ export function createStructuredStream(
  * Prepares Streamfold and registers it for subsequent assistant-stream JSON parsers.
  * Requires an assistant-stream version exposing registerJsonParserBackend.
  * Existing parsers keep their backend. Repeated calls share initialization.
- * Returns false when the host API, WebAssembly, or finalization support is unavailable.
+ * Returns false when the host API, WebAssembly, or finalization support is unavailable,
+ * or when disableAssistantStream cancels this initialization attempt.
  */
 export function initializeAssistantStream(): Promise<boolean>;
+
+/**
+ * Unregisters this module's optional backend for future assistant-stream parsers.
+ * Cancels pending initialization; repeated calls are safe. Initialization may be retried.
+ * Existing parsers and other backend registrations remain unchanged.
+ * Call from application shutdown or a hot-module disposal hook.
+ */
+export function disableAssistantStream(): void;

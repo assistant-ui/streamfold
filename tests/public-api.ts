@@ -20,6 +20,7 @@ import type {
 import {
   assistantUI,
   initializeAssistantStream,
+  disableAssistantStream,
   createStructuredStream as createAssistantUiStream,
 } from "streamfold/assistant-ui";
 import { createStructuredStream as createVercelAiStream, createToolInputParser } from "streamfold/vercel-ai";
@@ -32,6 +33,7 @@ import { adapterContractTests } from "streamfold/testing";
 import type { AssistantStreamChunk } from "assistant-stream";
 
 initializeAssistantStream satisfies () => Promise<boolean>;
+disableAssistantStream satisfies () => void;
 createToolInputParser satisfies () => { push(delta: string): unknown; dispose(): void };
 const toolInput = createToolInputParser({ maxBytes: 1024, maxDepth: 8 });
 toolInput.push('{"ok":true}') satisfies JsonValue | undefined;

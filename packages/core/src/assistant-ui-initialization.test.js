@@ -27,12 +27,13 @@ test("the event adapter works without the optional assistant-stream peer", () =>
     run(
       `
     import assert from 'node:assert/strict';
-    const {assistantUI,initializeAssistantStream}=await import(${JSON.stringify(isolatedEntry)});
+    const {assistantUI,initializeAssistantStream,disableAssistantStream}=await import(${JSON.stringify(isolatedEntry)});
     const adapter=assistantUI();
     adapter.push({type:'part-start',path:[],part:{type:'tool-call',toolCallId:'call',toolName:'test'}});
     adapter.push({type:'text-delta',path:[0],textDelta:'{"value":1}'});
     assert.deepEqual(adapter.pushAll({type:'tool-call-args-text-finish',path:[0]})[0].value,{value:1});
     assert.equal(await initializeAssistantStream(),false);
+    disableAssistantStream();
     assert.deepEqual(adapter.finish().map(({value})=>value),[{value:1}]);
   `,
       false,
@@ -49,8 +50,9 @@ for (const global of ["WebAssembly", "FinalizationRegistry"]) {
       import {IncrementalJsonObjectParser} from 'assistant-stream/utils';
       const saved=globalThis[${JSON.stringify(global)}];
       globalThis[${JSON.stringify(global)}]=undefined;
-      const {initializeAssistantStream}=await import(${JSON.stringify(entry)});
+      const {initializeAssistantStream,disableAssistantStream}=await import(${JSON.stringify(entry)});
       assert.equal(await initializeAssistantStream(),false);
+      disableAssistantStream();
       const native=IncrementalJsonObjectParser.from('{"value":"');
       assert.equal(native.append('fallback"}').currentArgs.value,'fallback');
       globalThis[${JSON.stringify(global)}]=saved;

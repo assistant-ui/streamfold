@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add `disableAssistantStream()` to unregister the optional shared parser backend, cancel pending initialization, and permit re-enabling without affecting existing parsers.
 - Capture `getReader` once when acquiring managed readable sources, preserving accessor behavior and reader cleanup.
 - Clear SDK call indexes and completion-deduplication records when managed streams dispose.
 - Reject ambient OpenAI custom headers and exclude OpenAI tenant/admin settings in the Groq/Ollama examples and manual smoke checks.

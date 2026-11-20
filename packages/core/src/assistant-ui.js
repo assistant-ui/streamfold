@@ -60,7 +60,7 @@ export { assistantUI as createStructuredStream };
 
 let initialization;
 
-const initialize = async () => {
+const initialize = async (state) => {
   if (typeof WebAssembly !== "object" || typeof FinalizationRegistry !== "function") return false;
   try {
     const { registerJsonParserBackend } = await import("assistant-stream");
@@ -69,7 +69,8 @@ const initialize = async () => {
     const probe = createStructuredStream({ snapshots: "live" });
     probe.dispose();
     const { createAssistantStreamBackend } = await import("./internal/assistant-stream.js");
-    registerJsonParserBackend(createAssistantStreamBackend);
+    if (initialization !== state) return false;
+    state.unregister = registerJsonParserBackend(createAssistantStreamBackend);
     return true;
   } catch {
     return false;
@@ -77,8 +78,14 @@ const initialize = async () => {
 };
 
 export async function initializeAssistantStream() {
-  const pending = (initialization ??= initialize());
-  const enabled = await pending;
-  if (!enabled && initialization === pending) initialization = undefined;
-  return enabled;
+  const state = (initialization ??= {});
+  const enabled = await (state.pending ??= initialize(state));
+  if (!enabled && initialization === state) initialization = undefined;
+  return enabled && initialization === state;
+}
+
+export function disableAssistantStream() {
+  const state = initialization;
+  initialization = undefined;
+  state?.unregister?.();
 }

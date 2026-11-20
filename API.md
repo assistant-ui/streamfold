@@ -547,6 +547,34 @@ without finalizing its arguments. The run message becomes the error message;
 the original event, including its provider code, is preserved as `cause`.
 Tool execution results remain outside the argument parser's lifecycle.
 
+### Optional assistant-stream backend registration
+
+```ts
+import {
+  initializeAssistantStream,
+  disableAssistantStream,
+} from "streamfold/assistant-ui";
+
+const enabled = await initializeAssistantStream();
+// Start assistant-stream parsers after checking enabled.
+```
+
+`initializeAssistantStream(): Promise<boolean>` opts subsequent shared parsers
+into Streamfold when the host exposes `registerJsonParserBackend`. Missing peer,
+host API, WebAssembly, or finalization support returns `false`; failed attempts
+can be retried. Concurrent/repeated calls within one module share initialization.
+
+Call `disableAssistantStream(): void` from the owning application's shutdown
+or hot-module disposal hook. It removes only that module's registration,
+synchronously cancels pending registration, and is safe to call repeatedly or
+before initialization. A cancelled initializer resolves to `false`. A later
+initializer starts a new attempt, even while the cancelled attempt is settling.
+
+Existing parsers retain their backend and continue normally; disabling does not
+dispose them. Other registrations retain their order and ownership. Module
+copies have separate owners: clean up the old copy during reload to avoid
+accumulating registrations. Importing the event adapter still registers nothing.
+
 ### Embedded tool-input parser
 
 `createToolInputParser({ maxBytes?, maxDepth? })` from `streamfold/vercel-ai`

@@ -44,6 +44,14 @@ Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/ag-ui` for decoded SDK events. Integrations use structural event
 types and do not load provider SDKs.
 
+To opt into assistant-stream's shared parser, import
+`initializeAssistantStream` and `disableAssistantStream` from
+`streamfold/assistant-ui`. Check the initializer's boolean result; it returns
+false if the optional host registration API or runtime support is unavailable.
+Call `disableAssistantStream()` during application shutdown or hot-module
+disposal. It removes only this module's registration, cancels pending
+initialization, and permits re-enabling later. Existing parsers remain usable.
+
 For custom protocols, import `defineAdapter` from `streamfold`. Translate each
 event into an array of `start`, `delta`, `end`, or `abort` operations. The returned
 factory creates an independent session with `pushAll(event)`, `finish()`, and
