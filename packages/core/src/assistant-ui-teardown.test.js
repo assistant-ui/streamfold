@@ -108,8 +108,15 @@ test("disable during Wasm compilation prevents late registration and allows retr
       `
     import assert from 'node:assert/strict';
     const backend = await import(${JSON.stringify(new URL("./assistant-ui.js", import.meta.url).href)});
-    const entered = Promise.withResolvers();
-    const released = Promise.withResolvers();
+    const deferred = () => {
+      let resolve;
+      const promise = new Promise((fulfill) => {
+        resolve = fulfill;
+      });
+      return { promise, resolve };
+    };
+    const entered = deferred();
+    const released = deferred();
     const compile = WebAssembly.compile;
     WebAssembly.compile = async (...args) => {
       entered.resolve();
