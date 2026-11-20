@@ -50,6 +50,7 @@ export const bedrock = (pool = createStructuredStreamPool(), options) => {
     },
     "bedrock",
     options,
+    () => idsByIndex.clear(),
   );
 };
 

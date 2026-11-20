@@ -16,6 +16,7 @@ export const disposeIntegration = (stream) => {
   const state = integrationStates.get(stream);
   if (state === undefined) return;
   state.completed.length = 0;
+  state.completedIds.clear();
   state.clearActive?.();
 };
 
@@ -142,7 +143,7 @@ export const createIntegration = (
       }
     },
   };
-  integrationStates.set(stream, { completed, clearActive });
+  integrationStates.set(stream, { completed, completedIds, clearActive });
   return stream;
 };
 

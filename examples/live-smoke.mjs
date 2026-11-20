@@ -5,7 +5,7 @@ import { readStructured } from "streamfold";
 import { anthropic } from "streamfold/anthropic";
 import { readToolInputs as readResponses } from "./openai.mjs";
 import { readToolInputs as readChat } from "./openai-chat-completions.mjs";
-import { createProviderClient } from "./openai-compatible.mjs";
+import { createProviderClient, ProviderConfigurationError } from "./openai-compatible.mjs";
 
 const providers = {
   openai: { endpoint: "https://api.openai.com/v1/responses", credential: "OPENAI_API_KEY" },
@@ -281,12 +281,14 @@ async function main() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     const safe =
-      error instanceof SmokeError
-        ? error
-        : new SmokeError(
-            "SMOKE_FAILED",
-            "Provider smoke failed. Check credentials, model tool support, output limits, and connectivity.",
-          );
+      error instanceof ProviderConfigurationError
+        ? new SmokeError(error.code, error.message, 2)
+        : error instanceof SmokeError
+          ? error
+          : new SmokeError(
+              "SMOKE_FAILED",
+              "Provider smoke failed. Check credentials, model tool support, output limits, and connectivity.",
+            );
     console.error(`${safe.code}: ${safe.message}`);
     process.exitCode = safe.exitCode;
   });

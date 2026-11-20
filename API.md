@@ -304,7 +304,8 @@ source read. Aborting rejects with `signal.reason`, immediately disposes active
 parsers, and discards remaining batch updates without finalizing incomplete JSON.
 A pre-aborted signal does not create a session or acquire the source.
 
-For a `ReadableStream`, cancellation calls its reader's `cancel(reason)` and
+For a `ReadableStream`, `getReader` is captured once and called with the source
+as its receiver. Cancellation calls its reader's `cancel(reason)` and
 releases the lock. For other iterables it requests `iterator.return()`; arbitrary
 iterators may ignore that request or never settle. On abort, Streamfold does not
 wait for that cleanup, and observes late rejections without replacing the abort
@@ -457,7 +458,10 @@ calls correlated only by ID.
 Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
-Use a separate pool per response/session.
+Use a separate pool per response/session. Managed `readStructured` consumption
+clears adapter call indexes and completion-deduplication records on every exit,
+including early return, cancellation, errors, and normal EOF. Standalone
+adapters retain their documented `finish()` completion history.
 
 The OpenAI Responses adapter uses the final `arguments` from
 `response.function_call_arguments.done`, including when earlier deltas are

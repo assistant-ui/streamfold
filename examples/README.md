@@ -185,7 +185,12 @@ node --test examples/openai-compatible.test.mjs
 The Ollama command uses `http://localhost:11434/v1` with the placeholder key
 `ollama`. It requires your local server to be running and does not download a
 model. The Groq command uses `https://api.groq.com/openai/v1` and requires
-`GROQ_API_KEY`; it never falls back to `OPENAI_API_KEY`. Model names are explicit
+`GROQ_API_KEY`; it never falls back to `OPENAI_API_KEY`. Both providers ignore
+`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, and `OPENAI_ADMIN_KEY`. Unset
+`OPENAI_CUSTOM_HEADERS` before using either provider: the example refuses
+nonblank custom headers before sending a request, since the SDK otherwise
+forwards them and can replace provider authorization. This also applies to
+Groq/Ollama manual smoke checks. Model names are explicit
 because availability and tool support vary. Both commands print argument
 updates, never execute tools, and cancel on Ctrl+C.
 
