@@ -23,7 +23,7 @@ Completions export requires 0.1.20 or newer. SDKs remain application dependencie
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.4.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
 | Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.0 | Real SDK SSE decoder, camelCase conversion, interleaved calls, terminal failures |
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler |
-| Gemini Interactions | `streamfold/gemini` | `@google/genai` 2.31.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
+| Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.3.0 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
 | AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved calls, terminal errors, local HTTP cancellation, and SDK types |
 
