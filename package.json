@@ -36,7 +36,7 @@
     "@ag-ui/core": "1.0.5",
     "@anthropic-ai/sdk": "1.9.0",
     "@aws-sdk/client-bedrock-runtime": "3.1161.0",
-    "@google/genai": "2.31.0",
+    "@google/genai": "3.5.0",
     "@langchain/core": "1.4.1",
     "@mistralai/mistralai": "3.4.0",
     "ai": "7.0.166",
