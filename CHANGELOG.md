@@ -1,12 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.1.21
 
 - Add `disableAssistantStream()` to unregister the optional shared parser backend, cancel pending initialization, and permit re-enabling without affecting existing parsers.
 - Capture `getReader` once when acquiring managed readable sources, preserving accessor behavior and reader cleanup.
 - Clear SDK call indexes and completion-deduplication records when managed streams dispose.
 - Reject ambient OpenAI custom headers and exclude OpenAI tenant/admin settings in the Groq/Ollama examples and manual smoke checks.
-
+- Verify the tested SDK integrations against `@anthropic-ai/sdk` 1.9.0, `cohere-ai` 8.3.1, `@google/genai` 3.5.0, and `@langchain/core` 1.4.1.
 - Add an opt-in manual provider smoke command with request plans, bounded execution, and offline SDK/transport checks for OpenAI, Anthropic, Groq, and Ollama.
 - Preserve Mistral incomplete-response reasons and error causes in the maintained Responses example.
 - Verify AG-UI client event normalization, error handling, cancellation, and SDK types; document subscriber error propagation.
