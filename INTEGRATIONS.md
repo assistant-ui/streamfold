@@ -20,11 +20,11 @@ Completions export requires 0.1.20 or newer. SDKs remain application dependencie
 | Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs and failure tests |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
-| Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.4.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
-| Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.0 | Real SDK SSE decoder, camelCase conversion, interleaved calls, terminal failures |
+| Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
+| Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.1 | Real SDK SSE decoder, camelCase conversion, interleaved calls, terminal failures |
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler |
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
-| LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.3.0 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
+| LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.4.1 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
 | AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved calls, terminal errors, local HTTP cancellation, and SDK types |
 
 Mistral Responses also works through the maintained
