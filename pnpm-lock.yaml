@@ -63,8 +63,8 @@ importers:
   packages/core:
     devDependencies:
       assistant-stream:
-        specifier: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27
-        version: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27(ai@7.0.166(zod@4.6.7))
+        specifier: 0.3.58
+        version: 0.3.58(ai@7.0.166(zod@4.6.7))
 
 packages:
 
@@ -532,9 +532,8 @@ packages:
       redis:
         optional: true
 
-  assistant-stream@https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27:
-    resolution: {integrity: sha512-nGRQBatJzJ2RvyK0C7DoEqzkKcMGEq4DL4eY+NNoJJuA/kVD/irwBb4JdB30ydoAMwGqJHzhxo2OoX3L4Q52vA==, tarball: https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27}
-    version: 0.3.55
+  assistant-stream@0.3.58:
+    resolution: {integrity: sha512-i3g2FPxq2bC45Ac1J4bDuAJOHga1f7LdkJjw0nl0tEAIjENhZSVI/FjdLI0qxL1XPkMeWDT7IIBtJfnIXw8jZA==}
     peerDependencies:
       ai: ^6.0.0 || ^7.0.0
       ioredis: ^5.10.1 || ^6.0.0
@@ -1776,7 +1775,7 @@ snapshots:
     optionalDependencies:
       ai: 7.0.166(zod@4.6.7)
 
-  assistant-stream@https://pkg.pr.new/assistant-stream@8f09c772757c8c92817a6c3230d438059de14b27(ai@7.0.166(zod@4.6.7)):
+  assistant-stream@0.3.58(ai@7.0.166(zod@4.6.7)):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15
