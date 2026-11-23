@@ -8,6 +8,8 @@
 - Report WebAssembly traps as structured `WASM_TRAP` errors with the original
   `WebAssembly.RuntimeError` as `cause`. Streams sharing the crashed instance
   fail closed, and new streams use a fresh instance.
+- Document the copy-on-write cost of immutable snapshots on long arrays, with
+  a reproducible benchmark and measured live/immutable medians and p95s.
 
 ## 0.1.21
 

@@ -40,6 +40,12 @@ Earlier snapshots stay unchanged, and unchanged branches keep their identity.
 Reactive stores can also apply the compact `set`, `append`, and `complete`
 patches in `changes`.
 
+Immutable mode is copy-on-write: each push copies the arrays and objects on
+the changed path, so its cost grows with array length. Streaming 16,000 records
+in 8-byte chunks took a 477 ms median with immutable snapshots and 81 ms with
+live values on an Apple M1. See the
+[measurements](API.md#immutable-snapshots) before choosing it for long arrays.
+
 Call `prepareStreamfold()` while the app is idle to compile and cache the
 embedded WebAssembly module asynchronously before first use. Scanner
 construction remains synchronous.
