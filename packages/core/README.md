@@ -32,7 +32,10 @@ stream.dispose();
 Values are live by default. Use `createStructuredStream({ snapshots: "immutable" })`
 for frozen snapshots that preserve earlier values and share unchanged branches.
 Pools and custom adapter factories accept the same option; managed readers
-forward it through `limits`.
+forward it through `limits`. Immutable mode copies the arrays and objects on
+each push's changed path, so it costs more as arrays grow; see the
+[measurements](https://github.com/assistant-ui/streamfold/blob/main/API.md#immutable-snapshots)
+before using it for long arrays.
 
 Chunks must contain well-formed Unicode. Valid surrogate pairs may span chunks;
 raw unpaired UTF-16 code units fail with `INVALID_CHUNK` instead of being silently

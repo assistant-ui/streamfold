@@ -131,6 +131,30 @@ per patch. Wide arrays/objects still cost more to copy as they grow. Prefer
 default live mode plus `changes` when minimizing allocations matters. The
 snapshot setting does not freeze the update envelope or the patch list.
 
+This copy-on-write cost matters most for long arrays. A push that changes an
+array copies it, along with every container above it on the changed path, so a
+growing array is copied on almost every push. The work grows with the array
+length times the number of pushes. Live mode updates in place and skips the
+copy. Measured with `node benchmarks/snapshot-array-growth.mjs` on a
+`{ items: [{ id, name }, ...] }` payload, with 5 warmups and 20 rotating
+samples per mode (Node 24.21.0, macOS arm64, Apple M1):
+
+| Items | Payload | Chunk | Pushes | Live median / p95 | Immutable median / p95 | Immutable / live |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,000 | 28.8 KB | 8 B | 3,599 | 4.7 / 6.0 ms | 7.1 / 8.8 ms | 1.51x |
+| 4,000 | 121.8 KB | 8 B | 15,224 | 19.1 / 23.1 ms | 41.7 / 49.9 ms | 2.18x |
+| 16,000 | 505.8 KB | 8 B | 63,224 | 80.6 / 95.1 ms | 477.4 / 623.5 ms | 5.92x |
+| 1,000 | 28.8 KB | 256 B | 113 | 4.2 / 8.9 ms | 3.9 / 10.8 ms | 0.92x |
+| 4,000 | 121.8 KB | 256 B | 476 | 11.6 / 17.9 ms | 13.8 / 20.3 ms | 1.19x |
+| 16,000 | 505.8 KB | 256 B | 1,976 | 48.8 / 69.9 ms | 87.3 / 140.8 ms | 1.79x |
+
+Two more runs measured 1.47–1.58x, 2.09–2.19x, and 5.75–6.45x for the 8-byte
+rows. A repeated live run in the same rotation stayed within 4% of live, except
+for the 1,000-item, 256-byte row above (0.86x), so treat that row as noise.
+Short arrays and large chunks cost little. For long arrays streamed in small
+deltas, use live mode and apply `changes` to your own store, or push larger
+chunks when the source allows it.
+
 ### Custom adapters
 
 `defineAdapter(mapEvent)` returns a factory. Calling that factory with optional

@@ -58,6 +58,12 @@ For snapshot changes, run `pnpm bench:snapshots /path/to/baseline/src/index.js`.
 It compares dense arrays, nested arrays, and dense objects in both snapshot modes,
 checks every partial value, and records medians and p95s in `artifacts/snapshots.json`.
 
+To measure what immutable snapshots cost as one array grows, run `node
+benchmarks/snapshot-array-growth.mjs`. It streams 1,000, 4,000, and 16,000
+records in 8- and 256-byte chunks and checks that live and immutable partial
+values match. It then rotates live, immutable, and a repeated live control, and
+records raw samples, medians, and p95s in `artifacts/snapshot-array-growth.json`.
+
 For live property updates, run `node benchmarks/live-properties.mjs
 /path/to/baseline/src/index.js /path/to/independent-baseline-copy/src/index.js`.
 Use two identical package copies so the A/A control loads independently. The
