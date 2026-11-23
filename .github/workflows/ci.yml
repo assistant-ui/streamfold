@@ -18,13 +18,13 @@ jobs:
     name: Checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@22
           cache: true
           install: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable 2026-11-15
         with:
           toolchain: 1.97.1
           components: clippy,rustfmt
@@ -42,8 +42,8 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@22
           install: false
@@ -59,14 +59,14 @@ jobs:
     name: Node.js 20 core tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@22
           cache: true
           install: false
       - run: pnpm install --frozen-lockfile
-      - uses: pnpm/setup@v3
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@20
           install: false
@@ -83,12 +83,12 @@ jobs:
       run:
         working-directory: examples/assistant-ui-demo
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@24
           install: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable 2026-11-15
         if: matrix.package == 'candidate'
         with:
           toolchain: 1.97.1
