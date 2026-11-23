@@ -173,3 +173,49 @@ test("Vercel abort events release pending calls and remain terminal", () => {
     }
   }
 });
+
+test("Vercel tool inputs without argument text complete as empty objects", () => {
+  const summary = (updates) => updates.map(({ type, id, value }) => ({ type, id, value }));
+  for (const deltas of [[], [""], [" ", "\n"]]) {
+    // Outside SDK steps, tool-input-end completes; the later tool-call is a repeat.
+    const pool = createStructuredStreamPool();
+    const stream = vercelAI(pool);
+    stream.pushAll({ type: "tool-input-start", id: "no-args", toolName: "now" });
+    for (const delta of deltas) stream.pushAll({ type: "tool-input-delta", id: "no-args", delta });
+    assert.deepEqual(summary(stream.pushAll({ type: "tool-input-end", id: "no-args" })), [
+      { type: "complete", id: "no-args", value: {} },
+    ]);
+    assert.deepEqual(stream.pushAll({ type: "tool-call", toolCallId: "no-args", toolName: "now", input: {} }), []);
+    assert.equal(pool.size, 0);
+
+    // Inside SDK steps, a finish reason or EOF completes calls without a tool-call event.
+    for (const ending of [{ type: "finish-step", finishReason: "tool-calls" }, { type: "finish", finishReason: "tool-calls" }, undefined]) {
+      const pool = createStructuredStreamPool();
+      const stream = vercelAI(pool);
+      stream.pushAll({ type: "start-step" });
+      stream.pushAll({ type: "tool-input-start", id: "no-args", toolName: "now" });
+      for (const delta of deltas) stream.pushAll({ type: "tool-input-delta", id: "no-args", delta });
+      assert.deepEqual(stream.pushAll({ type: "tool-input-end", id: "no-args" }), []);
+      const completed = ending === undefined ? stream.finish() : stream.pushAll(ending);
+      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
+      assert.equal(pool.size, 0);
+    }
+  }
+});
+
+test("Vercel final inputs stay authoritative after empty argument text", () => {
+  const stream = vercelAI();
+  stream.pushAll({ type: "start-step" });
+  stream.pushAll({ type: "tool-input-start", id: "weather", toolName: "weather" });
+  stream.pushAll({ type: "tool-input-end", id: "weather" });
+  const [completed] = stream.pushAll({ type: "tool-call", toolCallId: "weather", toolName: "weather", input: { units: "celsius" } });
+  assert.deepEqual(completed.value, { units: "celsius" });
+  stream.pushAll({ type: "finish-step", finishReason: "tool-calls" });
+  assert.deepEqual(stream.finish().map(({ value }) => value), [{ units: "celsius" }]);
+
+  const partial = vercelAI();
+  partial.pushAll({ type: "tool-input-start", id: "partial" });
+  partial.pushAll({ type: "tool-input-delta", id: "partial", delta: " " });
+  partial.pushAll({ type: "tool-input-delta", id: "partial", delta: '{"city":' });
+  assert.throws(() => partial.pushAll({ type: "tool-input-end", id: "partial" }), { code: "INCOMPLETE_JSON" });
+});

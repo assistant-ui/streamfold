@@ -68,3 +68,37 @@ test("AG-UI preserves successful argument completion and ignores tool execution 
   assert.deepEqual(stream.pushAll({ type: "RUN_FINISHED", threadId: "thread", runId: "run" }), []);
   assert.deepEqual(stream.finish().map(({ value }) => value), [{ city: "Paris" }]);
 });
+
+test("AG-UI tool calls without argument text complete as empty objects", async () => {
+  for (const deltas of [[], [""], [" ", "\n"]]) {
+    for (const atEOF of [false, true]) {
+      const pool = createStructuredStreamPool();
+      const stream = agUI(pool);
+      stream.pushAll(start("no-args"));
+      for (const delta of deltas) stream.pushAll(args("no-args", delta));
+      const completed = atEOF ? stream.finish() : stream.pushAll({ type: "TOOL_CALL_END", toolCallId: "no-args" });
+      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
+      assert.equal(pool.size, 0);
+    }
+  }
+  const events = [
+    start("no-args"), { type: "TOOL_CALL_END", toolCallId: "no-args" },
+    start("weather"), args("weather", '{"city":"Paris"}'), { type: "TOOL_CALL_END", toolCallId: "weather" },
+  ];
+  const completed = [];
+  for await (const update of readStructured(events, { integration: agUI })) {
+    if (update.type === "complete") completed.push([update.id, update.value]);
+  }
+  assert.deepEqual(completed, [["no-args", {}], ["weather", { city: "Paris" }]]);
+});
+
+test("AG-UI keeps rejecting incomplete arguments and unmatched endings", () => {
+  const diagnostics = [];
+  const stream = agUI(undefined, { onDiagnostic: (event) => diagnostics.push(event) });
+  assert.deepEqual(stream.pushAll({ type: "TOOL_CALL_END", toolCallId: "never-started" }), []);
+  assert.deepEqual(diagnostics.map(({ code }) => code), ["UNMATCHED_TOOL_EVENT"]);
+  stream.pushAll(start("partial"));
+  stream.pushAll(args("partial", " "));
+  stream.pushAll(args("partial", '{"city":'));
+  assert.throws(() => stream.pushAll({ type: "TOOL_CALL_END", toolCallId: "partial" }), { code: "INCOMPLETE_JSON" });
+});

@@ -17,15 +17,15 @@ Completions export requires 0.1.20 or newer. SDKs remain application dependencie
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
 | assistant-stream chunks | `streamfold/assistant-ui` | `assistant-stream` 0.3.54 | Partial-value and field-state conformance; event/lifecycle fixtures; production demo |
-| Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs and failure tests |
+| Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs, no-argument tools, and failure tests |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
-| Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.1 | Real SDK SSE decoder, camelCase conversion, interleaved calls, terminal failures |
-| Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler |
+| Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.1 | Real SDK SSE decoder, camelCase conversion, interleaved calls, no-argument calls, terminal failures |
+| Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler, including tool blocks without input deltas |
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.4.1 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
-| AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved calls, terminal errors, local HTTP cancellation, and SDK types |
+| AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved and no-argument calls, terminal errors, local HTTP cancellation, and SDK types |
 
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with

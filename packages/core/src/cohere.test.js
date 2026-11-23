@@ -75,3 +75,23 @@ test("Cohere failure endings release pending calls even without an error message
     }
   }
 });
+
+test("Cohere tool calls without argument text complete as empty objects", () => {
+  for (const [initial, deltas] of [["", []], [undefined, []], ["", [""]], [" ", ["\n"]]]) {
+    for (const atEOF of [false, true]) {
+      const pool = createStructuredStreamPool();
+      const stream = cohere(pool);
+      stream.pushAll(initial === undefined
+        ? { type: "tool-call-start", index: 0, delta: { message: { toolCalls: { id: "no-args", type: "function", function: { name: "now" } } } } }
+        : start(0, "no-args", initial));
+      for (const text of deltas) stream.pushAll(delta(0, text));
+      const completed = atEOF ? stream.finish() : stream.pushAll(end(0));
+      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
+      assert.equal(pool.size, 0);
+    }
+  }
+  const stream = cohere();
+  stream.push(start(0, "partial", " "));
+  stream.push(delta(0, '{"city":'));
+  assert.throws(() => stream.push(end(0)), { code: "INCOMPLETE_JSON" });
+});
