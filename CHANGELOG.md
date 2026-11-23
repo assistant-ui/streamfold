@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Parse numbers streamed in small chunks in linear time. Each chunk now extends
+  the number instead of rescanning it, and partial patches for numbers longer
+  than 800 characters carry a bounded form that rounds to the same value.
 - Report WebAssembly traps as structured `WASM_TRAP` errors with the original
   `WebAssembly.RuntimeError` as `cause`. Streams sharing the crashed instance
   fail closed, and new streams use a fresh instance.
