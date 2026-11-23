@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Behavior change:** Anthropic and Gemini streams that end right after a tool
+  call starts now fail with `INTEGRATION_ERROR` instead of completing the call
+  as `{}` (or as Anthropic's initial input). This covers a stream that ends after
+  `content_block_start` without `content_block_stop`, or after a Gemini
+  `step.start` without `step.stop`, when no argument text has arrived. Calls
+  with no arguments that are properly closed still complete as `{}`. LangChain
+  is unchanged because its chunks carry no closing event.
 - Keep Wasm memory proportional to the input when a long object key sits above deep nesting or many values. The parser no longer copies key text into every nested frame and patch, so a 1 MB stream with one long key no longer traps after growing memory past 2 GiB. Patches and snapshots are unchanged.
 - Parse numbers streamed in small chunks in linear time. Each chunk now extends
   the number instead of rescanning it, and partial patches for numbers longer

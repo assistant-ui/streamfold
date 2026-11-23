@@ -36,6 +36,7 @@ test("Gemini preserves complete initial arguments and legacy deltas at EOF", () 
   const stream = gemini();
   stream.pushAll(start(0, "empty"));
   stream.pushAll(delta(0, ""));
+  stream.pushAll({ event_type: "step.stop", index: 0 });
   stream.pushAll(start(1, "object", { city: "Paris" }));
   stream.pushAll(start(2, "legacy", '{"city":'));
   stream.pushAll({
@@ -47,6 +48,53 @@ test("Gemini preserves complete initial arguments and legacy deltas at EOF", () 
     { id: "object", value: { city: "Paris" } },
     { id: "legacy", value: { city: "Tokyo" } },
   ]);
+});
+
+test("Gemini fails closed when the stream ends before step.stop without argument text", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const deltas of [[], [""]]) {
+      const diagnostics = [];
+      const pool = createStructuredStreamPool();
+      const stream = gemini(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "other"));
+      stream[method](delta(0, '{"city":"Paris"}'));
+      stream[method](start(1, "weather"));
+      for (const text of deltas) stream[method](delta(1, text));
+      stream[method]({ event_type: "step.stop", index: 0 });
+      let failure;
+      assert.throws(() => stream.finish(), (error) => {
+        failure = error;
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.id, "weather");
+        assert.equal(error.adapter, "gemini");
+        assert.match(error.message, /ended before step\.stop for function call weather/);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.deepEqual(
+        diagnostics.map(({ code, id }) => ({ code, id })),
+        [{ code: "STREAM_ERROR", id: "weather" }],
+      );
+    }
+  }
+});
+
+test("Gemini completes empty arguments closed by step.stop or interaction completion", () => {
+  for (const closing of [
+    [{ event_type: "step.stop", index: 0 }],
+    [{ event_type: "interaction.completed" }],
+    [{ event_type: "step.stop", index: 0 }, { event_type: "interaction.completed" }],
+  ]) {
+    const pool = createStructuredStreamPool();
+    const stream = gemini(pool);
+    stream.pushAll(start(0, "weather"));
+    for (const event of closing) stream.pushAll(event);
+    assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [
+      { id: "weather", value: {} },
+    ]);
+    assert.equal(pool.size, 0);
+  }
 });
 
 test("Gemini validates streamed arguments and releases all calls on failure", () => {

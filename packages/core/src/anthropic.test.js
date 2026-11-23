@@ -13,7 +13,7 @@ const delta = (index, partial_json) => ({
 });
 const stop = (index) => ({ type: "content_block_stop", index });
 
-test("Anthropic completes empty tool inputs at block stop and EOF", () => {
+test("Anthropic completes empty tool inputs at block stop and fails at EOF without it", () => {
   for (const type of ["tool_use", "server_tool_use", "mcp_tool_use"]) {
     for (const method of ["push", "pushAll"]) {
       for (const blockStop of [false, true]) {
@@ -21,10 +21,17 @@ test("Anthropic completes empty tool inputs at block stop and EOF", () => {
         const stream = anthropic(pool);
         stream[method](start(0, "weather", type));
         stream[method](delta(0, ""));
-        if (blockStop) {
-          const result = stream[method](stop(0));
-          assert.deepEqual((method === "push" ? result : result[0]).value, {});
+        if (!blockStop) {
+          assert.throws(() => stream.finish(), {
+            code: "INTEGRATION_ERROR",
+            id: "weather",
+            adapter: "anthropic",
+          });
+          assert.equal(pool.size, 0);
+          continue;
         }
+        const result = stream[method](stop(0));
+        assert.deepEqual((method === "push" ? result : result[0]).value, {});
         assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [
           { id: "weather", value: {} },
         ]);
@@ -69,7 +76,11 @@ test("Anthropic empty placeholders do not hide invalid arguments or bypass limit
         stream.pushAll(delta(0, text));
         if (blockStop) stream.pushAll(stop(0));
         else stream.finish();
-      }, { code, id: "weather", adapter: "anthropic" });
+      }, {
+        code: blockStop || text !== "" ? code : "INTEGRATION_ERROR",
+        id: "weather",
+        adapter: "anthropic",
+      });
       assert.equal(pool.size, 0);
     }
   }
@@ -131,7 +142,7 @@ test("Anthropic MCP initial inputs retain byte/depth limits and clean up failure
           if (blockStop) stream.push(stop(0));
           else stream.finish();
         },
-        { code, id: "mcp", adapter: "anthropic" },
+        { code: blockStop ? code : "INTEGRATION_ERROR", id: "mcp", adapter: "anthropic" },
       );
       assert.equal(pool.size, 0);
     }

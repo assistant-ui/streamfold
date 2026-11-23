@@ -110,7 +110,9 @@ Chat Completions requires its named `openAIChatCompletions` factory. The
 `createStructuredStream` alias in `streamfold/openai` remains Responses-only.
 Unlike adapters that finalize pending calls at EOF, Chat Completions requires a
 successful choice `finish_reason`; a truncated stream fails even if its current
-argument text is valid JSON.
+argument text is valid JSON. Anthropic and Gemini also fail at EOF when a call
+has started but received no argument text and its `content_block_stop` or
+`step.stop` never arrived.
 
 Every adapter follows the same pool and lifecycle pattern:
 

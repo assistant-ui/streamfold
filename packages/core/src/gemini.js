@@ -1,10 +1,20 @@
 import { createStructuredStreamPool } from "./index.js";
+import { streamError } from "./internal/errors.js";
 import { createIntegration } from "./internal/integration.js";
 
 export const gemini = (pool = createStructuredStreamPool(), options) => {
   const callsByIndex = new Map();
-  const completeCalls = (complete) => {
-    for (const { id, emptyArguments } of callsByIndex.values()) {
+  const completeCalls = (complete, endOfStream = false) => {
+    for (const { id, emptyArguments, stopped } of callsByIndex.values()) {
+      if (endOfStream && emptyArguments && !stopped) {
+        throw streamError(
+          new Error(
+            `Gemini stream ended before step.stop for function call ${id}; consume the complete SDK stream or abort it.`,
+          ),
+          "INTEGRATION_ERROR",
+          { id },
+        );
+      }
       complete(id, emptyArguments ? () => "{}" : undefined);
     }
     callsByIndex.clear();
@@ -28,7 +38,11 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
               : "";
         const emptyArguments =
           typeof event.step.arguments === "object" && initial === "{}";
-        callsByIndex.set(event.index, { id: event.step.id, emptyArguments });
+        callsByIndex.set(event.index, {
+          id: event.step.id,
+          emptyArguments,
+          stopped: false,
+        });
         return calls.start(event.step.id, emptyArguments ? "" : initial);
       }
 
@@ -47,6 +61,12 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
         calls.unmatched("Arguments delta has no matching function call index");
       }
 
+      if (event.event_type === "step.stop") {
+        const call = callsByIndex.get(event.index);
+        if (call !== undefined) call.stopped = true;
+        return undefined;
+      }
+
       if (
         event.event_type === "interaction.completed" ||
         event.event_type === "interaction.complete" ||
@@ -60,7 +80,7 @@ export const gemini = (pool = createStructuredStreamPool(), options) => {
       }
       return undefined;
     },
-    completeCalls,
+    (complete) => completeCalls(complete, true),
     "gemini",
     options,
     () => callsByIndex.clear(),

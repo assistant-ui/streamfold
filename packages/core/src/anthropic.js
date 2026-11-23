@@ -1,4 +1,5 @@
 import { createStructuredStreamPool } from "./index.js";
+import { streamError } from "./internal/errors.js";
 import { createIntegration } from "./internal/integration.js";
 
 export const anthropic = (pool = createStructuredStreamPool(), options) => {
@@ -50,7 +51,18 @@ export const anthropic = (pool = createStructuredStreamPool(), options) => {
       return undefined;
     },
     (complete) => {
-      for (const call of callsByIndex.values()) completeCall(complete, call);
+      for (const call of callsByIndex.values()) {
+        if (call.initialArguments !== undefined) {
+          throw streamError(
+            new Error(
+              `Anthropic stream ended before content_block_stop for tool call ${call.id}; consume the complete SDK stream or abort it.`,
+            ),
+            "INTEGRATION_ERROR",
+            { id: call.id },
+          );
+        }
+        completeCall(complete, call);
+      }
       callsByIndex.clear();
     },
     "anthropic",
