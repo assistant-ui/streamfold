@@ -633,8 +633,15 @@ Error codes include `UNEXPECTED_TOKEN`, `MISMATCHED_CLOSING`, `TRAILING_DATA`,
 `EMPTY_INPUT`, `INCOMPLETE_JSON`, `INVALID_JSON`, `PARSER_ERROR`,
 `MAX_BYTES_EXCEEDED`, `MAX_DEPTH_EXCEEDED`, `MAX_ACTIVE_STREAMS_EXCEEDED`,
 `DUPLICATE_STREAM`, `UNKNOWN_STREAM`, `STREAM_DISPOSED`, `INVALID_CHUNK`,
-`INVALID_OPTIONS`, and `INTEGRATION_ERROR`. Frozen upstream errors are rethrown
-unchanged if metadata cannot be attached.
+`INVALID_OPTIONS`, `INTEGRATION_ERROR`, and `WASM_TRAP`. Frozen upstream errors
+are rethrown unchanged if metadata cannot be attached.
+
+`WASM_TRAP` means the Rust parser crashed inside WebAssembly. It is a plain
+`Error` whose `cause` is the original `WebAssembly.RuntimeError`. Streamfold
+discards the crashed Wasm instance: the failing stream and every other open
+stream that shared it throw `WASM_TRAP` on their next operation, and new
+streams start on a fresh instance. Start a new stream to retry, and report the
+input if the crash repeats.
 
 `onDiagnostic` is optional; nothing is logged by default. Diagnostics include
 `code`, `message`, `adapter`, and relevant event/call context:

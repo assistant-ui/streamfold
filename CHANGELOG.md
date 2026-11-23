@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Report WebAssembly traps as structured `WASM_TRAP` errors with the original
+  `WebAssembly.RuntimeError` as `cause`. Streams sharing the crashed instance
+  fail closed, and new streams use a fresh instance.
+
 ## 0.1.21
 
 - Add `disableAssistantStream()` to unregister the optional shared parser backend, cancel pending initialization, and permit re-enabling without affecting existing parsers.

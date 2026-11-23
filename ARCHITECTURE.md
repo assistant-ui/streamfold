@@ -21,7 +21,8 @@ cleanup functions using numeric values and Wasm linear memory.
 
 `packages/core/src/internal/wasm-runtime.js`:
 
-1. lazily instantiates the embedded Wasm module once;
+1. lazily instantiates the embedded Wasm module once, replacing it only after
+   a trap (open streams on the trapped instance fail with `WASM_TRAP`);
 2. encodes each JavaScript fragment directly into a parser-owned Rust buffer;
 3. calls the Rust state transition;
 4. decodes compact path patches from Wasm linear memory;
