@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, mock, test } from "node:test";
-import { AssistantMessageStream, unstable_toolResultStream } from "assistant-stream";
+import {
+  AssistantMessageStream,
+  registerJsonParserBackend,
+  unstable_toolResultStream,
+} from "assistant-stream";
 import {
   IncrementalJsonObjectParser,
   getPartialJsonObjectMeta,
@@ -91,6 +95,68 @@ test("existing prefixes and chunk splits retain native parsing semantics", async
       assert.deepEqual(parser.append(input.slice(cut)).currentArgs, parsePartialJsonObject(input));
     }
   }
+});
+
+const parseChunks = (chunks) => {
+  let parser = IncrementalJsonObjectParser.from("");
+  return chunks.map((chunk) => {
+    parser = parser.append(chunk);
+    return [parser.currentArgs, getPartialJsonObjectMeta(parser.currentArgs)];
+  });
+};
+
+const parseNatively = (chunks) => {
+  // The newest registration wins, and a backend that returns undefined means native parsing.
+  const unregister = registerJsonParserBackend(() => undefined);
+  try {
+    return parseChunks(chunks);
+  } finally {
+    unregister();
+  }
+};
+
+test("malformed numbers in multi-character deltas match native parsing", async () => {
+  assert.equal(await initializeAssistantStream(), true);
+  const reported = ["{", '"a":01', ', "b":2'];
+  assert.deepEqual(
+    parseChunks(reported).map(([args, meta]) => [JSON.stringify(args), meta.partialPath]),
+    [
+      ["{}", []],
+      ["{}", []],
+      ["{}", []],
+    ],
+  );
+  assert.deepEqual(parseChunks(reported), parseNatively(reported));
+  for (const number of ["01", "-01", "00", "-", "1.", "1e", "1e+", "-.", "1.e1", "0.e", "1e+-"]) {
+    for (const input of [`{"a":${number}, "b":2}`, `{"a":[${number},2]}`]) {
+      for (let first = 1; first <= input.length; first++) {
+        for (let second = first; second <= input.length; second++) {
+          const chunks = [
+            input.slice(0, first),
+            input.slice(first, second),
+            input.slice(second),
+          ].filter((chunk) => chunk.length > 0);
+          assert.deepEqual(parseChunks(chunks), parseNatively(chunks), JSON.stringify(chunks));
+        }
+      }
+    }
+  }
+});
+
+test("valid numbers and literals split across deltas stay on Streamfold", async () => {
+  assert.equal(await initializeAssistantStream(), true);
+  const { push } = track();
+  const chunks = ['{"a":-1', "0.", "5e", "+", '3, "b":[0', ", 1E2, tr", "ue, fals", "e, 7", "]}"];
+  let parser = IncrementalJsonObjectParser.from("");
+  for (const chunk of chunks) parser = parser.append(chunk);
+  assert.deepEqual(JSON.parse(JSON.stringify(parser.currentArgs)), {
+    a: -10.5e3,
+    b: [0, 100, true, false, 7],
+  });
+  assert.deepEqual(
+    push.mock.calls.map((call) => call.arguments[0]),
+    chunks,
+  );
 });
 
 test("hyphens, complete emoji, and brace-ending prefixes stay on Streamfold", async () => {

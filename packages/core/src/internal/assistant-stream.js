@@ -3,6 +3,30 @@ import { createStructuredStream } from "../index.js";
 const samePath = (left, right) =>
   left.length === right.length && left.every((key, index) => key === right[index]);
 
+// assistant-stream's grammar for a number that later characters can still complete.
+const PARTIAL_NUMBER = /^-?$|^-?(?:0|[1-9]\d*)(?:\.\d*)?$|^-?(?:0|[1-9]\d*)(?:\.\d+)?[eE][+-]?\d*$/;
+const NUMBER_CHARACTERS = "0123456789.eE+-";
+
+// Returns the text of the number that ends the input so far, "" when a number
+// could start next, or undefined inside a string or a literal such as `true`.
+const trailingNumber = (previous, delta, inString) => {
+  if (inString) return undefined;
+  let start = delta.length;
+  while (start > 0 && NUMBER_CHARACTERS.includes(delta[start - 1])) start--;
+  const suffix = delta.slice(start);
+  const before = delta[start - 1];
+  const number =
+    before === undefined
+      ? previous === undefined
+        ? undefined
+        : previous + suffix
+      : before >= "a" && before <= "z"
+        ? undefined
+        : suffix;
+  // Only the first digit of a digit run affects validity, so runs keep two digits.
+  return number?.replace(/(\d)\d+/g, "$1$1");
+};
+
 class StreamfoldParser {
   owner = Symbol();
 
@@ -27,6 +51,7 @@ class StreamfoldParser {
       owner: Symbol(),
       containers: [],
       token: undefined,
+      number: "",
       closed: false,
     };
     const parser = new StreamfoldParser(session, fallback, createSnapshot);
@@ -41,6 +66,11 @@ class StreamfoldParser {
       if (/[\uD800-\uDFFF]/u.test(delta)) throw new Error("Use native partial parsing");
       const update = session.scanner.push(delta);
       if (delta.endsWith("-") && !update.inString) throw new Error("Use native partial parsing");
+      // Streamfold keeps the longest valid prefix of a malformed number until it
+      // ends, so `01` reads as 0. Native parsing never surfaces that value.
+      session.number = trailingNumber(session.number, delta, update.inString);
+      if (session.number !== undefined && !PARTIAL_NUMBER.test(session.number))
+        throw new Error("Use native partial parsing");
       this.trackPaths(update);
       const root = update.partialValue;
       if (root === null || Array.isArray(root) || (root !== undefined && typeof root !== "object"))
