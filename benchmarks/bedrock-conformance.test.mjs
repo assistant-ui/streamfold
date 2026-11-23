@@ -74,3 +74,48 @@ for (const stopReason of ["malformed_model_output", "malformed_tool_use", "end_t
     }
   });
 }
+
+test("AWS SDK tool blocks without argument text complete as empty objects", async () => {
+  const events = [
+    { messageStart: { role: "assistant" } },
+    { contentBlockStart: { contentBlockIndex: 0, start: { toolUse: { toolUseId: "no-delta", name: "now" } } } },
+    { contentBlockStop: { contentBlockIndex: 0 } },
+    { contentBlockStart: { contentBlockIndex: 1, start: { toolUse: { toolUseId: "empty-delta", name: "now" } } } },
+    { contentBlockDelta: { contentBlockIndex: 1, delta: { toolUse: { input: "" } } } },
+    { contentBlockStop: { contentBlockIndex: 1 } },
+    { messageStop: { stopReason: "tool_use" } },
+  ];
+  const client = new BedrockRuntimeClient({
+    region: "us-east-1",
+    credentials: { accessKeyId: "test-key", secretAccessKey: "test-secret" },
+    requestHandler: {
+      async handle() {
+        const source = (async function* () { yield* events; })();
+        const body = client.config.eventStreamMarshaller.serialize(source, (event) => {
+          const [type, payload] = Object.entries(event)[0];
+          return {
+            headers: {
+              ":message-type": { type: "string", value: "event" },
+              ":event-type": { type: "string", value: type },
+              ":content-type": { type: "string", value: "application/json" },
+            },
+            body: new TextEncoder().encode(JSON.stringify(payload)),
+          };
+        });
+        return { response: { statusCode: 200, headers: { "content-type": "application/vnd.amazon.eventstream" }, body } };
+      },
+    },
+  });
+  try {
+    const response = await client.send(new ConverseStreamCommand({
+      modelId: "test-model", messages: [{ role: "user", content: [{ text: "What time is it?" }] }],
+    }));
+    const completed = [];
+    for await (const update of readStructured(response.stream, { integration: bedrock })) {
+      if (update.type === "complete") completed.push([update.id, update.value]);
+    }
+    assert.deepEqual(completed, [["no-delta", {}], ["empty-delta", {}]]);
+  } finally {
+    client.destroy();
+  }
+});

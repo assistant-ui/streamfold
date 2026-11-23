@@ -147,6 +147,28 @@ export const createIntegration = (
   return stream;
 };
 
+const emptyObject = () => "{}";
+const hasText = (chunk) => typeof chunk === "string" && chunk.trim() !== "";
+
+// Tracks started calls that have received no non-whitespace argument text, so
+// adapters can complete them as `{}` the way the provider SDKs do.
+export const createEmptyArguments = () => {
+  const ids = new Set();
+  return {
+    start(update, id, initialChunk) {
+      if (update !== undefined && !hasText(initialChunk)) ids.add(id);
+      return update;
+    },
+    push(update, id, delta) {
+      if (hasText(delta)) ids.delete(id);
+      return update;
+    },
+    finalChunk: (id) => (ids.delete(id) ? emptyObject : undefined),
+    delete: (id) => ids.delete(id),
+    clear: () => ids.clear(),
+  };
+};
+
 export const append = (operations, id, delta) => {
   if (!operations.has(id) && operations.start(id) === undefined)
     return undefined;

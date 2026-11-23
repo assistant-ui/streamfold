@@ -1,8 +1,9 @@
 import { createStructuredStreamPool } from "./index.js";
-import { createIntegration } from "./internal/integration.js";
+import { createEmptyArguments, createIntegration } from "./internal/integration.js";
 
 export const bedrock = (pool = createStructuredStreamPool(), options) => {
   const idsByIndex = new Map();
+  const emptyArguments = createEmptyArguments();
   return createIntegration(
     pool,
     (event, calls) => {
@@ -23,7 +24,7 @@ export const bedrock = (pool = createStructuredStreamPool(), options) => {
         }
         const id = start.start.toolUse.toolUseId;
         if (id !== undefined) idsByIndex.set(start.contentBlockIndex, id);
-        return calls.start(id);
+        return emptyArguments.start(calls.start(id), id);
       }
       const delta = event.contentBlockDelta;
       if (delta?.delta?.toolUse) {
@@ -32,25 +33,30 @@ export const bedrock = (pool = createStructuredStreamPool(), options) => {
           calls.unmatched("Arguments delta has no matching tool block index");
           return undefined;
         }
-        return calls.push(id, delta.delta.toolUse.input ?? "");
+        const input = delta.delta.toolUse.input ?? "";
+        return emptyArguments.push(calls.push(id, input), id, input);
       }
       const stop = event.contentBlockStop;
       if (stop) {
         const id = idsByIndex.get(stop.contentBlockIndex);
         if (id !== undefined) {
           idsByIndex.delete(stop.contentBlockIndex);
-          return calls.complete(id);
+          return calls.complete(id, emptyArguments.finalChunk(id));
         }
       }
       return undefined;
     },
     (complete) => {
-      for (const id of idsByIndex.values()) complete(id);
+      for (const id of idsByIndex.values()) complete(id, emptyArguments.finalChunk(id));
       idsByIndex.clear();
+      emptyArguments.clear();
     },
     "bedrock",
     options,
-    () => idsByIndex.clear(),
+    () => {
+      idsByIndex.clear();
+      emptyArguments.clear();
+    },
   );
 };
 

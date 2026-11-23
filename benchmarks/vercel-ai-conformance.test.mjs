@@ -218,3 +218,17 @@ for (const format of ["full", "ui"]) {
     }
   }
 }
+
+for (const format of ["full", "ui"]) {
+  test(`${format} SDK streams complete tools without argument text as empty objects`, async () => {
+    for (const streamed of [false, true]) {
+      const result = sdkToolCall(streamed, z.object({}), { input: "" });
+      const source = format === "full" ? result.fullStream : result.toUIMessageStream();
+      const completed = [];
+      for await (const update of readStructured(source, { integration: vercelAI })) {
+        if (update.type === "complete") completed.push([update.id, update.value]);
+      }
+      assert.deepEqual(completed, [["weather-1", {}]]);
+    }
+  });
+}

@@ -126,6 +126,27 @@ test("AG-UI SDK run errors release pending parsers without fabricating completio
   assert.throws(() => stream.finish(), /Provider unavailable/);
 });
 
+test("AG-UI SDK tool calls without arguments complete as the client's empty object", async () => {
+  const agent = fixtureAgent([runStart, start("a"), end("a"), runEnd]);
+  const pool = createStructuredStreamPool();
+  const updates = [];
+  const clientArgs = [];
+  const errors = [];
+  await agent.runAgent({ runId: "run" }, {
+    ...subscriber(agUI(pool), updates, [], errors),
+    onToolCallEndEvent({ toolCallArgs }) {
+      clientArgs.push(toolCallArgs);
+    },
+  });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(clientArgs, [{}]);
+  assert.deepEqual(
+    updates.filter(({ type }) => type === "complete").map(({ id, text, value }) => [id, text, value]),
+    [["a", "{}", {}]],
+  );
+  assert.equal(pool.size, 0);
+});
+
 test("AG-UI SDK-delivered malformed arguments retain parser validation", async () => {
   const agent = fixtureAgent([runStart, start("a"), args("a", '{"city":'), end("a"), runEnd]);
   const pool = createStructuredStreamPool();
