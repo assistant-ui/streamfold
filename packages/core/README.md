@@ -5,6 +5,10 @@ Incremental structured state for streamed AI tool calls.
 Streamfold retains JSON parser and value state across deltas. Its embedded
 Rust/WebAssembly engine emits compact patches and works in Node.js 20+ and
 modern browsers without native build tools or provider SDK dependencies.
+It compiles Wasm at runtime, so it does not run in edge isolates such as
+Cloudflare Workers and Vercel Edge Functions, or on pages whose
+Content-Security-Policy blocks Wasm; those fail with
+[`WASM_COMPILE_BLOCKED`](https://github.com/assistant-ui/streamfold/blob/main/API.md#errors-and-diagnostics).
 
 ## Install
 

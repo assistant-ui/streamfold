@@ -98,7 +98,8 @@ export type StructuredStreamErrorCode =
   | "INVALID_CHUNK"
   | "INVALID_OPTIONS"
   | "INTEGRATION_ERROR"
-  | "WASM_TRAP";
+  | "WASM_TRAP"
+  | "WASM_COMPILE_BLOCKED";
 
 /** Metadata on the original SyntaxError, RangeError, TypeError, or Error. */
 export interface StructuredStreamError extends Error {

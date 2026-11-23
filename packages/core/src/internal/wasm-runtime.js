@@ -48,13 +48,33 @@ const decodeWasmBytes = () => {
   return bytes;
 };
 
+// The embedded bytes are fixed and valid, so a failure to compile them comes
+// from the runtime, not the input. Every compile failure is wrapped, not only
+// CompileError, so the code does not depend on how an engine reports a refusal.
+const compileBlockedError = (error) =>
+  streamError(
+    new Error(
+      `Streamfold could not compile its WebAssembly parser (${error?.message ?? error}). Streamfold compiles Wasm from bytes at runtime, which Cloudflare Workers, Vercel Edge Functions, and pages whose Content-Security-Policy blocks Wasm do not allow. Run it in Node.js instead of an edge isolate, or add 'wasm-unsafe-eval' to the page's script-src.`,
+      { cause: error },
+    ),
+    "WASM_COMPILE_BLOCKED",
+  );
+
+const compileWasmSync = () => {
+  const bytes = decodeWasmBytes();
+  try {
+    return new WebAssembly.Module(bytes);
+  } catch (error) {
+    throw compileBlockedError(error);
+  }
+};
+
 const getRuntime = () => {
   if (runtime !== undefined) return runtime;
   if (typeof WebAssembly !== "object") {
     throw new Error("Streamfold requires WebAssembly support");
   }
-  const module =
-    compiledModule ?? new WebAssembly.Module(decodeWasmBytes());
+  const module = compiledModule ?? compileWasmSync();
   runtime = {
     wasm: new WebAssembly.Instance(module, {}).exports,
     trap: undefined,
@@ -101,14 +121,18 @@ export const prepareWasm = () => {
     return Promise.reject(new Error("Streamfold requires WebAssembly support"));
   }
   try {
-    compiling = WebAssembly.compile(decodeWasmBytes()).then(
+    const bytes = decodeWasmBytes();
+    // The executor turns a synchronous throw into the same rejection.
+    compiling = new Promise((resolve) =>
+      resolve(WebAssembly.compile(bytes)),
+    ).then(
       (module) => {
         compiledModule = module;
         compiling = undefined;
       },
       (error) => {
         compiling = undefined;
-        throw error;
+        throw compileBlockedError(error);
       },
     );
   } catch (error) {

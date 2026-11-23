@@ -10,6 +10,10 @@ Streamfold turns fragmented tool-call JSON into live partial values. Its
 Rust/WebAssembly engine keeps parser state between deltas, avoiding a full
 reparse after every chunk. The ESM API works in Node.js 20+ and modern browsers
 without native build tools or provider SDK dependencies.
+It compiles Wasm at runtime, so it does not run in edge isolates such as
+Cloudflare Workers and Vercel Edge Functions, or on pages whose
+Content-Security-Policy blocks Wasm; those fail with
+[`WASM_COMPILE_BLOCKED`](API.md#errors-and-diagnostics).
 
 ## Install
 

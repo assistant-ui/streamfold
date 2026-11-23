@@ -34,6 +34,12 @@
   their next push or finish.
 - Document the copy-on-write cost of immutable snapshots on long arrays, with
   a reproducible benchmark and measured live/immutable medians and p95s.
+- Report runtimes that refuse to compile the embedded Wasm module as structured
+  `WASM_COMPILE_BLOCKED` errors with the original error as `cause`, instead of
+  a raw `CompileError` (or `INTEGRATION_ERROR` from `readStructured`). This
+  covers edge isolates such as Cloudflare Workers and Vercel Edge Functions and
+  pages whose Content-Security-Policy blocks Wasm, none of which can run
+  Streamfold.
 
 ## 0.1.21
 

@@ -17,6 +17,14 @@ event adapter from an integration subpath.
 Call `prepareStreamfold()` during idle time to compile the embedded module
 asynchronously. Scanner creation remains synchronous and uses the cached module.
 
+Streamfold compiles its embedded Wasm bytes at runtime, so it needs a runtime
+that allows that. CI tests it in Node.js, Chromium, Firefox, and WebKit.
+Cloudflare Workers and Vercel Edge Functions only run Wasm modules bundled at
+deploy time, and pages whose Content-Security-Policy `script-src` allows neither
+`'wasm-unsafe-eval'` nor `'unsafe-eval'` refuse to compile Wasm. There, scanner creation, `prepareStreamfold()`, and
+`readStructured` fail with
+[`WASM_COMPILE_BLOCKED`](#errors-and-diagnostics).
+
 ### Options
 
 | Option | Default | Applies to |
@@ -698,6 +706,17 @@ discards the crashed Wasm instance: the failing stream and every other open
 stream that shared it throw `WASM_TRAP` on their next operation, and new
 streams start on a fresh instance. Start a new stream to retry, and report the
 input if the crash repeats.
+
+`WASM_COMPILE_BLOCKED` means the runtime refused to compile Streamfold's
+embedded Wasm module, as edge isolates such as Cloudflare Workers and Vercel
+Edge Functions do, and as pages do when their Content-Security-Policy blocks
+Wasm. It is a plain `Error` whose `cause` is the original error
+from `new WebAssembly.Module()` or `WebAssembly.compile()`, usually a
+`WebAssembly.CompileError`. Scanner creation and pool `start()` throw it,
+`prepareStreamfold()` rejects with it, and `readStructured` and adapters report
+it with this code instead of `INTEGRATION_ERROR`. Nothing is cached, so each
+attempt compiles again. Parse in Node.js instead of an edge isolate, or add
+`'wasm-unsafe-eval'` to the page's `script-src`.
 
 `onDiagnostic` is optional; nothing is logged by default. Diagnostics include
 `code`, `message`, `adapter`, and relevant event/call context:
