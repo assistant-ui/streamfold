@@ -168,3 +168,41 @@ for (const pending of [false, true]) {
     assert.equal(readPastFailure, false);
   });
 }
+
+test("Google SDK streams reject empty function calls that end before step.stop", async () => {
+  const startStep = { event_type: "step.start", index: 0, step: { type: "function_call", id: "weather", name: "weather", arguments: {} } };
+  const stopStep = { event_type: "step.stop", index: 0 };
+  const completedInteraction = { event_type: "interaction.completed", interaction: { id: "interaction", status: "requires_action", object: "interaction" } };
+  for (const [events, expected] of [
+    [[startStep], undefined],
+    [[startStep, { event_type: "step.delta", index: 0, delta: { type: "arguments_delta", arguments: "" } }], undefined],
+    [[startStep, stopStep], {}],
+    [[startStep, stopStep, completedInteraction], {}],
+  ]) {
+    const client = new GoogleGenAI({
+      apiKey: "test-key",
+      httpOptions: {
+        fetch: async () => new Response(
+          events.map((event) => `event: ${event.event_type}\ndata: ${JSON.stringify(event)}\n\n`).join(""),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+      },
+    });
+    const source = await client.interactions.create({
+      model: "gemini-3.8-flash", input: "Weather?", stream: true,
+    });
+    const completed = [];
+    const read = async () => {
+      for await (const update of readStructured(source, { integration: gemini })) {
+        if (update.type === "complete") completed.push({ id: update.id, value: update.value });
+      }
+    };
+    if (expected === undefined) {
+      await assert.rejects(read, { code: "INTEGRATION_ERROR", id: "weather", adapter: "gemini" });
+      assert.deepEqual(completed, []);
+    } else {
+      await read();
+      assert.deepEqual(completed, [{ id: "weather", value: expected }]);
+    }
+  }
+});

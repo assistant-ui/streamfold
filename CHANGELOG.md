@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Behavior change:** Anthropic and Gemini streams that end right after a tool
+  call starts now fail with `INTEGRATION_ERROR` instead of completing the call
+  as `{}` (or as Anthropic's initial input). This covers a stream that ends after
+  `content_block_start` without `content_block_stop`, or after a Gemini
+  `step.start` without `step.stop`, when no argument text has arrived. Calls
+  with no arguments that are properly closed still complete as `{}`. LangChain
+  is unchanged because its chunks carry no closing event.
 - Complete tool calls with no argument text as `{}` in the Bedrock, Cohere,
   AG-UI, and Vercel adapters, matching Anthropic, Gemini, LangChain, and the
   `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument

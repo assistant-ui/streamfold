@@ -60,3 +60,30 @@ for (const api of ["standard", "beta"]) {
     }
   });
 }
+
+for (const api of ["standard", "beta"]) {
+  test(`Anthropic ${api} SDK rejects a stream that ends after a tool block starts`, async () => {
+    for (const [deltas, initial] of [[[], {}], [[""], {}], [[], { city: "Paris" }]]) {
+      const events = [
+        { type: "message_start", message: { id: "message", type: "message", role: "assistant", content: [], model: "test-model", stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 0 } } },
+        { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: "weather", input: initial } },
+        ...deltas.map((partial_json) => ({ type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json } })),
+      ];
+      const client = new Anthropic({
+        apiKey: "test-key",
+        fetch: async () => new Response(events.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(""), {
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+      });
+      const messages = api === "standard" ? client.messages : client.beta.messages;
+      const source = await messages.create({ model: "test-model", max_tokens: 32, messages: [{ role: "user", content: "Weather?" }], stream: true });
+      const completed = [];
+      await assert.rejects(async () => {
+        for await (const update of readStructured(source, { integration: anthropic })) {
+          if (update.type === "complete") completed.push(update);
+        }
+      }, { code: "INTEGRATION_ERROR", id: "toolu_1", adapter: "anthropic" });
+      assert.deepEqual(completed, []);
+    }
+  });
+}

@@ -405,10 +405,15 @@ and other non-tool SDK events can remain in the stream and are ignored.
 It collects `tool_use`, `server_tool_use`, and beta `mcp_tool_use` arguments;
 MCP tool-result blocks remain execution outcomes and are ignored.
 Initial tool input is retained at block completion
-or EOF when no nonempty argument delta arrives, including complete nonempty
+when no nonempty argument delta arrives, including complete nonempty
 objects. Initial input is subject to the same parser limits as streamed input.
 Once argument text arrives, it replaces the initial input and must form valid
 JSON; initial input never replaces incomplete or malformed arguments.
+If the stream ends after `content_block_start` but before `content_block_stop`
+and no nonempty argument delta has arrived, `finish()` and `readStructured`
+fail with `INTEGRATION_ERROR` (with the call's `id`) and abort pending calls
+instead of completing the initial input. A dropped connection never looks like
+a valid call.
 Pending Anthropic input metadata is released on terminal errors, failed
 finalization, and managed reader disposal, including cancellation and early
 return. Successful manual integrations still retain their completion history.
@@ -561,6 +566,9 @@ and the older `arguments` / `partial_arguments` shape. The empty object at
 `step.start` is a placeholder while deltas arrive. A call with no argument
 text retains `{}` at completion; nonempty initial arguments remain supported.
 Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
+At EOF, a call with no argument text completes as `{}` only after its
+`step.stop`; otherwise `finish()` and `readStructured` fail with
+`INTEGRATION_ERROR` (with the call's `id`) and abort pending calls.
 Interaction statuses `failed`, `cancelled`, `incomplete`, and `budget_exceeded`
 on completion or `interaction.status_update` events instead fail the reader
 and abort pending calls before finalization. The status is included in the
