@@ -256,11 +256,170 @@ struct LiteralToken {
     matched: usize,
 }
 
+/// Significant digits kept in partial patches for long numbers. Every midpoint
+/// between adjacent doubles has at most 768 significant decimal digits, so
+/// keeping more than that and appending a nonzero digit when any dropped digit
+/// is nonzero rounds to the same double as the full prefix.
+const NUMBER_PATCH_DIGITS: usize = 800;
+/// Exponents beyond this already round every prefix to zero or infinity.
+const NUMBER_EXPONENT_LIMIT: i64 = 1_000_000_000_000_000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NumberState {
+    Start,
+    Sign,
+    Zero,
+    Integer,
+    Point,
+    Fraction,
+    Exponent,
+    ExponentSign,
+    ExponentDigits,
+    Invalid,
+}
+
 #[derive(Debug)]
 struct NumberToken {
     path: Path,
     raw: Vec<u8>,
+    state: NumberState,
+    /// Length of the longest valid JSON number prefix of `raw`, or zero.
+    valid_length: usize,
     emitted_length: usize,
+    /// `raw[digits_start..digits_end]` holds the kept significant digits,
+    /// possibly with the decimal point between them.
+    digits_start: usize,
+    digits_end: usize,
+    significant_digits: usize,
+    /// A nonzero significant digit was dropped after `NUMBER_PATCH_DIGITS`.
+    truncated: bool,
+    /// The mantissa equals `0.<significant digits> * 10^point`.
+    point: i64,
+    exponent: i64,
+    exponent_negative: bool,
+}
+
+impl NumberToken {
+    fn new(path: Path, byte: u8) -> Self {
+        let mut number = Self {
+            path,
+            raw: Vec::new(),
+            state: NumberState::Start,
+            valid_length: 0,
+            emitted_length: 0,
+            digits_start: 0,
+            digits_end: 0,
+            significant_digits: 0,
+            truncated: false,
+            point: 0,
+            exponent: 0,
+            exponent_negative: false,
+        };
+        number.push(byte);
+        number
+    }
+
+    fn push(&mut self, byte: u8) {
+        let index = self.raw.len();
+        self.raw.push(byte);
+        self.state = match (self.state, byte) {
+            (NumberState::Start, b'-') => NumberState::Sign,
+            (NumberState::Start | NumberState::Sign, b'0') => NumberState::Zero,
+            (NumberState::Start | NumberState::Sign | NumberState::Integer, b'0'..=b'9') => {
+                self.point += 1;
+                self.push_significant_digit(index, byte);
+                NumberState::Integer
+            }
+            (NumberState::Zero | NumberState::Integer, b'.') => NumberState::Point,
+            (NumberState::Point | NumberState::Fraction, b'0'..=b'9') => {
+                if self.significant_digits == 0 && byte == b'0' {
+                    self.point -= 1;
+                } else {
+                    self.push_significant_digit(index, byte);
+                }
+                NumberState::Fraction
+            }
+            (NumberState::Zero | NumberState::Integer | NumberState::Fraction, b'e' | b'E') => {
+                NumberState::Exponent
+            }
+            (NumberState::Exponent, b'+') => NumberState::ExponentSign,
+            (NumberState::Exponent, b'-') => {
+                self.exponent_negative = true;
+                NumberState::ExponentSign
+            }
+            (
+                NumberState::Exponent | NumberState::ExponentSign | NumberState::ExponentDigits,
+                b'0'..=b'9',
+            ) => {
+                self.exponent =
+                    (self.exponent * 10 + i64::from(byte - b'0')).min(NUMBER_EXPONENT_LIMIT);
+                NumberState::ExponentDigits
+            }
+            _ => NumberState::Invalid,
+        };
+        if matches!(
+            self.state,
+            NumberState::Zero
+                | NumberState::Integer
+                | NumberState::Fraction
+                | NumberState::ExponentDigits
+        ) {
+            self.valid_length = self.raw.len();
+        }
+    }
+
+    fn push_significant_digit(&mut self, index: usize, byte: u8) {
+        if self.significant_digits == 0 {
+            self.digits_start = index;
+        }
+        self.significant_digits += 1;
+        if self.significant_digits <= NUMBER_PATCH_DIGITS {
+            self.digits_end = index + 1;
+        } else if byte != b'0' {
+            self.truncated = true;
+        }
+    }
+
+    fn is_valid(&self) -> bool {
+        self.valid_length == self.raw.len()
+    }
+
+    /// Writes text that `Number()` parses to the same value as the longest
+    /// valid prefix, in at most `NUMBER_PATCH_DIGITS` plus a few bytes.
+    fn write_partial_value(&self, output: &mut Vec<u8>) {
+        if self.valid_length <= NUMBER_PATCH_DIGITS {
+            output.extend_from_slice(&self.raw[..self.valid_length]);
+            return;
+        }
+        if self.raw[0] == b'-' {
+            output.push(b'-');
+        }
+        if self.significant_digits == 0 {
+            output.push(b'0');
+            return;
+        }
+        output.extend_from_slice(b"0.");
+        output.extend(
+            self.raw[self.digits_start..self.digits_end]
+                .iter()
+                .copied()
+                .filter(|&byte| byte != b'.'),
+        );
+        if self.truncated {
+            output.push(b'1');
+        } else {
+            while output.last() == Some(&b'0') {
+                output.pop();
+            }
+        }
+        output.push(b'e');
+        let exponent = if self.exponent_negative {
+            self.point - self.exponent
+        } else {
+            self.point + self.exponent
+        };
+        write_i64(output, exponent);
+    }
 }
 
 #[derive(Debug)]
@@ -331,7 +490,7 @@ impl PartialValueParser {
         match std::mem::replace(&mut self.token, Token::None) {
             Token::None => {}
             Token::Number(number) => {
-                if !valid_json_number(&number.raw) {
+                if !number.is_valid() {
                     self.token = Token::Number(number);
                     return Err(StreamError::InvalidJson {
                         offset: self.bytes_seen,
@@ -369,6 +528,13 @@ impl PartialValueParser {
     }
 
     fn consume(&mut self, byte: u8, offset: usize) -> Result<(), StreamError> {
+        // Number bytes update the token in place instead of moving it out.
+        if let Token::Number(number) = &mut self.token
+            && is_number_byte(byte)
+        {
+            number.push(byte);
+            return Ok(());
+        }
         let token = std::mem::replace(&mut self.token, Token::None);
         match token {
             Token::None => self.consume_structural(byte, offset),
@@ -393,21 +559,15 @@ impl PartialValueParser {
                     Ok(())
                 }
             }
-            Token::Number(mut number) => {
-                if is_number_byte(byte) {
-                    number.raw.push(byte);
+            Token::Number(number) => {
+                if !number.is_valid() {
                     self.token = Token::Number(number);
-                    Ok(())
-                } else {
-                    if !valid_json_number(&number.raw) {
-                        self.token = Token::Number(number);
-                        return Err(StreamError::InvalidJson { offset });
-                    }
-                    self.emit_number_if_changed(&number);
-                    self.emit_complete(&number.path);
-                    self.complete_value()?;
-                    self.consume_structural(byte, offset)
+                    return Err(StreamError::InvalidJson { offset });
                 }
+                self.emit_number_if_changed(&number);
+                self.emit_complete(&number.path);
+                self.complete_value()?;
+                self.consume_structural(byte, offset)
             }
         }
     }
@@ -508,11 +668,7 @@ impl PartialValueParser {
             b'f' => self.start_literal(path, LiteralKind::False),
             b'n' => self.start_literal(path, LiteralKind::Null),
             b'-' | b'0'..=b'9' => {
-                self.token = Token::Number(NumberToken {
-                    path,
-                    raw: vec![byte],
-                    emitted_length: 0,
-                });
+                self.token = Token::Number(NumberToken::new(path, byte));
             }
             _ => return Err(StreamError::InvalidJson { offset }),
         }
@@ -685,14 +841,17 @@ impl PartialValueParser {
                 self.output.push(PATCH_INVALIDATE);
                 encode_path(&mut self.output, &number.path);
             }
-            if let Some(prefix) = longest_valid_number_prefix(&number.raw)
-                && prefix.len() != number.emitted_length
-            {
+            if number.valid_length != 0 && number.valid_length != number.emitted_length {
                 self.output.push(PATCH_SET_NUMBER);
                 encode_path(&mut self.output, &number.path);
-                write_u32(&mut self.output, prefix.len());
-                self.output.extend_from_slice(prefix);
-                number.emitted_length = prefix.len();
+                let length_offset = self.output.len();
+                write_u32(&mut self.output, 0);
+                number.write_partial_value(&mut self.output);
+                let length = self.output.len() - length_offset - 4;
+                let length = u32::try_from(length).unwrap_or(u32::MAX);
+                self.output[length_offset..length_offset + 4]
+                    .copy_from_slice(&length.to_le_bytes());
+                number.emitted_length = number.valid_length;
             }
         }
         Ok(())
@@ -810,60 +969,182 @@ fn is_number_byte(byte: u8) -> bool {
     matches!(byte, b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E')
 }
 
-fn longest_valid_number_prefix(input: &[u8]) -> Option<&[u8]> {
-    let mut index = 0;
-    if input.get(index) == Some(&b'-') {
-        index += 1;
+fn write_i64(output: &mut Vec<u8>, value: i64) {
+    if value < 0 {
+        output.push(b'-');
     }
-
-    match input.get(index) {
-        Some(b'0') => index += 1,
-        Some(b'1'..=b'9') => {
-            index += 1;
-            while input.get(index).is_some_and(u8::is_ascii_digit) {
-                index += 1;
-            }
-        }
-        _ => return None,
-    }
-
-    let integer_end = index;
-    if input.get(index) == Some(&b'.') {
-        index += 1;
-        let start = index;
-        while input.get(index).is_some_and(u8::is_ascii_digit) {
-            index += 1;
-        }
-        if index == start {
-            return Some(&input[..integer_end]);
+    let mut digits = [0; 20];
+    let mut remaining = value.unsigned_abs();
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (remaining % 10) as u8;
+        remaining /= 10;
+        if remaining == 0 {
+            break;
         }
     }
-
-    let mantissa_end = index;
-    if matches!(input.get(index), Some(b'e' | b'E')) {
-        index += 1;
-        if matches!(input.get(index), Some(b'+' | b'-')) {
-            index += 1;
-        }
-        let start = index;
-        while input.get(index).is_some_and(u8::is_ascii_digit) {
-            index += 1;
-        }
-        if index == start {
-            return Some(&input[..mantissa_end]);
-        }
-    }
-
-    Some(&input[..index])
-}
-
-fn valid_json_number(input: &[u8]) -> bool {
-    longest_valid_number_prefix(input).is_some_and(|prefix| prefix.len() == input.len())
+    output.extend_from_slice(&digits[start..]);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The previous whole-prefix scan, kept as an oracle for the
+    /// incremental number state.
+    fn longest_valid_number_prefix(input: &[u8]) -> Option<&[u8]> {
+        let mut index = 0;
+        if input.get(index) == Some(&b'-') {
+            index += 1;
+        }
+
+        match input.get(index) {
+            Some(b'0') => index += 1,
+            Some(b'1'..=b'9') => {
+                index += 1;
+                while input.get(index).is_some_and(u8::is_ascii_digit) {
+                    index += 1;
+                }
+            }
+            _ => return None,
+        }
+
+        let integer_end = index;
+        if input.get(index) == Some(&b'.') {
+            index += 1;
+            let start = index;
+            while input.get(index).is_some_and(u8::is_ascii_digit) {
+                index += 1;
+            }
+            if index == start {
+                return Some(&input[..integer_end]);
+            }
+        }
+
+        let mantissa_end = index;
+        if matches!(input.get(index), Some(b'e' | b'E')) {
+            index += 1;
+            if matches!(input.get(index), Some(b'+' | b'-')) {
+                index += 1;
+            }
+            let start = index;
+            while input.get(index).is_some_and(u8::is_ascii_digit) {
+                index += 1;
+            }
+            if index == start {
+                return Some(&input[..mantissa_end]);
+            }
+        }
+
+        Some(&input[..index])
+    }
+
+    fn number_value(text: &[u8]) -> f64 {
+        std::str::from_utf8(text).unwrap().parse().unwrap()
+    }
+
+    fn partial_number_text(number: &NumberToken) -> Vec<u8> {
+        let mut text = Vec::new();
+        number.write_partial_value(&mut text);
+        text
+    }
+
+    fn assert_number_prefixes(input: &[u8]) {
+        let mut number = NumberToken::new(Vec::new(), input[0]);
+        for length in 1..=input.len() {
+            if length > 1 {
+                number.push(input[length - 1]);
+            }
+            let raw = &input[..length];
+            let prefix = longest_valid_number_prefix(raw);
+            assert_eq!(
+                number.valid_length,
+                prefix.map_or(0, <[u8]>::len),
+                "prefix {:?}",
+                String::from_utf8_lossy(raw)
+            );
+            assert_eq!(
+                number.is_valid(),
+                prefix.is_some_and(|prefix| prefix.len() == raw.len())
+            );
+            if let Some(prefix) = prefix {
+                let partial = partial_number_text(&number);
+                assert_eq!(
+                    number_value(&partial).to_bits(),
+                    number_value(prefix).to_bits(),
+                    "prefix {:?} as {:?}",
+                    String::from_utf8_lossy(prefix),
+                    String::from_utf8_lossy(&partial)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn incremental_number_state_matches_the_prefix_scan() {
+        const BYTES: &[u8] = b"019-+.eE";
+        let mut inputs: Vec<Vec<u8>> = b"-019".iter().map(|&byte| vec![byte]).collect();
+        while let Some(input) = inputs.pop() {
+            assert_number_prefixes(&input);
+            if input.len() < 7 {
+                inputs.extend(
+                    BYTES
+                        .iter()
+                        .map(|&byte| [input.as_slice(), &[byte]].concat()),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn long_number_patches_round_like_the_full_prefix() {
+        let midpoint = b"9007199254740993";
+        let long = |parts: &[&[u8]]| parts.concat();
+        for input in [
+            long(&[b"1", &[b'0'; 2000]]),
+            long(&[b"-0.", &[b'0'; 2000], b"7e-5"]),
+            long(&[b"0.", &[b'1'; 2000], b"e+12"]),
+            long(&[b"1", &[b'0'; 900], b"e-900"]),
+            long(&[midpoint, &[b'0'; 1200]]),
+            long(&[midpoint, &[b'0'; 1200], b"1"]),
+            long(&[midpoint, &[b'0'; 784], b"1"]),
+            long(&[midpoint, &[b'0'; 785], b"1e-801"]),
+            long(&[b"1.7976931348623158", &[b'0'; 1000], b"1e308"]),
+            long(&[b"2.4703282292062327", &[b'0'; 1000], b"1e-324"]),
+            long(&[b"1e", &[b'0'; 1000], b"9999999999999999999999"]),
+            long(&[b"1e-", &[b'9'; 1000]]),
+            long(&[b"0.", &[b'0'; 1000], b"e", &[b'9'; 1000]]),
+        ] {
+            assert_number_prefixes(&input);
+        }
+    }
+
+    #[test]
+    fn long_number_patches_stay_bounded_per_chunk() {
+        for (head, body, chunk_size) in [
+            (b"{\"n\":1".as_slice(), b'0', 16),
+            (b"{\"n\":0.", b'1', 16),
+            (b"{\"price\":0.", b'0', 3),
+            (b"{\"n\":1e", b'0', 16),
+        ] {
+            let mut input = head.to_vec();
+            input.resize(head.len() + 100_000, body);
+            let mut parser = PartialValueParser::new();
+            let mut patches = 0;
+            for chunk in input.chunks(chunk_size) {
+                parser.push(chunk).unwrap();
+                let length = parser.patch_bytes().len();
+                assert!(
+                    length <= 1024,
+                    "{length} patch bytes after {} input bytes",
+                    parser.bytes_seen
+                );
+                patches += usize::from(length > 0);
+            }
+            assert!(patches > 1);
+        }
+    }
 
     #[test]
     fn accepts_nested_values_one_byte_at_a_time() {

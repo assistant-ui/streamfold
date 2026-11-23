@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Parse numbers streamed in small chunks in linear time. Each chunk now extends
+  the number instead of rescanning it, and partial patches for numbers longer
+  than 800 characters carry a bounded form that rounds to the same value.
+
 ## 0.1.21
 
 - Add `disableAssistantStream()` to unregister the optional shared parser backend, cancel pending initialization, and permit re-enabling without affecting existing parsers.
