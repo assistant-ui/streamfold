@@ -31,7 +31,7 @@ const utf16Decoder = (() => {
     return undefined;
   }
 })();
-let exports;
+let runtime;
 let compiledModule;
 let compiling;
 
@@ -48,19 +48,50 @@ const decodeWasmBytes = () => {
   return bytes;
 };
 
-const getExports = () => {
-  if (exports !== undefined) return exports;
+const getRuntime = () => {
+  if (runtime !== undefined) return runtime;
   if (typeof WebAssembly !== "object") {
     throw new Error("Streamfold requires WebAssembly support");
   }
   const module =
     compiledModule ?? new WebAssembly.Module(decodeWasmBytes());
-  exports = new WebAssembly.Instance(module, {}).exports;
-  return exports;
+  runtime = {
+    wasm: new WebAssembly.Instance(module, {}).exports,
+    trap: undefined,
+  };
+  return runtime;
+};
+
+const wasmTrapError = (trap, message) =>
+  streamError(new Error(message, { cause: trap }), "WASM_TRAP");
+
+// A trap aborts Rust mid-call, so the instance's linear memory may be
+// inconsistent. Every parser on that instance fails closed, and new parsers get
+// a fresh instance. Arguments are forwarded rather than captured in a closure,
+// because an error's lazily formatted stack would keep that closure, and with it
+// the input chunk, alive.
+const callWasm = (target, operation, first, second) => {
+  if (target.trap !== undefined) {
+    throw wasmTrapError(
+      target.trap,
+      "Streamfold's WebAssembly parser crashed in another stream, so this stream's state is no longer reliable. Start a new stream to retry.",
+    );
+  }
+  try {
+    return operation(first, second);
+  } catch (error) {
+    if (!(error instanceof WebAssembly.RuntimeError)) throw error;
+    target.trap = error;
+    if (runtime === target) runtime = undefined;
+    throw wasmTrapError(
+      error,
+      `Streamfold's WebAssembly parser crashed (${error.message}). This stream cannot continue; start a new stream to retry, and report the input at https://github.com/assistant-ui/streamfold/issues if it happens again.`,
+    );
+  }
 };
 
 export const prepareWasm = () => {
-  if (exports !== undefined || compiledModule !== undefined)
+  if (runtime !== undefined || compiledModule !== undefined)
     return Promise.resolve();
   if (compiling !== undefined) return compiling;
   if (
@@ -281,10 +312,12 @@ const readPatches = (wasm, handle) => {
 };
 
 export const createWasmParser = ({ maxBytes, maxDepth }) => {
-  const wasm = getExports();
-  const handle = wasm.streamfold_parser_new(maxDepth, maxBytes);
+  const target = getRuntime();
+  const { wasm } = target;
+  const handle = callWasm(target, wasm.streamfold_parser_new, maxDepth, maxBytes);
   if (handle === 0) throw new Error("Unable to allocate the Rust parser");
   return {
+    runtime: target,
     wasm,
     handle,
     maxBytes,
@@ -294,7 +327,7 @@ export const createWasmParser = ({ maxBytes, maxDepth }) => {
 };
 
 const pushChunk = (parser, chunk) => {
-  if (chunk.length === 0) return { state: readWasmParser(parser), changes: [] };
+  if (chunk.length === 0) return { state: readParser(parser), changes: [] };
 
   // In Unicode mode this range matches lone surrogate code units, not valid
   // pairs. TextEncoder would silently replace them with U+FFFD, while the
@@ -343,10 +376,10 @@ export const pushWasmParser = (parser, chunk) => {
     }
   }
 
-  return pushChunk(parser, input);
+  return callWasm(parser.runtime, pushChunk, parser, input);
 };
 
-export const finishWasmParser = (parser) => {
+const finishParser = (parser) => {
   const { wasm, handle } = parser;
   const changes = [];
   if (parser.pendingHighSurrogate.length > 0) {
@@ -358,9 +391,18 @@ export const finishWasmParser = (parser) => {
   return { state, changes };
 };
 
-export const readWasmParser = (parser) =>
+export const finishWasmParser = (parser) =>
+  callWasm(parser.runtime, finishParser, parser);
+
+const readParser = (parser) =>
   readState(parser, parser.wasm.streamfold_parser_state(parser.handle));
 
-export const freeWasmParser = ({ wasm, handle }) => {
-  wasm.streamfold_parser_free(handle);
+export const readWasmParser = (parser) =>
+  callWasm(parser.runtime, readParser, parser);
+
+export const freeWasmParser = (parser) => {
+  // A trapped instance's allocator may be inconsistent; its memory is released
+  // with the instance instead.
+  if (parser.runtime.trap !== undefined) return;
+  callWasm(parser.runtime, parser.wasm.streamfold_parser_free, parser.handle);
 };
