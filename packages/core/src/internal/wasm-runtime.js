@@ -198,11 +198,17 @@ const readPathString = (view, cursor, length) => {
   return value;
 };
 
-const readPath = (view, cursor) => {
-  const length = view.getUint16(cursor.offset, true);
-  cursor.offset += 2;
-  const path = [];
-  for (let index = 0; index < length; index++) {
+// Each encoded path repeats only the segments after the prefix it shares with
+// the previous path, so key strings are decoded once and shared between patches.
+// Every patch gets its own copy because callers may mutate `change.path`.
+const readPath = (parser, view, cursor) => {
+  const shared = view.getUint16(cursor.offset, true);
+  const length = view.getUint16(cursor.offset + 2, true);
+  cursor.offset += 4;
+  if (length === 0) return [];
+  const path = parser.lastPath;
+  while (path.length > shared) path.pop();
+  for (let index = shared; index < length; index++) {
     const kind = view.getUint8(cursor.offset++);
     if (kind === 0) {
       const units = view.getUint32(cursor.offset, true);
@@ -215,7 +221,7 @@ const readPath = (view, cursor) => {
       cursor.offset += 4;
     }
   }
-  return path;
+  return path.slice();
 };
 
 const readNumber = (view, cursor) => {
@@ -235,7 +241,8 @@ const readNumber = (view, cursor) => {
   return Number(text);
 };
 
-const readPatches = (wasm, handle) => {
+const readPatches = (parser) => {
+  const { wasm, handle } = parser;
   const length = wasm.streamfold_parser_output_len(handle) >>> 0;
   if (length === 0) return [];
   const pointer = wasm.streamfold_parser_output(handle) >>> 0;
@@ -245,7 +252,7 @@ const readPatches = (wasm, handle) => {
 
   while (cursor.offset < length) {
     const operation = view.getUint8(cursor.offset++);
-    const path = readPath(view, cursor);
+    const path = readPath(parser, view, cursor);
     if (operation === PATCH_SET_OBJECT) {
       patches.push({ op: "set", path, value: {} });
     } else if (operation === PATCH_SET_ARRAY) {
@@ -290,6 +297,7 @@ export const createWasmParser = ({ maxBytes, maxDepth }) => {
     maxBytes,
     maxDepth,
     pendingHighSurrogate: "",
+    lastPath: [],
   };
 };
 
@@ -322,7 +330,7 @@ const pushChunk = (parser, chunk) => {
     length = result.written;
   }
   const state = readState(parser, wasm.streamfold_parser_push(handle, length));
-  return { state, changes: readPatches(wasm, handle) };
+  return { state, changes: readPatches(parser) };
 };
 
 export const pushWasmParser = (parser, chunk) => {
@@ -354,7 +362,7 @@ export const finishWasmParser = (parser) => {
     parser.pendingHighSurrogate = "";
   }
   const state = readState(parser, wasm.streamfold_parser_finish(handle));
-  changes.push(...readPatches(wasm, handle));
+  changes.push(...readPatches(parser));
   return { state, changes };
 };
 
