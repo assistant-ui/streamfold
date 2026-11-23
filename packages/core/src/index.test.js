@@ -546,6 +546,48 @@ test("malformed numeric continuations retain their last valid prefix until rejec
   }
 });
 
+test("numbers past the partial patch digit limit keep every streamed value", () => {
+  // The exact decimal of a subnormal midpoint has 768 significant digits.
+  const midpoint = ((2n ** 53n + 1n) * 5n ** 1075n).toString();
+  const subnormal = "0." + "0".repeat(1075 - midpoint.length) + midpoint;
+  const inputs = [
+    "1" + "0".repeat(2000),
+    "-0." + "0".repeat(2000) + "7",
+    "0." + "1".repeat(2000) + "e-5",
+    "9007199254740993" + "0".repeat(1200),
+    "9007199254740993" + "0".repeat(1200) + "1",
+    "9007199254740993" + "0".repeat(784) + "1e-801",
+    subnormal,
+    subnormal + "0".repeat(100),
+    subnormal + "0".repeat(100) + "1",
+    "1" + "0".repeat(900) + "e-900",
+  ];
+  for (const snapshots of ["live", "immutable"]) {
+    for (const input of inputs) {
+      for (const chunkSize of [3, 16]) {
+        const scanner = new IncrementalJsonScanner({ snapshots });
+        try {
+          scanner.push('{"n":');
+          let prefix = "";
+          for (let offset = 0; offset < input.length; offset += chunkSize) {
+            const chunk = input.slice(offset, offset + chunkSize);
+            prefix += chunk;
+            const completePrefix = prefix.replace(/(?:\.|[eE][+-]?)$/, "");
+            const update = scanner.push(chunk);
+            assert.deepEqual(update.partialValue, { n: JSON.parse(completePrefix) }, completePrefix);
+            assert.equal(scanner.getFieldState(["n"]), "partial");
+          }
+          scanner.push("}");
+          assert.deepEqual(scanner.finish().partialValue, { n: JSON.parse(input) });
+          assert.equal(scanner.getFieldState(["n"]), "complete");
+        } finally {
+          scanner.dispose();
+        }
+      }
+    }
+  }
+});
+
 test("decodes long numeric patches without a platform TextDecoder", () => {
   execFileSync(process.execPath, ["--input-type=module", "-e", `
     import assert from "node:assert/strict";
