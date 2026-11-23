@@ -9,6 +9,11 @@
   `step.start` without `step.stop`, when no argument text has arrived. Calls
   with no arguments that are properly closed still complete as `{}`. LangChain
   is unchanged because its chunks carry no closing event.
+- Complete tool calls with no argument text as `{}` in the Bedrock, Cohere,
+  AG-UI, and Vercel adapters, matching Anthropic, Gemini, LangChain, and the
+  `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument
+  text must still form valid JSON, and OpenAI Chat Completions still rejects
+  empty arguments.
 - Keep Wasm memory proportional to the input when a long object key sits above deep nesting or many values. The parser no longer copies key text into every nested frame and patch, so a 1 MB stream with one long key no longer traps after growing memory past 2 GiB. Patches and snapshots are unchanged.
 - Parse numbers streamed in small chunks in linear time. Each chunk now extends
   the number instead of rescanning it, and partial patches for numbers longer

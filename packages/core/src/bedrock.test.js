@@ -87,3 +87,31 @@ test("Bedrock malformed generation endings release pending calls and remain term
     }
   }
 });
+
+test("Bedrock tool blocks without argument text complete as empty objects", async () => {
+  for (const [name, inputs] of [["no-delta", []], ["empty-delta", [""]], ["missing-input", [undefined]], ["whitespace", [" ", "\n"]]]) {
+    for (const atEOF of [false, true]) {
+      const pool = createStructuredStreamPool();
+      const stream = bedrock(pool);
+      stream.pushAll(start(0, name));
+      for (const input of inputs) stream.pushAll(delta(0, input));
+      const completed = atEOF ? stream.finish() : stream.pushAll(stop(0));
+      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: name, text: "{}", value: {} }]);
+      assert.equal(pool.size, 0);
+    }
+  }
+  const events = [start(0, "no-args"), stop(0), start(1, "weather"), delta(1, '{"city":"Paris"}'), stop(1)];
+  const completed = [];
+  for await (const update of readStructured(events, { integration: bedrock })) {
+    if (update.type === "complete") completed.push([update.id, update.value]);
+  }
+  assert.deepEqual(completed, [["no-args", {}], ["weather", { city: "Paris" }]]);
+});
+
+test("Bedrock still rejects incomplete argument text after whitespace", () => {
+  const stream = bedrock();
+  stream.push(start(0, "partial"));
+  stream.push(delta(0, " "));
+  stream.push(delta(0, '{"city":'));
+  assert.throws(() => stream.push(stop(0)), { code: "INCOMPLETE_JSON" });
+});

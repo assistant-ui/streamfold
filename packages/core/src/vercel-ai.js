@@ -1,9 +1,13 @@
 import { createStructuredStream, createStructuredStreamPool } from "./index.js";
 import { annotateError } from "./internal/errors.js";
-import { createIntegration } from "./internal/integration.js";
+import { createEmptyArguments, createIntegration } from "./internal/integration.js";
 
 export const vercelAI = (pool = createStructuredStreamPool(), options) => {
   let inStep = false;
+  const emptyArguments = createEmptyArguments();
+  const completePending = (complete) => {
+    for (const id of pool.activeIds) complete(id, emptyArguments.finalChunk(id));
+  };
   return createIntegration(
     pool,
     (event, calls) => {
@@ -33,7 +37,7 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
         }
         // UI step endings omit the reason; pending inputs must wait for finish or EOF.
         if (event.type === "finish" || typeof event.finishReason === "string") {
-          for (const id of pool.activeIds) calls.complete(id);
+          completePending(calls.complete);
         }
         inStep = false;
         return undefined;
@@ -54,19 +58,27 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
         return undefined;
       }
 
-      if (event.type === "tool-input-start") return calls.start(id);
+      if (event.type === "tool-input-start") return emptyArguments.start(calls.start(id), id);
       if (event.type === "tool-input-delta") {
-        return calls.push(id, event.delta ?? event.inputTextDelta);
+        const delta = event.delta ?? event.inputTextDelta;
+        return emptyArguments.push(calls.push(id, delta), id, delta);
       }
       if (event.type === "tool-input-available" || event.type === "tool-call") {
+        emptyArguments.delete(id);
         return calls.complete(id, () => JSON.stringify(event.input));
       }
-      if (event.type === "tool-input-end" && !inStep) return calls.complete(id);
+      if (event.type === "tool-input-end" && !inStep) {
+        return calls.complete(id, emptyArguments.finalChunk(id));
+      }
       return undefined;
     },
-    undefined,
+    (complete) => {
+      completePending(complete);
+      emptyArguments.clear();
+    },
     "vercel-ai",
     options,
+    () => emptyArguments.clear(),
   );
 };
 

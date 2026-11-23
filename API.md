@@ -484,6 +484,11 @@ the SDK. Any received non-whitespace argument text must form valid JSON;
 incomplete or malformed arguments still fail. This applies to indexed calls and
 calls correlated only by ID.
 
+The Bedrock, Cohere, AG-UI, and Vercel adapters follow the same rule: a call
+that ends with omitted, empty, or whitespace-only argument text completes as
+`{}`, at its end event or at EOF. OpenAI Chat Completions still rejects empty
+arguments, as described above.
+
 Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
 returning a partial batch. It does not roll back previously returned live views.
@@ -504,7 +509,8 @@ input, including schema defaults and transforms. Calls still pending at a
 `finish-step` with a non-error finish reason finalize from their streamed
 arguments. UI `finish-step` events omit that reason, so pending calls stay open
 until `finish` or EOF. Outside SDK step boundaries, `tool-input-end` continues
-to complete a call immediately.
+to complete a call immediately; with no argument text it completes as `{}`, as
+`ai` does for empty tool input.
 `tool-call` and UI `tool-input-available` events also work without preceding
 deltas. Repeated completion events do not emit duplicate results.
 SDK `error` events, UI `tool-input-error` events, and `tool-call` events marked
@@ -534,8 +540,9 @@ For Cohere v2, pass `client.chatStream(...)` from `CohereClientV2` to
 `readStructured` with `integration: cohere`. Both the SDK's camelCase
 `toolCalls` payloads and decoded wire `tool_calls` payloads are accepted.
 Calls are correlated by index and expose the tool-call ID. They finish at
-`tool-call-end` or EOF. Text and tool-plan events are ignored; malformed JSON
-and generation error messages fail the integration. `ERROR` and `TIMEOUT`
+`tool-call-end` or EOF; a call with no argument text completes as `{}`. Text
+and tool-plan events are ignored; malformed JSON and generation error messages
+fail the integration. `ERROR` and `TIMEOUT`
 endings also fail when error text is absent, using either the SDK's
 `finishReason` or the wire's `finish_reason`. Pending calls are aborted, and
 the ending's delta is preserved as the error's `cause`. Previously emitted
@@ -546,7 +553,8 @@ For Amazon Bedrock, pass the `stream` returned by `ConverseStreamCommand` to
 `readStructured` with `integration: bedrock`. The adapter correlates tool-use
 blocks by `contentBlockIndex` and exposes `toolUseId` as the call ID. Text,
 reasoning, and metadata events are ignored. Calls complete at their block stop
-or EOF; malformed or truncated JSON fails and releases active parsers. Service
+or EOF. A tool block with no input delta, or only empty input, completes as
+`{}`; malformed or truncated JSON fails and releases active parsers. Service
 error events also fail the integration. The `malformed_model_output` and
 `malformed_tool_use` message stop reasons fail the reader and abort pending
 calls, preserving the message stop payload as `cause`. Previously emitted
@@ -573,7 +581,9 @@ Streaming `error` events also fail the reader and abort pending calls. The
 provider's message is preserved, with a fallback when omitted, and its error
 object (including the provider code) is available as `cause`.
 
-The AG-UI adapter completes arguments at `TOOL_CALL_END` or EOF. A `RUN_ERROR`
+The AG-UI adapter completes arguments at `TOOL_CALL_END` or EOF. A call with
+no `TOOL_CALL_ARGS` text completes as `{}`, the value `@ag-ui/client` passes to
+`onToolCallEndEvent`. A `RUN_ERROR`
 terminates the reader, emits `STREAM_ERROR`, and aborts every pending call
 without finalizing its arguments. The run message becomes the error message;
 the original event, including its provider code, is preserved as `cause`.

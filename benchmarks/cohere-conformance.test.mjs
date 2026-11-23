@@ -68,3 +68,22 @@ for (const finishReason of ["ERROR", "TIMEOUT"]) {
     assert.equal(closed, true);
   });
 }
+
+test("Cohere SDK tool calls without argument text complete as empty objects", async () => {
+  const events = [
+    { type: "message-start", id: "fixture", delta: { message: { role: "assistant" } } },
+    { type: "tool-call-start", index: 0, delta: { message: { tool_calls: { id: "now", type: "function", function: { name: "now", arguments: "" } } } } },
+    { type: "tool-call-end", index: 0 },
+    { type: "message-end", delta: { finish_reason: "TOOL_CALL" } },
+  ];
+  const client = new CohereClientV2({
+    token: "test-token",
+    fetch: async () => new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } }),
+  });
+  const source = await client.chatStream({ model: "command-a", messages: [{ role: "user", content: "What time is it?" }] });
+  const completed = [];
+  for await (const update of readStructured(source, { integration: cohere })) {
+    if (update.type === "complete") completed.push([update.id, update.value]);
+  }
+  assert.deepEqual(completed, [["now", {}]]);
+});

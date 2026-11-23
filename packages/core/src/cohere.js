@@ -1,8 +1,9 @@
 import { createStructuredStreamPool } from "./index.js";
-import { createIntegration } from "./internal/integration.js";
+import { createEmptyArguments, createIntegration } from "./internal/integration.js";
 
 export const cohere = (pool = createStructuredStreamPool(), options) => {
   const idsByIndex = new Map();
+  const emptyArguments = createEmptyArguments();
   return createIntegration(
     pool,
     (event, calls) => {
@@ -22,7 +23,8 @@ export const cohere = (pool = createStructuredStreamPool(), options) => {
         }
         const id = tool?.id;
         if (id !== undefined) idsByIndex.set(event.index, id);
-        return calls.start(id, tool?.function?.arguments ?? "");
+        const initial = tool?.function?.arguments ?? "";
+        return emptyArguments.start(calls.start(id, initial), id, initial);
       }
       if (event.type === "tool-call-delta") {
         const id = idsByIndex.get(event.index);
@@ -30,24 +32,29 @@ export const cohere = (pool = createStructuredStreamPool(), options) => {
           calls.unmatched("Arguments delta has no matching tool call index");
           return undefined;
         }
-        return calls.push(id, tool?.function?.arguments ?? "");
+        const delta = tool?.function?.arguments ?? "";
+        return emptyArguments.push(calls.push(id, delta), id, delta);
       }
       if (event.type === "tool-call-end") {
         const id = idsByIndex.get(event.index);
         if (id !== undefined) {
           idsByIndex.delete(event.index);
-          return calls.complete(id);
+          return calls.complete(id, emptyArguments.finalChunk(id));
         }
       }
       return undefined;
     },
     (complete) => {
-      for (const id of idsByIndex.values()) complete(id);
+      for (const id of idsByIndex.values()) complete(id, emptyArguments.finalChunk(id));
       idsByIndex.clear();
+      emptyArguments.clear();
     },
     "cohere",
     options,
-    () => idsByIndex.clear(),
+    () => {
+      idsByIndex.clear();
+      emptyArguments.clear();
+    },
   );
 };
 
