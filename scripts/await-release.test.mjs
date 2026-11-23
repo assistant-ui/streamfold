@@ -16,7 +16,7 @@ const retryRun = (overrides = {}) => ({
   ...overrides,
 });
 
-function runWaiter(t, { runs, versions = {}, head = "release-commit", npmVisibleAfter = 0, npmError = "npm error code E404", npmVersion = "0.1.14" }) {
+function runWaiter(t, { runs, versions = {}, releaseCommit = "release-commit", npmVisibleAfter = 0, npmError = "npm error code E404", npmVersion = "0.1.14" }) {
   const root = mkdtempSync(join(tmpdir(), "streamfold-await-release-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const dir of ["scripts", "packages/core", "bin"]) mkdirSync(join(root, dir), { recursive: true });
@@ -38,14 +38,14 @@ function runWaiter(t, { runs, versions = {}, head = "release-commit", npmVisible
       return schedule(callback, 0, ...args);
     };
   `);
-  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", "release-commit": "0.1.14", ...versions }, head, npmVisibleAfter, npmError, npmVersion }));
+  writeFileSync(fixture, JSON.stringify({ runs, versions: { "retry-commit": "0.1.14", "release-commit": "0.1.14", ...versions }, releaseCommit, npmVisibleAfter, npmError, npmVersion }));
   const shim = `#!${process.execPath}
     const { appendFileSync, readFileSync } = require("node:fs");
     const name = require("node:path").basename(process.argv[1]);
     const args = process.argv.slice(2);
     const fixture = JSON.parse(readFileSync(process.env.RELEASE_TEST_FIXTURE, "utf8"));
     appendFileSync(process.env.RELEASE_TEST_COMMANDS, JSON.stringify({ name, args }) + "\\n");
-    if (name === "git" && args[0] === "rev-parse") console.log(fixture.head);
+    if (name === "git" && args[0] === "log") console.log(fixture.releaseCommit);
     else if (name === "npm" && args[0] === "view") {
       const elapsed = Number(readFileSync(process.env.RELEASE_TEST_CLOCK, "utf8"));
       if (elapsed < fixture.npmVisibleAfter) {
@@ -86,10 +86,30 @@ test("recognizes a successful manual retry after a failed release push", (t) => 
   assert.match(result.stdout, /Published streamfold@0\.1\.14/);
 });
 
-test("finds the release push from a newer checkout", (t) => {
-  const result = runWaiter(t, { head: "workflow-fix", runs: [pushRun()] });
+test("finds the release commit the same way the Release workflow does", (t) => {
+  const result = runWaiter(t, { runs: [pushRun()] });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.watched, "1");
+  assert.deepEqual(result.calls[0], { name: "git", args: [
+    "log", "-1", "--format=%H", "-G^[[:space:]]*\"version\":", "--", "packages/core/package.json",
+  ] });
+});
+
+test("fails before listing runs when no commit set the version", (t) => {
+  const result = runWaiter(t, { runs: [pushRun()], releaseCommit: "" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Could not find the commit that set streamfold@0\.1\.14/);
+  assert.equal(result.calls.some(({ name }) => name === "gh"), false);
+});
+
+test("ignores a later non-release push that keeps the same version", (t) => {
+  const result = runWaiter(t, { runs: [
+    pushRun({ databaseId: 7, headSha: "dependency-pin", status: "pending", conclusion: "", watchExit: 1 }),
+    pushRun({ status: "waiting", conclusion: "", watchExit: 0 }),
+  ], versions: { "dependency-pin": "0.1.14" } });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.watched, "1");
+  assert.match(result.stdout, /Published streamfold@0\.1\.14/);
 });
 
 test("ignores runs for other versions or branches", (t) => {

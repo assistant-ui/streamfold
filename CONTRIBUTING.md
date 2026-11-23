@@ -212,9 +212,12 @@ provenance identifies the actual build commit. It skips npm publication if the
 version already exists and only adds a missing tag or GitHub release.
 
 After dispatching a retry, run `pnpm release:await` from a checkout with the
-version being released. The waiter selects the latest Release run on `main`
-for that commit or version. A failed run still exits with failure; a
-successful run must also be visible on npm before the command reports success.
+version being released. The waiter finds the commit that set that version, as
+the workflow does, and selects the latest Release run on `main` that is either
+the push of that commit or a manual retry at that version. A later push that
+keeps the version is not the release, so the waiter ignores it. A failed run
+still exits with failure; a successful run must also be visible on npm before
+the command reports success.
 Npm verification retries for up to five minutes, with increasing delays capped
 at 30 seconds and each query limited to the remaining window or 30 seconds.
 If verification times out, the command exits with failure, preserves the last

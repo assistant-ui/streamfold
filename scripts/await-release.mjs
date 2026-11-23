@@ -8,7 +8,19 @@ const packageJson = JSON.parse(
   ),
 );
 const version = packageJson.version;
-const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+// The commit that set the current package version, found the same way the
+// Release workflow finds it. Later pushes that keep this version also start a
+// Release run, but only the push of this commit is the release.
+const releaseCommit = execFileSync("git", [
+  "log", "-1", "--format=%H", "-G^[[:space:]]*\"version\":", "--",
+  "packages/core/package.json",
+], { encoding: "utf8" }).trim();
+if (releaseCommit === "") {
+  throw new Error(
+    `Could not find the commit that set streamfold@${version} in packages/core/package.json. ` +
+    "Run pnpm release:await from a checkout of main that includes the release commit.",
+  );
+}
 
 const wait = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -40,11 +52,12 @@ const findReleaseRun = () => {
     ],
     { encoding: "utf8" },
   );
-  // Releases run only on main: the push of a version bump, or a manual retry.
+  // Releases run only on main: the push of the version bump, or a manual
+  // retry of the current main version.
   return JSON.parse(output).find((run) =>
-    (run.event === "push" || run.event === "workflow_dispatch") &&
     run.headBranch === "main" &&
-    (run.headSha === commit || releaseVersion(run.headSha) === version));
+    ((run.event === "push" && run.headSha === releaseCommit) ||
+      (run.event === "workflow_dispatch" && releaseVersion(run.headSha) === version)));
 };
 
 let releaseRun;
