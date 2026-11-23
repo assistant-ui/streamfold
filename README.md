@@ -188,7 +188,9 @@ preserve their native `SyntaxError` or `RangeError` type and include a stable
 `code`, a UTF-8 `byteOffset`, and call/event context where available.
 
 LangChain chunks can identify a call by index or, when the index is absent,
-by call ID. Each unindexed fragment must carry its call ID.
+by call ID. Each unindexed fragment must carry its call ID. As with
+LangChain's `concat`, a new call ID at an index already in use starts a
+separate call; the previous call at that index completes first.
 
 For a custom event protocol, `defineAdapter(mapEvent)` accepts a synchronous
 mapper returning `start`, `delta`, `end`, or `abort` operations. Each factory

@@ -5,13 +5,22 @@ export const langchain = (pool = createStructuredStreamPool(), options) => {
   const idsByIndex = new Map();
   const emptyArguments = new Set();
 
+  const finishCall = (complete, id) => {
+    const result = complete(id, emptyArguments.has(id) ? () => "{}" : undefined);
+    emptyArguments.delete(id);
+    return result;
+  };
+
   return createIntegration(
     pool,
     (message, calls) => {
       let update;
       for (const chunk of message.tool_call_chunks ?? []) {
         let id = idsByIndex.get(chunk.index);
-        if (id === undefined && chunk.id) {
+        if (chunk.id && chunk.id !== id) {
+          // LangChain's concat keeps a new id at a known index as a separate
+          // call, so the previous call is finished before the index moves on.
+          if (id !== undefined) update = finishCall(calls.complete, id);
           id = chunk.id;
           if (chunk.index !== undefined) idsByIndex.set(chunk.index, id);
           if (!calls.has(id)) {
@@ -29,10 +38,8 @@ export const langchain = (pool = createStructuredStreamPool(), options) => {
       return update;
     },
     (complete) => {
-      const completeCall = (id) =>
-        complete(id, emptyArguments.has(id) ? () => "{}" : undefined);
-      for (const id of idsByIndex.values()) completeCall(id);
-      for (const id of pool.activeIds) completeCall(id);
+      for (const id of idsByIndex.values()) finishCall(complete, id);
+      for (const id of pool.activeIds) finishCall(complete, id);
       idsByIndex.clear();
       emptyArguments.clear();
     },
