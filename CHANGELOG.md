@@ -16,11 +16,13 @@
   empty arguments.
 - Keep Wasm memory proportional to the input when a long object key sits above deep nesting or many values. The parser no longer copies key text into every nested frame and patch, so a 1 MB stream with one long key no longer traps after growing memory past 2 GiB. Patches and snapshots are unchanged.
 - Parse numbers streamed in small chunks in linear time. Each chunk now extends
-  the number instead of rescanning it, and partial patches for numbers longer
-  than 800 characters carry a bounded form that rounds to the same value.
+  the number instead of rescanning it. Partial values and patches are unchanged.
 - Report WebAssembly traps as structured `WASM_TRAP` errors with the original
-  `WebAssembly.RuntimeError` as `cause`. Streams sharing the crashed instance
-  fail closed, and new streams use a fresh instance.
+  `WebAssembly.RuntimeError` as `cause`. New streams use a fresh instance.
+  **Behavior change:** the thrown error is now a plain `Error`, so
+  `instanceof WebAssembly.RuntimeError` checks must test `error.cause`. Other
+  open streams on the crashed instance now fail closed with `WASM_TRAP` on
+  their next push or finish.
 - Document the copy-on-write cost of immutable snapshots on long arrays, with
   a reproducible benchmark and measured live/immutable medians and p95s.
 

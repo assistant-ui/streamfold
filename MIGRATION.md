@@ -102,6 +102,8 @@ Import the adapter matching your decoded event stream:
 | OpenAI Responses | `openAI` from `streamfold/openai` |
 | OpenAI Chat Completions (since 0.1.20) | `openAIChatCompletions` from `streamfold/openai` |
 | Anthropic Messages | `streamfold/anthropic` |
+| Cohere v2 Chat (since 0.1.15) | `streamfold/cohere` |
+| Amazon Bedrock ConverseStream (since 0.1.15) | `streamfold/bedrock` |
 | Gemini Interactions | `streamfold/gemini` |
 | LangChain message chunks | `streamfold/langchain` |
 | AG-UI events | `streamfold/ag-ui` |
@@ -166,10 +168,13 @@ a React component.
 For explicit cancellation, create the adapter with a shared pool and call
 `pool.abort(toolCallId)`. An adapter error aborts every active call.
 
-`assistant-stream` remains a development-only dependency in this repository so
-the conformance suite can compare behavior with its existing partial parser.
-The published `streamfold/assistant-ui` adapter imports no assistant-stream or
-assistant-ui runtime code; it depends only on the event shape above.
+The `streamfold/assistant-ui` adapter itself depends only on the event shape
+above and loads no assistant-stream or assistant-ui runtime code.
+`initializeAssistantStream()` is the exception: it loads `assistant-stream`
+with a dynamic import, so install it when you opt into the shared parser.
+`assistant-stream` is an optional peer dependency; this repository also keeps
+it as a development dependency so the conformance suite can compare behavior
+with its existing partial parser.
 
 ## 6. Add an unsupported protocol
 
@@ -207,8 +212,7 @@ for await (const update of readStructured(decodedEvents, {
 application. Pass the same signal to the transport to cancel network activity.
 Use the [runnable examples](examples/README.md) for complete, credential-free
 programs and `streamfold/testing` contract tests for a custom protocol. The
-signal option and test kit are additions after 0.1.5; use the current source
-branch until the next version is published.
+signal option and test kit require 0.1.6 or later.
 
 ## 7. Roll out safely
 
