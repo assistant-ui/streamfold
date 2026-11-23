@@ -420,8 +420,13 @@ JSON; initial input never replaces incomplete or malformed arguments.
 If the stream ends after `content_block_start` but before `content_block_stop`
 and no nonempty argument delta has arrived, `finish()` and `readStructured`
 fail with `INTEGRATION_ERROR` (with the call's `id`) and abort pending calls
-instead of completing the initial input. A dropped connection never looks like
-a valid call.
+instead of completing the initial input, even a complete nonempty one.
+Streamed argument text follows the [end-of-stream rule](#end-of-stream): text
+that already forms complete JSON, such as `{"city":"SF"}`, completes without
+`content_block_stop`, including after `message_stop`, and incomplete text fails
+with `INCOMPLETE_JSON`. A whitespace-only delta such as `" "` is argument text:
+it replaces the initial input, and the call fails with `EMPTY_INPUT` whether or
+not its block closes. The SDK's own `partialParse(" ")` throws too.
 Pending Anthropic input metadata is released on terminal errors, failed
 finalization, and managed reader disposal, including cancellation and early
 return. Successful manual integrations still retain their completion history.
@@ -497,8 +502,57 @@ that ends with omitted, empty, or whitespace-only argument text completes as
 `{}` once its closing event arrives. If the stream ends before that event, the
 call is treated as cut off, not as a call with no arguments: `finish()` and
 `readStructured` fail with `INTEGRATION_ERROR` (with the call's `id`) and abort
-pending calls. Anthropic and Gemini apply the same rule. OpenAI Chat
+pending calls. Anthropic and Gemini apply the same rule to calls with no
+argument text, but not to whitespace: a call whose only argument text is
+whitespace fails with `EMPTY_INPUT`, closed or not. OpenAI Responses,
+assistant-ui, and `defineAdapter` adapters never replace missing arguments with
+`{}`; empty and whitespace-only calls fail with `EMPTY_INPUT`. OpenAI Chat
 Completions still rejects empty arguments, as described above.
+
+#### End of stream
+
+A closed JSON value can't grow, so a call whose argument text already forms
+complete JSON needs no closing event. When the source ends (`finish()`, or the
+end of a `readStructured` source), every adapter except OpenAI Chat Completions
+finalizes each open call from the argument text it has received:
+
+- Complete JSON, such as `{"city":"SF"}`, completes.
+- Incomplete JSON, such as `{"city":"S`, fails with `INCOMPLETE_JSON`.
+- No argument text fails with `INTEGRATION_ERROR` (with the call's `id`) in
+  adapters that complete closed empty calls as `{}`, because the call was cut
+  off rather than called with no arguments. It fails with `EMPTY_INPUT` in the
+  adapters that reject empty arguments. LangChain has no per-call closing
+  event, so EOF closes its calls.
+
+OpenAI Chat Completions is the exception: a choice completes only on its
+`finish_reason`, so EOF with an open call fails with `INTEGRATION_ERROR`, even
+when its argument text is complete JSON. Every failure aborts the adapter's
+pending calls.
+
+The first four outcome columns describe a call still open at EOF; the last two
+describe a call whose closing event arrived. "Completes" means the call
+finishes with the parsed argument text.
+
+| Adapter | Closing event | Complete JSON | Incomplete JSON | No text | Whitespace only | No text, closed | Whitespace only, closed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Anthropic, including beta | `content_block_stop` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `{}` | `EMPTY_INPUT` |
+| Gemini, `step.start` with `arguments: {}` | `step.stop` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `{}` | `EMPTY_INPUT` |
+| Gemini, `step.start` without `arguments` | `step.stop` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| Cohere | `tool-call-end` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| Bedrock | `contentBlockStop` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| AG-UI | `TOOL_CALL_END` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| Vercel `fullStream` | `tool-input-end`, `tool-call` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| Vercel UI stream | `tool-input-end`, `tool-input-available` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| LangChain | None; EOF closes every call | Completes | `INCOMPLETE_JSON` | `{}` | `{}` | `{}` | `{}` |
+| assistant-ui | `tool-call-args-text-finish` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| OpenAI Responses | `response.function_call_arguments.done` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| `defineAdapter` | `{ type: "end" }` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| OpenAI Chat Completions | `finish_reason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+
+Arguments a provider supplies whole, such as Gemini's nonempty `step.start`
+arguments, Vercel's `tool-call` input, or OpenAI's `.done` arguments, follow
+the same JSON checks. Anthropic's initial `input` from `content_block_start`
+is the exception described above: it is used only once its block closes.
 
 Failures remain terminal and abort all active calls in the adapter's pool.
 If an event changes several calls and then fails, `pushAll` throws without
@@ -523,7 +577,9 @@ until `finish` or EOF. A pending call with no argument text completes as `{}`
 there only if `tool-input-end` already closed it. Otherwise the `finish-step`,
 `finish`, or EOF fails with `INTEGRATION_ERROR` (with the call's `id`; a finish
 event is preserved as `cause`), whatever the finish reason. `length` and
-`content-filter` mean the model was stopped, so they never close a call.
+`content-filter` mean the model was stopped, so they never close an empty call;
+a pending call whose argument text is already complete JSON still completes
+there, as it would at EOF.
 Outside SDK step boundaries, `tool-input-end` continues to complete a call
 immediately; with no argument text it completes as `{}`, as `ai` does for
 empty tool input.
@@ -585,6 +641,9 @@ The Gemini adapter accepts the Interactions API's `arguments_delta` events
 and the older `arguments` / `partial_arguments` shape. The empty object at
 `step.start` is a placeholder while deltas arrive. A call with no argument
 text retains `{}` at completion; nonempty initial arguments remain supported.
+A `step.start` without `arguments` (or with `null` or `""`) has no placeholder:
+the call completes only from argument text, and with none it fails with
+`EMPTY_INPUT`, even after `step.stop`.
 Calls finalize at `interaction.completed`, `interaction.complete`, or EOF.
 At EOF, a call with no argument text completes as `{}` only after its
 `step.stop`; otherwise `finish()` and `readStructured` fail with
@@ -697,7 +756,8 @@ Error codes include `UNEXPECTED_TOKEN`, `MISMATCHED_CLOSING`, `TRAILING_DATA`,
 `EMPTY_INPUT`, `INCOMPLETE_JSON`, `INVALID_JSON`, `PARSER_ERROR`,
 `MAX_BYTES_EXCEEDED`, `MAX_DEPTH_EXCEEDED`, `MAX_ACTIVE_STREAMS_EXCEEDED`,
 `DUPLICATE_STREAM`, `UNKNOWN_STREAM`, `STREAM_DISPOSED`, `INVALID_CHUNK`,
-`INVALID_OPTIONS`, `INTEGRATION_ERROR`, and `WASM_TRAP`. Frozen upstream errors
+`INVALID_OPTIONS`, `INTEGRATION_ERROR`, `WASM_TRAP`, and `WASM_COMPILE_BLOCKED`.
+Frozen upstream errors
 are rethrown unchanged if metadata cannot be attached.
 
 `WASM_TRAP` means the Rust parser crashed inside WebAssembly. It is a plain

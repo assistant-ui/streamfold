@@ -97,6 +97,47 @@ test("Gemini completes empty arguments closed by step.stop or interaction comple
   }
 });
 
+test("Gemini rejects whitespace-only argument text with EMPTY_INPUT", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const stepStop of [false, true]) {
+      const pool = createStructuredStreamPool();
+      const stream = gemini(pool);
+      stream[method](start(0, "weather"));
+      stream[method](delta(0, " "));
+      if (stepStop) stream[method]({ event_type: "step.stop", index: 0 });
+      assert.throws(() => stream.finish(), {
+        code: "EMPTY_INPUT",
+        id: "weather",
+        adapter: "gemini",
+      });
+      assert.equal(pool.size, 0);
+    }
+  }
+});
+
+test("Gemini rejects a step.start without arguments that receives no argument text", () => {
+  for (const step of [
+    { type: "function_call", id: "weather", name: "weather" },
+    { type: "function_call", id: "weather", name: "weather", arguments: null },
+    { type: "function_call", id: "weather", name: "weather", arguments: "" },
+  ]) {
+    for (const closing of [
+      [],
+      [{ event_type: "step.stop", index: 0 }],
+      [{ event_type: "step.stop", index: 0 }, { event_type: "interaction.completed" }],
+    ]) {
+      const pool = createStructuredStreamPool();
+      const stream = gemini(pool);
+      stream.pushAll({ event_type: "step.start", index: 0, step });
+      assert.throws(() => {
+        for (const event of closing) stream.pushAll(event);
+        stream.finish();
+      }, { code: "EMPTY_INPUT", id: "weather", adapter: "gemini" });
+      assert.equal(pool.size, 0);
+    }
+  }
+});
+
 test("Gemini validates streamed arguments and releases all calls on failure", () => {
   for (const [limits, text, code] of [
     [{ maxBytes: 8 }, '{"city":"Paris"}', "MAX_BYTES_EXCEEDED"],
