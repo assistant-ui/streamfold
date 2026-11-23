@@ -23,6 +23,11 @@ export const agUI = (pool = createStructuredStreamPool(), options) => {
       return undefined;
     },
     (complete) => {
+      emptyArguments.assertClosed(
+        pool,
+        (id) =>
+          `AG-UI stream ended before TOOL_CALL_END for tool call ${id}; consume the complete event stream or abort it.`,
+      );
       for (const id of pool.activeIds) complete(id, emptyArguments.finalChunk(id));
       emptyArguments.clear();
     },

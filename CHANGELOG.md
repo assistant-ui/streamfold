@@ -9,6 +9,15 @@
   `step.start` without `step.stop`, when no argument text has arrived. Calls
   with no arguments that are properly closed still complete as `{}`. LangChain
   is unchanged because its chunks carry no closing event.
+- **Behavior change:** Bedrock, Cohere, AG-UI, and Vercel streams that end
+  before an empty tool call closes now fail with `INTEGRATION_ERROR` and the
+  call's `id`, instead of completing it as `{}`. A call that only received
+  `contentBlockStart`, `tool-call-start`, `TOOL_CALL_START`, or
+  `tool-input-start` no longer looks like a valid call with no arguments. In
+  Vercel, a `finish-step` or `finish` (including `length` and
+  `content-filter`) that arrives before `tool-input-end`, `tool-call`, or
+  `tool-input-available` fails the same way. Properly closed calls with no
+  arguments still complete as `{}`.
 - Complete tool calls with no argument text as `{}` in the Bedrock, Cohere,
   AG-UI, and Vercel adapters, matching Anthropic, Gemini, LangChain, and the
   `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument

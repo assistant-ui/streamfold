@@ -47,6 +47,11 @@ export const bedrock = (pool = createStructuredStreamPool(), options) => {
       return undefined;
     },
     (complete) => {
+      emptyArguments.assertClosed(
+        pool,
+        (id) =>
+          `Bedrock stream ended before contentBlockStop for tool use ${id}; consume the complete SDK stream or abort it.`,
+      );
       for (const id of idsByIndex.values()) complete(id, emptyArguments.finalChunk(id));
       idsByIndex.clear();
       emptyArguments.clear();

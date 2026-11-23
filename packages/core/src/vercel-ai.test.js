@@ -188,8 +188,15 @@ test("Vercel tool inputs without argument text complete as empty objects", () =>
     assert.deepEqual(stream.pushAll({ type: "tool-call", toolCallId: "no-args", toolName: "now", input: {} }), []);
     assert.equal(pool.size, 0);
 
-    // Inside SDK steps, a finish reason or EOF completes calls without a tool-call event.
-    for (const ending of [{ type: "finish-step", finishReason: "tool-calls" }, { type: "finish", finishReason: "tool-calls" }, undefined]) {
+    // Inside SDK steps, a call closed by tool-input-end completes at a finish
+    // reason or EOF without a tool-call event, even when the step was truncated.
+    for (const ending of [
+      { type: "finish-step", finishReason: "tool-calls" },
+      { type: "finish-step", finishReason: "length" },
+      { type: "finish-step", finishReason: "content-filter" },
+      { type: "finish", finishReason: "tool-calls" },
+      undefined,
+    ]) {
       const pool = createStructuredStreamPool();
       const stream = vercelAI(pool);
       stream.pushAll({ type: "start-step" });
@@ -199,6 +206,67 @@ test("Vercel tool inputs without argument text complete as empty objects", () =>
       const completed = ending === undefined ? stream.finish() : stream.pushAll(ending);
       assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
       assert.equal(pool.size, 0);
+    }
+  }
+});
+
+test("Vercel fails closed when a step or stream ends before an empty tool input closes", async () => {
+  const endings = [
+    ...["stop", "tool-calls", "length", "content-filter", "interrupted", "other"].flatMap((finishReason) => [
+      [{ type: "finish-step", finishReason }],
+      [{ type: "finish", finishReason }],
+    ]),
+    // UI streams omit the step reason and have no tool-input-end; finish or EOF decides.
+    [{ type: "finish-step" }, { type: "finish" }],
+    [{ type: "finish-step" }],
+    [],
+  ];
+  for (const method of ["push", "pushAll"]) {
+    for (const deltas of [[], [""], [" ", "\n"]]) {
+      for (const ending of endings) {
+        const diagnostics = [];
+        const pool = createStructuredStreamPool();
+        const stream = vercelAI(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+        stream[method]({ type: "start-step" });
+        stream[method]({ type: "tool-input-start", id: "other", toolName: "weather" });
+        stream[method]({ type: "tool-input-delta", id: "other", delta: '{"city":"Paris"}' });
+        stream[method]({ type: "tool-input-start", id: "no-args", toolName: "now" });
+        for (const delta of deltas) stream[method]({ type: "tool-input-delta", id: "no-args", delta });
+        const closing = ending.find((event) => event.type === "finish" || event.finishReason !== undefined);
+        for (const event of ending.filter((event) => event !== closing)) assert.deepEqual(stream.pushAll(event), []);
+        let failure;
+        assert.throws(() => (closing === undefined ? stream.finish() : stream[method](closing)), (error) => {
+          failure = error;
+          assert.equal(error.code, "INTEGRATION_ERROR");
+          assert.equal(error.id, "no-args");
+          assert.equal(error.adapter, "vercel-ai");
+          if (closing !== undefined) {
+            assert.equal(error.cause, closing);
+            const reason = closing.finishReason === undefined ? "" : ` \\(${closing.finishReason}\\)`;
+            assert.match(error.message, new RegExp(`${closing.type}${reason} arrived before tool call no-args`));
+          } else {
+            assert.match(error.message, /stream ended before tool call no-args/);
+          }
+          return true;
+        });
+        assert.equal(pool.size, 0);
+        assert.throws(() => stream.finish(), (error) => error === failure);
+        assert.deepEqual(diagnostics.map(({ code, id }) => ({ code, id })), [{ code: "STREAM_ERROR", id: "no-args" }]);
+      }
+    }
+  }
+  for (const snapshots of ["live", "immutable"]) {
+    for (const ending of [[], [{ type: "finish-step", finishReason: "length" }]]) {
+      const completed = [];
+      await assert.rejects(async () => {
+        for await (const update of readStructured(
+          [{ type: "start-step" }, { type: "tool-input-start", id: "no-args", toolName: "now" }, ...ending],
+          { integration: vercelAI, limits: { snapshots } },
+        )) {
+          if (update.type === "complete") completed.push(update);
+        }
+      }, { code: "INTEGRATION_ERROR", id: "no-args", adapter: "vercel-ai" });
+      assert.deepEqual(completed, []);
     }
   }
 });

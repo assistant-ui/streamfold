@@ -69,17 +69,16 @@ test("AG-UI preserves successful argument completion and ignores tool execution 
   assert.deepEqual(stream.finish().map(({ value }) => value), [{ city: "Paris" }]);
 });
 
-test("AG-UI tool calls without argument text complete as empty objects", async () => {
+test("AG-UI tool calls without argument text complete as empty objects at TOOL_CALL_END", async () => {
   for (const deltas of [[], [""], [" ", "\n"]]) {
-    for (const atEOF of [false, true]) {
-      const pool = createStructuredStreamPool();
-      const stream = agUI(pool);
-      stream.pushAll(start("no-args"));
-      for (const delta of deltas) stream.pushAll(args("no-args", delta));
-      const completed = atEOF ? stream.finish() : stream.pushAll({ type: "TOOL_CALL_END", toolCallId: "no-args" });
-      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
-      assert.equal(pool.size, 0);
-    }
+    const pool = createStructuredStreamPool();
+    const stream = agUI(pool);
+    stream.pushAll(start("no-args"));
+    for (const delta of deltas) stream.pushAll(args("no-args", delta));
+    const completed = stream.pushAll({ type: "TOOL_CALL_END", toolCallId: "no-args" });
+    assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: "no-args", text: "{}", value: {} }]);
+    assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [{ id: "no-args", value: {} }]);
+    assert.equal(pool.size, 0);
   }
   const events = [
     start("no-args"), { type: "TOOL_CALL_END", toolCallId: "no-args" },
@@ -90,6 +89,41 @@ test("AG-UI tool calls without argument text complete as empty objects", async (
     if (update.type === "complete") completed.push([update.id, update.value]);
   }
   assert.deepEqual(completed, [["no-args", {}], ["weather", { city: "Paris" }]]);
+});
+
+test("AG-UI fails closed when the stream ends before an empty tool call ends", async () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const deltas of [[], [""], [" ", "\n"]]) {
+      const diagnostics = [];
+      const pool = createStructuredStreamPool();
+      const stream = agUI(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start("other"));
+      stream[method](args("other", '{"city":"Paris"}'));
+      stream[method](start("no-args"));
+      for (const delta of deltas) stream[method](args("no-args", delta));
+      let failure;
+      assert.throws(() => stream.finish(), (error) => {
+        failure = error;
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.id, "no-args");
+        assert.equal(error.adapter, "ag-ui");
+        assert.match(error.message, /ended before TOOL_CALL_END for tool call no-args/);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code, id }) => ({ code, id })), [{ code: "STREAM_ERROR", id: "no-args" }]);
+    }
+  }
+  for (const snapshots of ["live", "immutable"]) {
+    const completed = [];
+    await assert.rejects(async () => {
+      for await (const update of readStructured([start("no-args"), { type: "RUN_FINISHED", threadId: "thread", runId: "run" }], { integration: agUI, limits: { snapshots } })) {
+        if (update.type === "complete") completed.push(update);
+      }
+    }, { code: "INTEGRATION_ERROR", id: "no-args", adapter: "ag-ui" });
+    assert.deepEqual(completed, []);
+  }
 });
 
 test("AG-UI keeps rejecting incomplete arguments and unmatched endings", () => {

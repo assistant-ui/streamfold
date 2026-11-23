@@ -211,3 +211,17 @@ test("aborting an AG-UI SDK run cancels its response body and discards pending i
     [],
   );
 });
+
+test("AG-UI SDK runs that end before TOOL_CALL_END reject empty tool calls", async () => {
+  const agent = fixtureAgent([runStart, start("a")]);
+  const pool = createStructuredStreamPool();
+  const stream = agUI(pool);
+  const updates = [];
+  const errors = [];
+  // The client resolves a run that ends mid-call, so only finish() can tell.
+  await agent.runAgent({ runId: "run" }, subscriber(stream, updates, [], errors));
+  assert.deepEqual(errors, []);
+  assert.throws(() => stream.finish(), { code: "INTEGRATION_ERROR", id: "a", adapter: "ag-ui" });
+  assert.deepEqual(updates.filter(({ type }) => type === "complete"), []);
+  assert.equal(pool.size, 0);
+});
