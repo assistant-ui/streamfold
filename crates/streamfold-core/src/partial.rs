@@ -11,14 +11,6 @@ const PATCH_SET_NULL: u8 = 7;
 const PATCH_COMPLETE: u8 = 8;
 const PATCH_INVALIDATE: u8 = 9;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum PathSegment {
-    Key(Vec<u16>),
-    Index(u32),
-}
-
-type Path = Vec<PathSegment>;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RootState {
     Value,
@@ -44,12 +36,10 @@ enum ArrayState {
 #[derive(Debug)]
 enum Frame {
     Object {
-        path: Path,
         state: ObjectState,
         key: Option<Vec<u16>>,
     },
     Array {
-        path: Path,
         state: ArrayState,
         next_index: u32,
     },
@@ -69,10 +59,10 @@ enum Expected {
     ArrayCommaOrEnd,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StringRole {
     Key,
-    Value(Path),
+    Value,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,7 +167,7 @@ impl StringToken {
 
         let units = match self.role {
             StringRole::Key => &mut self.units,
-            StringRole::Value(_) => &mut self.delta,
+            StringRole::Value => &mut self.delta,
         };
         match std::str::from_utf8(&self.raw_utf8) {
             Ok(text) => {
@@ -212,7 +202,7 @@ impl StringToken {
     fn push_units(&mut self, units: &[u16]) {
         match self.role {
             StringRole::Key => self.units.extend_from_slice(units),
-            StringRole::Value(_) => self.delta.extend_from_slice(units),
+            StringRole::Value => self.delta.extend_from_slice(units),
         }
     }
 }
@@ -280,7 +270,6 @@ enum NumberState {
 
 #[derive(Debug)]
 struct NumberToken {
-    path: Path,
     raw: Vec<u8>,
     state: NumberState,
     /// Length of the longest valid JSON number prefix of `raw`, or zero.
@@ -300,9 +289,8 @@ struct NumberToken {
 }
 
 impl NumberToken {
-    fn new(path: Path, byte: u8) -> Self {
+    fn new(byte: u8) -> Self {
         let mut number = Self {
-            path,
             raw: Vec::new(),
             state: NumberState::Start,
             valid_length: 0,
@@ -437,6 +425,9 @@ pub struct PartialValueParser {
     token: Token,
     bytes_seen: usize,
     output: Vec<u8>,
+    // Leading segments of the current path that the reader already holds from
+    // the previous encoded path, so only the changed suffix is written.
+    shared_path: usize,
 }
 
 impl Default for PartialValueParser {
@@ -447,6 +438,7 @@ impl Default for PartialValueParser {
             token: Token::None,
             bytes_seen: 0,
             output: Vec::new(),
+            shared_path: 0,
         }
     }
 }
@@ -458,6 +450,15 @@ impl PartialValueParser {
 
     pub fn push(&mut self, chunk: &[u8]) -> Result<(), StreamError> {
         self.output.clear();
+        let result = self.push_chunk(chunk);
+        if result.is_err() {
+            // The reader discards output from a failed call.
+            self.shared_path = 0;
+        }
+        result
+    }
+
+    fn push_chunk(&mut self, chunk: &[u8]) -> Result<(), StreamError> {
         let mut index = 0;
         while index < chunk.len() {
             if let Token::String(string) = &mut self.token
@@ -487,6 +488,14 @@ impl PartialValueParser {
 
     pub fn finish(&mut self) -> Result<(), StreamError> {
         self.output.clear();
+        let result = self.finish_value();
+        if result.is_err() {
+            self.shared_path = 0;
+        }
+        result
+    }
+
+    fn finish_value(&mut self) -> Result<(), StreamError> {
         match std::mem::replace(&mut self.token, Token::None) {
             Token::None => {}
             Token::Number(number) => {
@@ -497,7 +506,7 @@ impl PartialValueParser {
                     });
                 }
                 self.emit_number_if_changed(&number);
-                self.emit_complete(&number.path);
+                self.emit_complete();
                 self.complete_value()?;
             }
             Token::Literal(literal) => {
@@ -565,7 +574,7 @@ impl PartialValueParser {
                     return Err(StreamError::InvalidJson { offset });
                 }
                 self.emit_number_if_changed(&number);
-                self.emit_complete(&number.path);
+                self.emit_complete();
                 self.complete_value()?;
                 self.consume_structural(byte, offset)
             }
@@ -642,48 +651,64 @@ impl PartialValueParser {
     }
 
     fn start_value(&mut self, byte: u8, offset: usize) -> Result<(), StreamError> {
-        let path = self.value_path()?;
+        self.check_value_slot()?;
         match byte {
             b'{' => {
-                self.emit_path_patch(PATCH_SET_OBJECT, &path);
-                self.stack.push(Frame::Object {
-                    path,
+                self.emit_path_patch(PATCH_SET_OBJECT);
+                self.push_frame(Frame::Object {
                     state: ObjectState::FirstKeyOrEnd,
                     key: None,
                 });
             }
             b'[' => {
-                self.emit_path_patch(PATCH_SET_ARRAY, &path);
-                self.stack.push(Frame::Array {
-                    path,
+                self.emit_path_patch(PATCH_SET_ARRAY);
+                self.push_frame(Frame::Array {
                     state: ArrayState::FirstValueOrEnd,
                     next_index: 0,
                 });
             }
             b'"' => {
-                self.emit_path_patch(PATCH_SET_STRING, &path);
-                self.token = Token::String(StringToken::new(StringRole::Value(path)));
+                self.emit_path_patch(PATCH_SET_STRING);
+                self.token = Token::String(StringToken::new(StringRole::Value));
             }
-            b't' => self.start_literal(path, LiteralKind::True),
-            b'f' => self.start_literal(path, LiteralKind::False),
-            b'n' => self.start_literal(path, LiteralKind::Null),
+            b't' => self.start_literal(LiteralKind::True),
+            b'f' => self.start_literal(LiteralKind::False),
+            b'n' => self.start_literal(LiteralKind::Null),
             b'-' | b'0'..=b'9' => {
-                self.token = Token::Number(NumberToken::new(path, byte));
+                self.token = Token::Number(NumberToken::new(byte));
             }
             _ => return Err(StreamError::InvalidJson { offset }),
         }
         Ok(())
     }
 
-    fn start_literal(&mut self, path: Path, kind: LiteralKind) {
-        self.emit_path_patch(kind.patch(), &path);
-        self.emit_complete(&path);
+    fn start_literal(&mut self, kind: LiteralKind) {
+        self.emit_path_patch(kind.patch());
+        self.emit_complete();
         self.token = Token::Literal(LiteralToken { kind, matched: 1 });
+    }
+
+    fn push_frame(&mut self, frame: Frame) {
+        self.unshare_path_from(self.stack.len());
+        self.stack.push(frame);
+    }
+
+    fn pop_frame(&mut self) -> Option<Frame> {
+        let frame = self.stack.pop();
+        self.unshare_path_from(self.stack.len());
+        frame
+    }
+
+    /// Marks path segments from `depth` onward as changed since the last
+    /// encoded path. Segment `depth` is the key or index held by frame `depth`.
+    fn unshare_path_from(&mut self, depth: usize) {
+        self.shared_path = self.shared_path.min(depth);
     }
 
     fn complete_string(&mut self, mut string: StringToken) -> Result<(), StreamError> {
         match string.role {
             StringRole::Key => {
+                self.unshare_path_from(self.stack.len() - 1);
                 let Some(Frame::Object { state, key, .. }) = self.stack.last_mut() else {
                     unreachable!();
                 };
@@ -691,22 +716,24 @@ impl PartialValueParser {
                 *state = ObjectState::Colon;
                 Ok(())
             }
-            StringRole::Value(path) => {
+            StringRole::Value => {
                 if !string.delta.is_empty() {
-                    self.emit_string_append(&path, &string.delta);
+                    self.emit_string_append(&string.delta);
                     string.delta.clear();
                 }
-                self.emit_complete(&path);
+                self.emit_complete();
                 self.complete_value()
             }
         }
     }
 
     fn complete_value(&mut self) -> Result<(), StreamError> {
-        let Some(frame) = self.stack.last_mut() else {
+        let Some(depth) = self.stack.len().checked_sub(1) else {
             self.root = RootState::AfterValue;
             return Ok(());
         };
+        self.unshare_path_from(depth);
+        let frame = &mut self.stack[depth];
 
         match frame {
             Frame::Object { state, key, .. } if *state == ObjectState::Value => {
@@ -740,10 +767,10 @@ impl PartialValueParser {
         if !matches!(state, ObjectState::FirstKeyOrEnd | ObjectState::CommaOrEnd) {
             return Err(StreamError::InvalidJson { offset });
         }
-        let Some(Frame::Object { path, .. }) = self.stack.pop() else {
+        let Some(Frame::Object { .. }) = self.pop_frame() else {
             unreachable!();
         };
-        self.emit_complete(&path);
+        self.emit_complete();
         self.complete_value()
     }
 
@@ -754,10 +781,10 @@ impl PartialValueParser {
         if !matches!(state, ArrayState::FirstValueOrEnd | ArrayState::CommaOrEnd) {
             return Err(StreamError::InvalidJson { offset });
         }
-        let Some(Frame::Array { path, .. }) = self.stack.pop() else {
+        let Some(Frame::Array { .. }) = self.pop_frame() else {
             unreachable!();
         };
-        self.emit_complete(&path);
+        self.emit_complete();
         self.complete_value()
     }
 
@@ -785,10 +812,12 @@ impl PartialValueParser {
         }
     }
 
-    fn value_path(&self) -> Result<Path, StreamError> {
+    /// Checks that the next value has a path: the current key of every
+    /// object frame and the next index of every array frame, root first.
+    fn check_value_slot(&self) -> Result<(), StreamError> {
         let Some(frame) = self.stack.last() else {
             return if self.root == RootState::Value {
-                Ok(Vec::new())
+                Ok(())
             } else {
                 Err(StreamError::TrailingData {
                     offset: self.bytes_seen.saturating_sub(1),
@@ -798,26 +827,13 @@ impl PartialValueParser {
 
         match frame {
             Frame::Object {
-                path, state, key, ..
-            } if *state == ObjectState::Value => {
-                let Some(key) = key else {
-                    return Err(StreamError::InvalidJson {
-                        offset: self.bytes_seen.saturating_sub(1),
-                    });
-                };
-                let mut result = path.clone();
-                result.push(PathSegment::Key(key.clone()));
-                Ok(result)
+                state: ObjectState::Value,
+                key: Some(_),
             }
-            Frame::Array {
-                path,
+            | Frame::Array {
                 state: ArrayState::FirstValueOrEnd | ArrayState::ValueAfterComma,
-                next_index,
-            } => {
-                let mut result = path.clone();
-                result.push(PathSegment::Index(*next_index));
-                Ok(result)
-            }
+                ..
+            } => Ok(()),
             _ => Err(StreamError::InvalidJson {
                 offset: self.bytes_seen.saturating_sub(1),
             }),
@@ -826,60 +842,90 @@ impl PartialValueParser {
 
     fn flush_partial(&mut self, chunk_length: usize) -> Result<(), StreamError> {
         let offset = self.bytes_seen.saturating_sub(chunk_length);
-        if let Token::String(string) = &mut self.token {
-            string.flush_chunk(offset)?;
-            if let StringRole::Value(path) = &string.role
-                && !string.delta.is_empty()
-            {
-                emit_string_append(&mut self.output, path, &string.delta);
-                string.delta.clear();
+        match std::mem::replace(&mut self.token, Token::None) {
+            Token::String(mut string) => {
+                let flushed = string.flush_chunk(offset);
+                if flushed.is_ok() && string.role == StringRole::Value && !string.delta.is_empty() {
+                    self.emit_string_append(&string.delta);
+                    string.delta.clear();
+                }
+                self.token = Token::String(string);
+                flushed?;
             }
-        }
-
-        if let Token::Number(number) = &mut self.token {
-            if number.raw == b"-" {
-                self.output.push(PATCH_INVALIDATE);
-                encode_path(&mut self.output, &number.path);
+            Token::Number(mut number) => {
+                if number.raw == b"-" {
+                    self.emit_path_patch(PATCH_INVALIDATE);
+                }
+                if number.valid_length != 0 && number.valid_length != number.emitted_length {
+                    self.emit_path_patch(PATCH_SET_NUMBER);
+                    let length_offset = self.output.len();
+                    write_u32(&mut self.output, 0);
+                    number.write_partial_value(&mut self.output);
+                    let length = self.output.len() - length_offset - 4;
+                    let length = u32::try_from(length).unwrap_or(u32::MAX);
+                    self.output[length_offset..length_offset + 4]
+                        .copy_from_slice(&length.to_le_bytes());
+                    number.emitted_length = number.valid_length;
+                }
+                self.token = Token::Number(number);
             }
-            if number.valid_length != 0 && number.valid_length != number.emitted_length {
-                self.output.push(PATCH_SET_NUMBER);
-                encode_path(&mut self.output, &number.path);
-                let length_offset = self.output.len();
-                write_u32(&mut self.output, 0);
-                number.write_partial_value(&mut self.output);
-                let length = self.output.len() - length_offset - 4;
-                let length = u32::try_from(length).unwrap_or(u32::MAX);
-                self.output[length_offset..length_offset + 4]
-                    .copy_from_slice(&length.to_le_bytes());
-                number.emitted_length = number.valid_length;
-            }
+            token => self.token = token,
         }
         Ok(())
     }
 
     fn emit_number_if_changed(&mut self, number: &NumberToken) {
         if number.raw.len() != number.emitted_length {
-            self.emit_number(&number.path, &number.raw);
+            self.emit_number(&number.raw);
         }
     }
 
-    fn emit_path_patch(&mut self, operation: u8, path: &[PathSegment]) {
+    /// Writes an operation and the current value path. The path starts with
+    /// the number of segments shared with the previous encoded path, then its
+    /// length, then only the segments after the shared prefix. A key's text is
+    /// therefore written once per key, not once per patch below it.
+    fn emit_path_patch(&mut self, operation: u8) {
         self.output.push(operation);
-        encode_path(&mut self.output, path);
+        let clamp = |value: usize| u16::try_from(value).unwrap_or(u16::MAX);
+        let length = clamp(self.stack.len());
+        let shared = clamp(self.shared_path).min(length);
+        self.output.extend_from_slice(&shared.to_le_bytes());
+        self.output.extend_from_slice(&length.to_le_bytes());
+        for frame in &self.stack[usize::from(shared)..usize::from(length)] {
+            match frame {
+                Frame::Object { key, .. } => {
+                    let units = key.as_deref().unwrap_or_default();
+                    self.output.push(0);
+                    write_u32(&mut self.output, units.len());
+                    for &unit in units {
+                        self.output.extend_from_slice(&unit.to_le_bytes());
+                    }
+                }
+                Frame::Array { next_index, .. } => {
+                    self.output.push(1);
+                    self.output.extend_from_slice(&next_index.to_le_bytes());
+                }
+            }
+        }
+        self.shared_path = usize::from(length);
     }
 
-    fn emit_string_append(&mut self, path: &[PathSegment], units: &[u16]) {
-        emit_string_append(&mut self.output, path, units);
+    fn emit_string_append(&mut self, units: &[u16]) {
+        self.emit_path_patch(PATCH_APPEND_STRING);
+        write_u32(&mut self.output, units.len());
+        for &unit in units {
+            self.output.extend_from_slice(&unit.to_le_bytes());
+        }
     }
 
-    fn emit_number(&mut self, path: &[PathSegment], number: &[u8]) {
-        self.emit_path_patch(PATCH_SET_NUMBER, path);
+    fn emit_number(&mut self, number: &[u8]) {
+        self.emit_path_patch(PATCH_SET_NUMBER);
         write_u32(&mut self.output, number.len());
         self.output.extend_from_slice(number);
     }
 
-    fn emit_complete(&mut self, path: &[PathSegment]) {
-        self.emit_path_patch(PATCH_COMPLETE, path);
+    fn emit_complete(&mut self) {
+        self.emit_path_patch(PATCH_COMPLETE);
     }
 }
 
@@ -919,35 +965,6 @@ impl StructuredJsonParser {
 
     pub fn patch_bytes(&self) -> &[u8] {
         self.values.patch_bytes()
-    }
-}
-
-fn emit_string_append(output: &mut Vec<u8>, path: &[PathSegment], units: &[u16]) {
-    output.push(PATCH_APPEND_STRING);
-    encode_path(output, path);
-    write_u32(output, units.len());
-    for &unit in units {
-        output.extend_from_slice(&unit.to_le_bytes());
-    }
-}
-
-fn encode_path(output: &mut Vec<u8>, path: &[PathSegment]) {
-    let length = u16::try_from(path.len()).unwrap_or(u16::MAX);
-    output.extend_from_slice(&length.to_le_bytes());
-    for segment in path.iter().take(usize::from(length)) {
-        match segment {
-            PathSegment::Key(units) => {
-                output.push(0);
-                write_u32(output, units.len());
-                for &unit in units {
-                    output.extend_from_slice(&unit.to_le_bytes());
-                }
-            }
-            PathSegment::Index(index) => {
-                output.push(1);
-                output.extend_from_slice(&index.to_le_bytes());
-            }
-        }
     }
 }
 
@@ -1051,7 +1068,7 @@ mod tests {
     }
 
     fn assert_number_prefixes(input: &[u8]) {
-        let mut number = NumberToken::new(Vec::new(), input[0]);
+        let mut number = NumberToken::new(input[0]);
         for length in 1..=input.len() {
             if length > 1 {
                 number.push(input[length - 1]);
@@ -1162,18 +1179,20 @@ mod tests {
     #[test]
     fn emits_utf16_for_keys_and_values_across_utf8_boundaries() {
         let mut parser = StructuredJsonParser::new();
-        // One key segment containing the UTF-16 units for "aé".
-        let path: &[u8] = &[1, 0, 0, 2, 0, 0, 0, 97, 0, 233, 0];
+        // No shared segments, then one key segment with the UTF-16 units for "aé".
+        let first: &[u8] = &[0, 0, 1, 0, 0, 2, 0, 0, 0, 97, 0, 233, 0];
+        // The same path again, fully shared with the previous one.
+        let path: &[u8] = &[1, 0, 1, 0];
 
         parser.push(b"{\"a\xc3").unwrap();
-        assert_eq!(parser.patch_bytes(), &[PATCH_SET_OBJECT, 0, 0]);
+        assert_eq!(parser.patch_bytes(), &[PATCH_SET_OBJECT, 0, 0, 0, 0]);
 
         parser.push(b"\xa9\":\"x\xf0\x9f").unwrap();
         assert_eq!(
             parser.patch_bytes(),
             [
                 &[PATCH_SET_STRING][..],
-                path,
+                first,
                 &[PATCH_APPEND_STRING],
                 path,
                 &[1, 0, 0, 0, 120, 0],
@@ -1203,7 +1222,7 @@ mod tests {
                 path,
                 &[2, 0, 0, 0, 10, 0, 90, 0, PATCH_COMPLETE],
                 path,
-                &[PATCH_COMPLETE, 0, 0],
+                &[PATCH_COMPLETE, 0, 0, 0, 0],
             ]
             .concat()
         );
@@ -1236,6 +1255,22 @@ mod tests {
     }
 
     #[test]
+    fn writes_each_key_once_however_many_patches_share_it() {
+        let key = "k".repeat(1000);
+        let input = format!(r#"{{"{key}":[0,0,0,[[1]]]}}"#);
+        let mut parser = StructuredJsonParser::new();
+        parser.push(input.as_bytes()).unwrap();
+        let encoded: Vec<u8> = key.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        let output = parser.patch_bytes();
+        let copies = output
+            .windows(encoded.len())
+            .filter(|window| *window == encoded.as_slice())
+            .count();
+        assert_eq!(copies, 1);
+        assert!(output.len() < encoded.len() + 256, "{} bytes", output.len());
+    }
+
+    #[test]
     fn rejects_trailing_commas() {
         let mut parser = StructuredJsonParser::new();
         assert!(matches!(
@@ -1264,7 +1299,7 @@ mod tests {
         parser.push(b"t").unwrap();
         assert_eq!(
             parser.patch_bytes(),
-            &[PATCH_SET_TRUE, 0, 0, PATCH_COMPLETE, 0, 0]
+            &[PATCH_SET_TRUE, 0, 0, 0, 0, PATCH_COMPLETE, 0, 0, 0, 0]
         );
     }
 }

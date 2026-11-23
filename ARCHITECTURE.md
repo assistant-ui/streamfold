@@ -25,7 +25,9 @@ cleanup functions using numeric values and Wasm linear memory.
    a trap (open streams on the trapped instance fail with `WASM_TRAP`);
 2. encodes each JavaScript fragment directly into a parser-owned Rust buffer;
 3. calls the Rust state transition;
-4. decodes compact path patches from Wasm linear memory;
+4. decodes compact path patches from Wasm linear memory, where each path
+   carries only the segments after the prefix it shares with the previous
+   patch, so key text crosses the boundary once per key;
 5. applies those patches to a live JavaScript value.
 
 The approximately 41 KB Wasm binary is generated into
