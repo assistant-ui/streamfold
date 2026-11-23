@@ -183,6 +183,10 @@ npm lockfile alongside each run to record tarball resolution and integrity.
 The older `pnpm bench:published 0.1.19` command still exercises the legacy core
 and adapter suites. Its separately ordered batches do not have the A/A controls
 above; do not combine its results with this report or infer tiny adapter rankings.
+It accepts an exact version or a dist-tag and rejects ranges. It checks that
+the installed package has the requested version and the registry's
+`dist.integrity` before running, and writes `artifacts/published-*.json` only
+after both suites finish.
 
 ## Scope and compatibility
 
