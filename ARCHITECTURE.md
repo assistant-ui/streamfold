@@ -38,9 +38,14 @@ platform-specific native packages, and provider dependencies.
 ## Why this is not `napi-rs`
 
 Node-API native modules cannot execute in browsers or edge isolates. Streamfold
-uses WebAssembly for the default npm path so the same Rust parser can run in
-browser and server runtimes. A future optional `napi-rs` backend could improve
-Node throughput without changing the public API.
+uses WebAssembly for the default npm path so the same Rust parser runs in
+Node.js and in browsers. It compiles the embedded bytes at runtime, which edge
+isolates such as Cloudflare Workers and Vercel Edge Functions do not allow:
+they only run Wasm modules bundled at deploy time. Pages whose
+Content-Security-Policy allows neither `'wasm-unsafe-eval'` nor `'unsafe-eval'`
+refuse the same compile. Both fail with `WASM_COMPILE_BLOCKED`. A future
+optional `napi-rs` backend could improve Node throughput without changing the
+public API.
 
 ## Build
 
