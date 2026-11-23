@@ -172,7 +172,8 @@ export interface StructuredStreamAdapter<Event, Id = string> {
   (options?: StructuredStreamAdapterOptions): BatchStructuredStream<Event, Id>;
 }
 
-export function defineAdapter<Event, Id = string>(
+/** Operation IDs must not be `undefined`, `null`, or `NaN`; those fail with `INTEGRATION_ERROR`. */
+export function defineAdapter<Event, Id extends {} = string>(
   mapEvent: StructuredStreamMapper<Event, Id>,
 ): StructuredStreamAdapter<Event, Id>;
 

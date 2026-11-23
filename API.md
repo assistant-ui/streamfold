@@ -210,8 +210,10 @@ try {
 The mapper is synchronous and returns an array of operations in source order.
 Return `[]` for ignored events, or multiple operations when an event contains
 several calls or both a start and a fragment. IDs may be strings, numbers, or
-another stable pool key. Keep mappers stateless: the factory isolates parser
-state, not mutable variables captured by your function.
+another stable pool key. An operation whose `id` is `undefined`, `null`, or
+`NaN`, usually a mapper reading the wrong field, fails with `INTEGRATION_ERROR`
+that names the operation type. Keep mappers stateless: the factory isolates
+parser state, not mutable variables captured by your function.
 
 | Operation | Effect |
 | --- | --- |

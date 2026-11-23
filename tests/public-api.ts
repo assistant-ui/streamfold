@@ -168,6 +168,10 @@ weather.pushAll({ kind: "piece", id: "wrong", text: "{}" });
 defineAdapter((event: WeatherEvent) => [{ type: "delta", id: 1 }]);
 // @ts-expect-error Operation names are a closed union.
 defineAdapter((event: WeatherEvent) => [{ type: "piece", id: 1 }]);
+// @ts-expect-error Operation IDs cannot be undefined.
+defineAdapter((event: { callId?: string }) => [{ type: "start", id: event.callId }]);
+// @ts-expect-error Operation IDs cannot be null.
+defineAdapter((event: WeatherEvent) => [{ type: "end", id: null }]);
 
 const weatherEvents: WeatherEvent[] = [
   { kind: "begin", id: 1 },
