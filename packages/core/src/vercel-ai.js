@@ -5,7 +5,15 @@ import { createEmptyArguments, createIntegration } from "./internal/integration.
 export const vercelAI = (pool = createStructuredStreamPool(), options) => {
   let inStep = false;
   const emptyArguments = createEmptyArguments();
-  const completePending = (complete) => {
+  const completePending = (complete, ending) => {
+    emptyArguments.assertClosed(
+      pool,
+      (id) =>
+        ending === undefined
+          ? `Vercel AI stream ended before tool call ${id} received tool-input-end, tool-call, or tool-input-available; consume the complete SDK stream or abort it.`
+          : `Vercel AI ${ending.type}${typeof ending.finishReason === "string" ? ` (${ending.finishReason})` : ""} arrived before tool call ${id} received tool-input-end, tool-call, or tool-input-available; the step ended before the call closed, so retry the request.`,
+      ending,
+    );
     for (const id of pool.activeIds) complete(id, emptyArguments.finalChunk(id));
   };
   return createIntegration(
@@ -37,7 +45,7 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
         }
         // UI step endings omit the reason; pending inputs must wait for finish or EOF.
         if (event.type === "finish" || typeof event.finishReason === "string") {
-          completePending(calls.complete);
+          completePending(calls.complete, event);
         }
         inStep = false;
         return undefined;
@@ -67,8 +75,9 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
         emptyArguments.delete(id);
         return calls.complete(id, () => JSON.stringify(event.input));
       }
-      if (event.type === "tool-input-end" && !inStep) {
-        return calls.complete(id, emptyArguments.finalChunk(id));
+      if (event.type === "tool-input-end") {
+        if (!inStep) return calls.complete(id, emptyArguments.finalChunk(id));
+        emptyArguments.close(id);
       }
       return undefined;
     },

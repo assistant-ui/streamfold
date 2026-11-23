@@ -88,17 +88,16 @@ test("Bedrock malformed generation endings release pending calls and remain term
   }
 });
 
-test("Bedrock tool blocks without argument text complete as empty objects", async () => {
+test("Bedrock tool blocks without argument text complete as empty objects at block stop", async () => {
   for (const [name, inputs] of [["no-delta", []], ["empty-delta", [""]], ["missing-input", [undefined]], ["whitespace", [" ", "\n"]]]) {
-    for (const atEOF of [false, true]) {
-      const pool = createStructuredStreamPool();
-      const stream = bedrock(pool);
-      stream.pushAll(start(0, name));
-      for (const input of inputs) stream.pushAll(delta(0, input));
-      const completed = atEOF ? stream.finish() : stream.pushAll(stop(0));
-      assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: name, text: "{}", value: {} }]);
-      assert.equal(pool.size, 0);
-    }
+    const pool = createStructuredStreamPool();
+    const stream = bedrock(pool);
+    stream.pushAll(start(0, name));
+    for (const input of inputs) stream.pushAll(delta(0, input));
+    const completed = stream.pushAll(stop(0));
+    assert.deepEqual(completed.map(({ id, text, value }) => ({ id, text, value })), [{ id: name, text: "{}", value: {} }]);
+    assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [{ id: name, value: {} }]);
+    assert.equal(pool.size, 0);
   }
   const events = [start(0, "no-args"), stop(0), start(1, "weather"), delta(1, '{"city":"Paris"}'), stop(1)];
   const completed = [];
@@ -106,6 +105,41 @@ test("Bedrock tool blocks without argument text complete as empty objects", asyn
     if (update.type === "complete") completed.push([update.id, update.value]);
   }
   assert.deepEqual(completed, [["no-args", {}], ["weather", { city: "Paris" }]]);
+});
+
+test("Bedrock fails closed when the stream ends before an empty tool block stops", async () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const inputs of [[], [""], [undefined], [" ", "\n"]]) {
+      const diagnostics = [];
+      const pool = createStructuredStreamPool();
+      const stream = bedrock(pool, { onDiagnostic: (event) => diagnostics.push(event) });
+      stream[method](start(0, "other"));
+      stream[method](delta(0, '{"city":"Paris"}'));
+      stream[method](start(1, "weather"));
+      for (const input of inputs) stream[method](delta(1, input));
+      let failure;
+      assert.throws(() => stream.finish(), (error) => {
+        failure = error;
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.id, "weather");
+        assert.equal(error.adapter, "bedrock");
+        assert.match(error.message, /ended before contentBlockStop for tool use weather/);
+        return true;
+      });
+      assert.equal(pool.size, 0);
+      assert.throws(() => stream.finish(), (error) => error === failure);
+      assert.deepEqual(diagnostics.map(({ code, id }) => ({ code, id })), [{ code: "STREAM_ERROR", id: "weather" }]);
+    }
+  }
+  for (const snapshots of ["live", "immutable"]) {
+    const completed = [];
+    await assert.rejects(async () => {
+      for await (const update of readStructured([start(0, "weather"), delta(0, "")], { integration: bedrock, limits: { snapshots } })) {
+        if (update.type === "complete") completed.push(update);
+      }
+    }, { code: "INTEGRATION_ERROR", id: "weather", adapter: "bedrock" });
+    assert.deepEqual(completed, []);
+  }
 });
 
 test("Bedrock still rejects incomplete argument text after whitespace", () => {

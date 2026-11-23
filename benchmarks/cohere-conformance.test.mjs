@@ -87,3 +87,22 @@ test("Cohere SDK tool calls without argument text complete as empty objects", as
   }
   assert.deepEqual(completed, [["now", {}]]);
 });
+
+test("Cohere SDK streams reject an empty tool call that ends before tool-call-end", async () => {
+  const events = [
+    { type: "message-start", id: "fixture", delta: { message: { role: "assistant" } } },
+    { type: "tool-call-start", index: 0, delta: { message: { tool_calls: { id: "now", type: "function", function: { name: "now", arguments: "" } } } } },
+  ];
+  const client = new CohereClientV2({
+    token: "test-token",
+    fetch: async () => new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } }),
+  });
+  const source = await client.chatStream({ model: "command-a", messages: [{ role: "user", content: "What time is it?" }] });
+  const completed = [];
+  await assert.rejects(async () => {
+    for await (const update of readStructured(source, { integration: cohere })) {
+      if (update.type === "complete") completed.push(update);
+    }
+  }, { code: "INTEGRATION_ERROR", id: "now", adapter: "cohere" });
+  assert.deepEqual(completed, []);
+});

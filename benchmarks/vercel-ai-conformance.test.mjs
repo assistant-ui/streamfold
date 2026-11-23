@@ -232,3 +232,54 @@ for (const format of ["full", "ui"]) {
     }
   });
 }
+
+for (const format of ["full", "ui"]) {
+  for (const finishReason of ["length", "content-filter"]) {
+    test(`${format} SDK streams reject an empty tool input cut off by ${finishReason}`, async () => {
+      const chunks = [
+        { type: "stream-start", warnings: [] },
+        { type: "tool-input-start", id: "now-1", toolName: "now" },
+        {
+          type: "finish",
+          finishReason: { unified: finishReason, raw: finishReason },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+            outputTokens: { total: 1, text: 1, reasoning: 0 },
+          },
+        },
+      ];
+      const result = streamText({
+        model: new MockLanguageModelV4({ doStream: {
+          stream: simulateReadableStream({ chunks, initialDelayInMs: null, chunkDelayInMs: null }),
+        } }),
+        prompt: "What time is it?",
+        tools: { now: tool({ description: "Current time", inputSchema: z.object({}) }) },
+        onError() {},
+      });
+      const source = format === "full" ? result.fullStream : result.toUIMessageStream();
+      let ending;
+      const events = (async function* () {
+        for await (const event of source) {
+          if (event.type === "finish-step" || event.type === "finish") ending ??= event.finishReason === undefined ? undefined : event;
+          yield event;
+        }
+      })();
+      const completed = [];
+      await assert.rejects(async () => {
+        for await (const update of readStructured(events, { integration: vercelAI })) {
+          if (update.type === "complete") completed.push(update);
+        }
+      }, (error) => {
+        // fullStream reports the reason on finish-step; UI streams only on finish.
+        assert.equal(ending?.type, format === "full" ? "finish-step" : "finish");
+        assert.equal(ending.finishReason, finishReason);
+        assert.equal(error.code, "INTEGRATION_ERROR");
+        assert.equal(error.id, "now-1");
+        assert.equal(error.adapter, "vercel-ai");
+        assert.equal(error.cause, ending);
+        return true;
+      });
+      assert.deepEqual(completed, []);
+    });
+  }
+}

@@ -151,17 +151,33 @@ const emptyObject = () => "{}";
 const hasText = (chunk) => typeof chunk === "string" && chunk.trim() !== "";
 
 // Tracks started calls that have received no non-whitespace argument text, so
-// adapters can complete them as `{}` the way the provider SDKs do.
+// adapters can complete them as `{}` the way the provider SDKs do. Each entry
+// records whether the call's closing event arrived: without it, an empty call
+// at the end of the stream is a dropped connection, not a no-argument call.
 export const createEmptyArguments = () => {
-  const ids = new Set();
+  const ids = new Map();
   return {
     start(update, id, initialChunk) {
-      if (update !== undefined && !hasText(initialChunk)) ids.add(id);
+      if (update !== undefined && !hasText(initialChunk)) ids.set(id, false);
       return update;
     },
     push(update, id, delta) {
       if (hasText(delta)) ids.delete(id);
       return update;
+    },
+    close(id) {
+      if (ids.has(id)) ids.set(id, true);
+    },
+    assertClosed(pool, describe, cause) {
+      for (const [id, closed] of ids) {
+        if (!closed && pool.has(id)) {
+          throw streamError(
+            new Error(describe(id), cause === undefined ? undefined : { cause }),
+            "INTEGRATION_ERROR",
+            { id },
+          );
+        }
+      }
     },
     finalChunk: (id) => (ids.delete(id) ? emptyObject : undefined),
     delete: (id) => ids.delete(id),
