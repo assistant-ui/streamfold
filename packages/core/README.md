@@ -43,9 +43,10 @@ replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
 (as produced by `JSON.stringify`).
 
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
-`streamfold/anthropic`, `streamfold/gemini`, `streamfold/langchain`, or
-`streamfold/ag-ui` for decoded SDK events. Integrations use structural event
-types and do not load provider SDKs.
+`streamfold/anthropic`, `streamfold/cohere`, `streamfold/bedrock`,
+`streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
+SDK events. Integrations use structural event types and do not load provider
+SDKs.
 
 To opt into assistant-stream's shared parser, import
 `initializeAssistantStream` and `disableAssistantStream` from
