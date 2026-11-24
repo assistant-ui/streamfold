@@ -86,6 +86,45 @@ test("Anthropic empty placeholders do not hide invalid arguments or bypass limit
   }
 });
 
+test("Anthropic completes complete argument text at EOF without content_block_stop", async () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const tail of [[], [{ type: "message_delta", delta: { stop_reason: "tool_use" } }, { type: "message_stop" }]]) {
+      const pool = createStructuredStreamPool();
+      const stream = anthropic(pool);
+      stream[method](start(0, "weather"));
+      stream[method](delta(0, '{"city":'));
+      stream[method](delta(0, '"SF"}'));
+      for (const event of tail) stream[method](event);
+      assert.deepEqual(stream.finish().map(({ id, value }) => ({ id, value })), [
+        { id: "weather", value: { city: "SF" } },
+      ]);
+      assert.equal(pool.size, 0);
+    }
+  }
+
+  const updates = [];
+  for await (const update of readStructured(
+    [start(0, "weather"), delta(0, '{"city":"SF"}'), { type: "message_stop" }],
+    { integration: anthropic },
+  )) updates.push(update);
+  assert.deepEqual(updates.at(-1).value, { city: "SF" });
+});
+
+test("Anthropic rejects whitespace-only argument text with EMPTY_INPUT", () => {
+  for (const method of ["push", "pushAll"]) {
+    for (const blockStop of [false, true]) {
+      const pool = createStructuredStreamPool();
+      const stream = anthropic(pool);
+      stream[method](start(0, "weather"));
+      stream[method](delta(0, " "));
+      assert.throws(() => {
+        if (blockStop) stream[method](stop(0));
+        else stream.finish();
+      }, { code: "EMPTY_INPUT", id: "weather", adapter: "anthropic" });
+      assert.equal(pool.size, 0);
+    }
+  }
+});
 
 test("Anthropic error events abort pending calls and preserve the provider failure", () => {
   for (const method of ["push", "pushAll"]) {

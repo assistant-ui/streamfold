@@ -53,6 +53,12 @@
   covers edge isolates such as Cloudflare Workers and Vercel Edge Functions and
   pages whose Content-Security-Policy blocks Wasm, none of which can run
   Streamfold.
+- Document what each adapter does at end of stream, with a table that a test
+  checks against every adapter. A call whose argument text is already complete
+  JSON completes without its closing event in every adapter except OpenAI Chat
+  Completions. Correct the docs for whitespace-only Anthropic and Gemini
+  arguments, which fail with `EMPTY_INPUT` rather than completing as `{}`, and
+  list `WASM_COMPILE_BLOCKED` among the error codes. Behavior is unchanged.
 
 ## 0.1.21
 

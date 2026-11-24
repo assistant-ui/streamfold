@@ -271,6 +271,31 @@ test("Vercel fails closed when a step or stream ends before an empty tool input 
   }
 });
 
+test("Vercel truncated steps still complete argument text that is already complete JSON", () => {
+  for (const finishReason of ["length", "content-filter"]) {
+    for (const [text, expected] of [
+      ['{"city":"Paris"}', { value: { city: "Paris" } }],
+      ['{"city":"Pa', { code: "INCOMPLETE_JSON" }],
+    ]) {
+      const pool = createStructuredStreamPool();
+      const stream = vercelAI(pool);
+      stream.pushAll({ type: "start-step" });
+      stream.pushAll({ type: "tool-input-start", id: "weather", toolName: "weather" });
+      stream.pushAll({ type: "tool-input-delta", id: "weather", delta: text });
+      const ending = { type: "finish-step", finishReason };
+      if (expected.code === undefined) {
+        assert.deepEqual(
+          stream.pushAll(ending).map(({ id, value }) => ({ id, value })),
+          [{ id: "weather", value: expected.value }],
+        );
+      } else {
+        assert.throws(() => stream.pushAll(ending), { code: expected.code, id: "weather", adapter: "vercel-ai" });
+      }
+      assert.equal(pool.size, 0);
+    }
+  }
+});
+
 test("Vercel final inputs stay authoritative after empty argument text", () => {
   const stream = vercelAI();
   stream.pushAll({ type: "start-step" });
