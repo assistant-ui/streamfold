@@ -14,8 +14,11 @@ import type {
   BatchStructuredStream,
   ReadStructuredOptions,
   StructuredStreamAdapter,
+  StructuredStreamDiagnostic,
   StructuredStreamMapper,
   StructuredStreamOperation,
+  StructuredStreamOptions,
+  StructuredStreamPoolOptions,
 } from "streamfold";
 import {
   assistantUI,
@@ -26,9 +29,14 @@ import {
 import { createStructuredStream as createVercelAiStream, createToolInputParser } from "streamfold/vercel-ai";
 import { agUI } from "streamfold/ag-ui";
 import { anthropic } from "streamfold/anthropic";
+import { cohere } from "streamfold/cohere";
 import { gemini } from "streamfold/gemini";
 import { langchain } from "streamfold/langchain";
-import { openAI } from "streamfold/openai";
+import { openAI, openAIChatCompletions } from "streamfold/openai";
+import type { AgUiToolCallEvent } from "streamfold/ag-ui";
+import type { AssistantUiStreamEvent } from "streamfold/assistant-ui";
+import type { CohereToolCallEvent } from "streamfold/cohere";
+import type { GeminiToolCallEvent } from "streamfold/gemini";
 import { adapterContractTests } from "streamfold/testing";
 import type { AssistantStreamChunk } from "assistant-stream";
 
@@ -267,3 +275,85 @@ readStructured(weatherEvents, { adapter: weatherAdapter, signal: new AbortContro
 readStructured([], { integration: assistantUI, signal: new AbortController().signal });
 // @ts-expect-error cancellation requires an AbortSignal
 readStructured(weatherEvents, { adapter: weatherAdapter, signal: "stop" });
+
+// Under exactOptionalPropertyTypes, optional fields the runtime treats as
+// absent when undefined also accept an explicit undefined.
+// @ts-expect-error These cases are meaningful only with exactOptionalPropertyTypes on.
+({ maxBytes: undefined }) satisfies { maxBytes?: number };
+declare const maybeLimit: number | undefined;
+declare const maybeSnapshots: "live" | "immutable" | undefined;
+declare const maybeSignal: AbortSignal | undefined;
+declare const maybeLimits: StructuredStreamPoolOptions | undefined;
+declare const maybeOnDiagnostic: ((diagnostic: StructuredStreamDiagnostic) => void) | undefined;
+declare const maybeString: string | undefined;
+createStructuredStream({ maxBytes: maybeLimit, maxDepth: maybeLimit, snapshots: maybeSnapshots }).dispose();
+createStructuredStream(undefined).dispose();
+const forwardOptions = (options?: StructuredStreamOptions) => createStructuredStream(options);
+forwardOptions().dispose();
+createStructuredStreamPool({ maxActiveStreams: maybeLimit, maxBytes: maybeLimit });
+createToolInputParser({ maxBytes: maybeLimit, maxDepth: maybeLimit }).dispose();
+weatherAdapter({ maxActiveStreams: maybeLimit, onDiagnostic: maybeOnDiagnostic });
+createVercelAiStream(pool, { onDiagnostic: maybeOnDiagnostic });
+readStructured(weatherEvents, {
+  adapter: weatherAdapter,
+  integration: undefined,
+  signal: maybeSignal,
+  limits: maybeLimits,
+  onDiagnostic: maybeOnDiagnostic,
+});
+readStructured([], {
+  integration: assistantUI,
+  adapter: undefined,
+  signal: maybeSignal,
+  limits: { maxBytes: maybeLimit, maxActiveStreams: maybeLimit, snapshots: maybeSnapshots },
+  onDiagnostic: maybeOnDiagnostic,
+});
+DEFAULT_STREAM_LIMITS.maxActiveStreams satisfies number;
+// @ts-expect-error Exactly one factory is still required.
+readStructured([], { adapter: undefined, integration: undefined });
+// @ts-expect-error Snapshot modes stay a closed union.
+createStructuredStream({ snapshots: maybeString });
+
+createStructuredStream(langchain).pushAll({
+  tool_call_chunks: [{ type: undefined, index: undefined, id: maybeString, name: undefined, args: maybeString }],
+});
+createStructuredStream(langchain).pushAll({ tool_call_chunks: undefined });
+createStructuredStream(openAIChatCompletions).pushAll({
+  choices: [{
+    index: 0,
+    finish_reason: undefined,
+    delta: {
+      content: undefined,
+      tool_calls: [{ index: 0, id: maybeString, type: undefined, function: { name: undefined, arguments: maybeString } }],
+    },
+  }],
+});
+createStructuredStream(openAIChatCompletions).pushAll({ error: { message: undefined } });
+createStructuredStream(agUI).pushAll({ type: "STEP_STARTED", toolCallId: undefined });
+createVercelAiStream().pushAll({ type: "start", id: undefined, toolCallId: undefined });
+const assistantUiError = {
+  type: "error",
+  path: [],
+  error: "failed",
+  code: maybeString,
+  severity: undefined,
+} satisfies Extract<AssistantUiStreamEvent, { type: "error" }>;
+createAssistantUiStream().pushAll(assistantUiError);
+const agUiRunError = {
+  type: "RUN_ERROR",
+  message: "failed",
+  code: maybeString,
+} satisfies Extract<AgUiToolCallEvent, { type: "RUN_ERROR" }>;
+createStructuredStream(agUI).pushAll(agUiRunError);
+const cohereStart = {
+  type: "tool-call-start",
+  index: maybeLimit,
+  delta: { message: { toolCalls: { id: maybeString, function: { arguments: maybeString } }, tool_calls: undefined } },
+} satisfies Extract<CohereToolCallEvent, { type: "tool-call-start" | "tool-call-delta" }>;
+createStructuredStream(cohere).pushAll(cohereStart);
+const geminiStart = {
+  event_type: "step.start",
+  index: 0,
+  step: { type: "function_call", id: "call-1", arguments: maybeString },
+} satisfies Extract<GeminiToolCallEvent, { event_type: "step.start" }>;
+createStructuredStream(gemini).pushAll(geminiStart);

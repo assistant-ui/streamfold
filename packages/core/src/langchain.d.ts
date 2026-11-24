@@ -6,15 +6,15 @@ import type {
 } from "./index.js";
 
 export interface LangChainToolCallChunk {
-  readonly type?: string;
-  readonly index?: number | string;
-  readonly id?: string;
-  readonly name?: string;
-  readonly args?: string;
+  readonly type?: string | undefined;
+  readonly index?: number | string | undefined;
+  readonly id?: string | undefined;
+  readonly name?: string | undefined;
+  readonly args?: string | undefined;
 }
 
 export interface LangChainToolCallMessage {
-  readonly tool_call_chunks?: readonly LangChainToolCallChunk[];
+  readonly tool_call_chunks?: readonly LangChainToolCallChunk[] | undefined;
 }
 
 export const langchain: BatchStructuredStreamIntegration<

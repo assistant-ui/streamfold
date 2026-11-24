@@ -11,16 +11,16 @@ export type StructuredStreamFieldState = "partial" | "complete";
 
 export interface StructuredStreamOptions {
   /** Maximum UTF-8 bytes accepted by one stream. Defaults to 16 MiB. */
-  readonly maxBytes?: number;
+  readonly maxBytes?: number | undefined;
   /** Maximum nested object/array depth. Defaults to 128. */
-  readonly maxDepth?: number;
+  readonly maxDepth?: number | undefined;
   /** Live views by default; immutable snapshots are frozen with structural sharing. */
-  readonly snapshots?: "live" | "immutable";
+  readonly snapshots?: "live" | "immutable" | undefined;
 }
 
 export interface StructuredStreamPoolOptions extends StructuredStreamOptions {
   /** Maximum number of concurrently active streams. Defaults to 256. */
-  readonly maxActiveStreams?: number;
+  readonly maxActiveStreams?: number | undefined;
 }
 
 export type StructuredStreamPatch =
@@ -128,7 +128,9 @@ export interface StructuredStreamDiagnostic {
 
 export interface StructuredStreamIntegrationOptions {
   /** Opt-in diagnostics. No logging by default. Callback exceptions are ignored. */
-  readonly onDiagnostic?: (diagnostic: StructuredStreamDiagnostic) => void;
+  readonly onDiagnostic?:
+    | ((diagnostic: StructuredStreamDiagnostic) => void)
+    | undefined;
 }
 
 export interface StructuredStreamIntegration<Event, Id = string> {
@@ -180,19 +182,19 @@ export function defineAdapter<Event, Id extends {} = string>(
 export interface ReadStructuredOptions<Event, Id = string>
   extends StructuredStreamIntegrationOptions {
   /** Stop waiting and release parsers; pass the same signal to the transport. */
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
   readonly adapter: StructuredStreamAdapter<Event, Id>;
-  readonly integration?: never;
-  readonly limits?: StructuredStreamPoolOptions;
+  readonly integration?: undefined;
+  readonly limits?: StructuredStreamPoolOptions | undefined;
 }
 
 export interface ReadStructuredIntegrationOptions<Event, Id = string>
   extends StructuredStreamIntegrationOptions {
   /** Stop waiting and release parsers; pass the same signal to the transport. */
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
   readonly integration: BatchStructuredStreamIntegration<Event, Id>;
-  readonly adapter?: never;
-  readonly limits?: StructuredStreamPoolOptions;
+  readonly adapter?: undefined;
+  readonly limits?: StructuredStreamPoolOptions | undefined;
 }
 
 /** Consume decoded events, finalizing at EOF and disposing on every exit. */
@@ -227,9 +229,8 @@ export class StructuredStreamPool<Id = string> {
   readonly size: number;
 }
 
-export function createStructuredStream(): IncrementalJsonScanner;
 export function createStructuredStream(
-  options: StructuredStreamOptions,
+  options?: StructuredStreamOptions,
 ): IncrementalJsonScanner;
 export function createStructuredStream<Event, Id = string>(
   adapter: StructuredStreamAdapter<Event, Id>,
@@ -248,11 +249,8 @@ export function createStructuredStreamPool<Id = string>(
 export function prepareStreamfold(): Promise<void>;
 
 export const STREAMFOLD_ENGINE: "rust-wasm";
-export const DEFAULT_STREAM_LIMITS: Readonly<
-  Required<
-    Pick<
-      StructuredStreamPoolOptions,
-      "maxBytes" | "maxDepth" | "maxActiveStreams"
-    >
-  >
->;
+export const DEFAULT_STREAM_LIMITS: {
+  readonly maxBytes: number;
+  readonly maxDepth: number;
+  readonly maxActiveStreams: number;
+};

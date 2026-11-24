@@ -15,8 +15,8 @@ export type AssistantUiStreamEvent =
       readonly type: "error";
       readonly path: readonly number[];
       readonly error: string;
-      readonly code?: string;
-      readonly severity?: "critical" | "warning" | "info";
+      readonly code?: string | undefined;
+      readonly severity?: "critical" | "warning" | "info" | undefined;
     }
   | {
       readonly type: "part-start";

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Accept an explicit `undefined` for optional fields under TypeScript's
+  `exactOptionalPropertyTypes`, matching what the runtime already does. This
+  covers stream and pool options (`maxBytes`, `maxDepth`, `snapshots`,
+  `maxActiveStreams`, `onDiagnostic`), `readStructured`'s `signal` and
+  `limits` (plus the unused `adapter` or `integration` key), and optional
+  fields on the LangChain, OpenAI Chat Completions, AG-UI, Anthropic, Cohere,
+  Gemini, assistant-ui, and Vercel event types. `createStructuredStream(options)`
+  now also accepts `StructuredStreamOptions | undefined`, so a wrapper can
+  forward its own optional `options`. Runtime behavior is unchanged.
 - **Behavior change:** `defineAdapter` sessions now fail with `INTEGRATION_ERROR`
   when the mapper returns a `start`, `delta`, `end`, or `abort` operation whose
   `id` is `undefined`, `null`, or `NaN`. Previously, `{ type: "start", id:
