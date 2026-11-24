@@ -25,6 +25,12 @@
   `content-filter`) that arrives before `tool-input-end`, `tool-call`, or
   `tool-input-available` fails the same way. Properly closed calls with no
   arguments still complete as `{}`.
+- Stop the assistant-stream backend from publishing a value for a malformed
+  number. With `initializeAssistantStream()`, a delta such as `"a":01` used to
+  report `a: 0`, and that value survived later deltas. Numbers like `01`,
+  `-01`, `00`, `-.`, and `1.e1` now fall back to native parsing as soon as they
+  become invalid, so arguments and `partialPath` match assistant-stream's own
+  `IncrementalJsonObjectParser`.
 - Complete tool calls with no argument text as `{}` in the Bedrock, Cohere,
   AG-UI, and Vercel adapters, matching Anthropic, Gemini, LangChain, and the
   `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument
