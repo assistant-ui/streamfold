@@ -246,6 +246,11 @@ struct LiteralToken {
     matched: usize,
 }
 
+/// Patch capacity a parser keeps between calls.
+const RETAINED_PATCH_BYTES: usize = 64 * 1024;
+/// A completion patch whose path is shared with the previous patch.
+const COMPLETE_PATCH_BYTES: usize = 5;
+
 /// Significant digits kept in partial patches for long numbers. Every midpoint
 /// between adjacent doubles has at most 768 significant decimal digits, so
 /// keeping more than that and appending a nonzero digit when any dropped digit
@@ -449,8 +454,22 @@ impl PartialValueParser {
     }
 
     pub fn push(&mut self, chunk: &[u8]) -> Result<(), StreamError> {
-        self.output.clear();
-        let result = self.push_chunk(chunk);
+        self.push_from(chunk, 0, usize::MAX).map(|_| ())
+    }
+
+    /// Processes `chunk[start..]` until the chunk ends or at least
+    /// `patch_limit` patch bytes are pending. Returns the index to continue
+    /// from when it stops early. Reading the patches after each call and
+    /// continuing from that index yields the same patches, in the same order,
+    /// as one `push` of the whole chunk.
+    pub fn push_from(
+        &mut self,
+        chunk: &[u8],
+        start: usize,
+        patch_limit: usize,
+    ) -> Result<Option<usize>, StreamError> {
+        self.reset_output();
+        let result = self.push_chunk(chunk, start, patch_limit);
         if result.is_err() {
             // The reader discards output from a failed call.
             self.shared_path = 0;
@@ -458,8 +477,20 @@ impl PartialValueParser {
         result
     }
 
-    fn push_chunk(&mut self, chunk: &[u8]) -> Result<(), StreamError> {
-        let mut index = 0;
+    // Wasm memory never shrinks, so capacity left behind by one large call is
+    // returned to the allocator for other parsers rather than kept until finish.
+    fn reset_output(&mut self) {
+        self.output.clear();
+        self.output.shrink_to(RETAINED_PATCH_BYTES);
+    }
+
+    fn push_chunk(
+        &mut self,
+        chunk: &[u8],
+        start: usize,
+        patch_limit: usize,
+    ) -> Result<Option<usize>, StreamError> {
+        let mut index = start;
         while index < chunk.len() {
             if let Token::String(string) = &mut self.token
                 && string.escape == EscapeState::None
@@ -481,13 +512,16 @@ impl PartialValueParser {
             index += 1;
             self.bytes_seen += 1;
             self.consume(byte, offset)?;
+            if self.output.len() >= patch_limit && index < chunk.len() {
+                return Ok(Some(index));
+            }
         }
         self.flush_partial(chunk.len())?;
-        Ok(())
+        Ok(None)
     }
 
     pub fn finish(&mut self) -> Result<(), StreamError> {
-        self.output.clear();
+        self.reset_output();
         let result = self.finish_value();
         if result.is_err() {
             self.shared_path = 0;
@@ -912,6 +946,10 @@ impl PartialValueParser {
 
     fn emit_string_append(&mut self, units: &[u16]) {
         self.emit_path_patch(PATCH_APPEND_STRING);
+        // Reserving exactly, plus room for the completion patch that often
+        // follows, keeps a long string from doubling the buffer past its size.
+        self.output
+            .reserve_exact(4 + units.len() * 2 + COMPLETE_PATCH_BYTES);
         write_u32(&mut self.output, units.len());
         for &unit in units {
             self.output.extend_from_slice(&unit.to_le_bytes());
@@ -951,6 +989,27 @@ impl StructuredJsonParser {
         let state = self.scanner.push(chunk)?;
         self.values.push(chunk)?;
         Ok(state)
+    }
+
+    /// Validates the whole chunk, then builds patches until `patch_limit`
+    /// bytes are pending. A returned index means more patches remain; read
+    /// these, then call `resume` with the same chunk and that index.
+    pub fn push_bounded(
+        &mut self,
+        chunk: &[u8],
+        patch_limit: usize,
+    ) -> Result<Option<usize>, StreamError> {
+        self.scanner.push(chunk)?;
+        self.values.push_from(chunk, 0, patch_limit)
+    }
+
+    pub fn resume(
+        &mut self,
+        chunk: &[u8],
+        start: usize,
+        patch_limit: usize,
+    ) -> Result<Option<usize>, StreamError> {
+        self.values.push_from(chunk, start, patch_limit)
     }
 
     pub fn finish(&mut self) -> Result<StreamState, StreamError> {
@@ -1160,6 +1219,42 @@ mod tests {
                 patches += usize::from(length > 0);
             }
             assert!(patches > 1);
+        }
+    }
+
+    #[test]
+    fn bounded_batches_concatenate_to_the_whole_push() {
+        let documents: [&[u8]; 7] = [
+            br#"{"name":"stream","items":[1,true,null,{"ok":false}],"n":-12.5e+2}"#,
+            "{\"k\u{e9}y\":[\"a\\n\\u0041\u{e9}\u{1F680}\",0.125,[[],{}]],\"tail\":\"x".as_bytes(),
+            b"[1,22,333,4444,55555,-0,1e400",
+            br#"{"a":{"b":{"c":[false,null,true,"deep"]}},"d":"#,
+            b"\"unterminated value\\",
+            b"123",
+            br#"[1,{"a":"ok","b":tx]"#,
+        ];
+        for document in documents {
+            for split in 0..=document.len() {
+                let (first, second) = document.split_at(split);
+                let mut whole = StructuredJsonParser::new();
+                let mut batched = StructuredJsonParser::new();
+                for chunk in [first, second] {
+                    let expected = whole.push(chunk).map(|_| whole.patch_bytes().to_vec());
+                    let mut actual = Vec::new();
+                    let mut step = batched.push_bounded(chunk, 1);
+                    while let Ok(Some(index)) = step {
+                        assert!(!batched.patch_bytes().is_empty());
+                        actual.extend_from_slice(batched.patch_bytes());
+                        step = batched.resume(chunk, index, 1);
+                    }
+                    let actual = step.map(|_| {
+                        actual.extend_from_slice(batched.patch_bytes());
+                        actual
+                    });
+                    assert_eq!(actual, expected, "{document:?} split at {split}");
+                    assert_eq!(batched.state(), whole.state());
+                }
+            }
         }
     }
 
