@@ -179,3 +179,40 @@ test("validates JavaScript mapper output and cleans up malformed batches", (t) =
   const stream = defineAdapter(() => { throw "failure"; })();
   assert.throws(() => stream.pushAll(null), { message: "Adapter stream failed", cause: "failure" });
 });
+
+test("rejects operations with an undefined, null, or NaN id", (t) => {
+  const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
+  let disposed = 0;
+  for (const type of ["start", "delta", "end", "abort"]) {
+    for (const id of [undefined, null, NaN]) {
+      const diagnostics = [];
+      const stream = operationsAdapter({
+        onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+      });
+      stream.pushAll([{ type: "start", id: "active" }]);
+      assert.throws(() => stream.pushAll([{ type, id, text: "{}" }]), {
+        name: "TypeError",
+        code: "INTEGRATION_ERROR",
+        adapter: "custom",
+        eventType: "operations",
+        message: `Adapter mapper returned "${type}" operation with id ${String(id)}; return a string, number, or other stable \`id\` that is not undefined, null, or NaN`,
+      });
+      assert.equal(dispose.mock.callCount(), ++disposed, `${type} ${id}`);
+      assert.deepEqual(
+        diagnostics.map(({ code }) => code),
+        ["STREAM_ERROR"],
+      );
+    }
+  }
+
+  const missing = operationsAdapter();
+  assert.throws(() => missing.pushAll([{ type: "start" }]), {
+    code: "INTEGRATION_ERROR",
+    message: /returned "start" operation with id undefined/,
+  });
+  const stream = operationsAdapter();
+  for (const id of ["", 0, -1, false]) {
+    stream.pushAll([{ type: "start", id }, { type: "delta", id, text: "{}" }]);
+    assert.deepEqual(stream.pushAll([{ type: "end", id }])[0].value, {});
+  }
+});

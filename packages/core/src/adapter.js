@@ -82,12 +82,18 @@ export function defineAdapter(mapEvent) {
           const updates = [];
           for (const operation of operations) {
             operationContext = undefined;
-            if (
-              operation === null ||
-              typeof operation !== "object" ||
-              !("id" in operation)
-            ) {
+            if (operation === null || typeof operation !== "object") {
               throw new TypeError("An adapter operation must include an id");
+            }
+            const { id } = operation;
+            if (id === undefined || id === null || Number.isNaN(id)) {
+              const name =
+                typeof operation.type === "string"
+                  ? `"${operation.type}"`
+                  : "an";
+              throw new TypeError(
+                `Adapter mapper returned ${name} operation with id ${String(id)}; return a string, number, or other stable \`id\` that is not undefined, null, or NaN`,
+              );
             }
             operationContext = { id: operation.id };
             switch (operation.type) {

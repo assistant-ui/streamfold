@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Behavior change:** `defineAdapter` sessions now fail with `INTEGRATION_ERROR`
+  when the mapper returns a `start`, `delta`, `end`, or `abort` operation whose
+  `id` is `undefined`, `null`, or `NaN`. Previously, `{ type: "start", id:
+  undefined }` created a call keyed `undefined`, and the next one failed with a
+  confusing `DUPLICATE_STREAM`. The message names the operation type. Strings,
+  numbers, and other stable keys are unchanged. In TypeScript, a mapper whose
+  `id` can be `undefined` or `null` no longer type-checks.
 - **Behavior change:** Anthropic and Gemini streams that end right after a tool
   call starts now fail with `INTEGRATION_ERROR` instead of completing the call
   as `{}` (or as Anthropic's initial input). This covers a stream that ends after
