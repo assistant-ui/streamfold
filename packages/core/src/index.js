@@ -5,7 +5,7 @@ import {
   pushWasmParser,
   readWasmParser,
 } from "./internal/wasm-runtime.js";
-import { applyImmutableChanges } from "./internal/snapshots.js";
+import { applyImmutableChanges, cloneJsonValue } from "./internal/snapshots.js";
 import { annotateError, streamError } from "./internal/errors.js";
 
 export { isStructuredStreamError } from "./internal/errors.js";
@@ -132,12 +132,11 @@ export class IncrementalJsonScanner {
       } else if (change.op === "set") {
         if (!complete) invalidateField(this.#completion, change.path);
         if (this.#immutable) continue;
-        const value = Array.isArray(change.value)
-          ? []
-          : change.value !== null && typeof change.value === "object"
-            ? {}
-            : change.value;
-        this.#value = setAtPath(this.#value, change.path, value);
+        this.#value = setAtPath(
+          this.#value,
+          change.path,
+          cloneJsonValue(change.value),
+        );
       } else if (!this.#immutable) {
         const current = getAtPath(this.#value, change.path);
         this.#value = setAtPath(

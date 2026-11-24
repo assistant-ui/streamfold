@@ -33,10 +33,12 @@ test("a long key under many values keeps Wasm memory proportional to the input",
   const grown = measureGrowth(`
     const key = "k".repeat(1_000_000);
     const text = '{"' + key + '":[' + Array(2000).fill(0).join(",") + "]}";
-    const update = stream.push(text);
-    assert.equal(update.complete, true);
-    assert.equal(update.changes.length, 2 + 2000 * 2 + 2);
-    for (const change of update.changes.slice(1, -1)) assert.equal(change.path[0], key);
+    // The root stays open so the push reports a patch per value.
+    const update = stream.push(text.slice(0, -1));
+    assert.equal(update.complete, false);
+    assert.equal(update.changes.length, 2 + 2000 * 2 + 1);
+    for (const change of update.changes.slice(1)) assert.equal(change.path[0], key);
+    assert.equal(stream.push("}").complete, true);
     assert.deepEqual(stream.finish().partialValue, { [key]: Array(2000).fill(0) });
   `);
   assert.ok(grown < limit, `Wasm memory grew by ${grown} bytes for a 1 MB input`);

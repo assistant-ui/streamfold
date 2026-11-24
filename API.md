@@ -105,6 +105,16 @@ Patches have one of three shapes:
 `set` creates or replaces a value, `append` extends a string, and `complete`
 marks a path as structurally complete.
 
+When one `push` opens and closes the root object or array, `changes` holds a
+single `set` of the whole value at `[]` followed by `complete` at `[]`, instead
+of a patch for every nested value. This covers a whole document pushed at once,
+the initial input some integrations pass to `start`, and authoritative
+`finalText` replacements. A `complete` on a path also completes everything
+below it, which `getFieldState` already reports. The `set` value is a separate
+copy: changing it does not change `partialValue`. Pushes that leave the root
+open, or close a root opened by an earlier push, still report one patch per
+value, so their patch count grows with the values in that push.
+
 Live values are shared with the scanner. Copy them before removing properties
 that may still receive updates. Later patches require existing path segments to
 be own properties: a deleted container or string append target throws
