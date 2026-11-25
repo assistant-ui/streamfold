@@ -79,8 +79,9 @@ are built in batches of about 64 KiB, so one push of a whole document does not
 hold all of its patches at once. After a push, a scanner keeps at most 64 KiB
 of input capacity, and patch capacity beyond 64 KiB is released on its next
 `push()` or `finish()`. A push still needs its whole input as UTF-8, plus the
-full text of any string value in it, which arrives as one `append` patch in
-UTF-16. For example, on Node 24, one push of a 4 MB array of 2,000,000
+full text of any string value in it, which the parser encodes as one UTF-16
+patch. A whole-document push still reports one root `set` however many batches
+it takes. For example, on Node 24, one push of a 4 MB array of 2,000,000
 numbers grows Wasm memory by about 4 MiB, and one push of a 4 MB string grows
 it by about 23 MiB.
 
