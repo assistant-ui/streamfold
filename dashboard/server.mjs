@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 
 const root = new URL("..", import.meta.url).pathname;
@@ -24,18 +24,22 @@ const server = createServer((request, response) => {
     response.writeHead(403).end();
     return;
   }
+  // Read before writing headers so a failed read can still choose its status.
+  let body;
   try {
-    statSync(file);
-    response.writeHead(200, {
-      "content-type": types[extname(file)] ?? "application/octet-stream",
-      "cache-control": "no-store",
-    });
-    response.end(readFileSync(file));
-  } catch {
-    response.writeHead(404).end("Not found");
+    body = readFileSync(file);
+  } catch (error) {
+    const missing = ["ENOENT", "ENOTDIR", "EISDIR"].includes(error?.code);
+    response.writeHead(missing ? 404 : 500).end(missing ? "Not found" : "Read failed");
+    return;
   }
+  response.writeHead(200, {
+    "content-type": types[extname(file)] ?? "application/octet-stream",
+    "cache-control": "no-store",
+  });
+  response.end(body);
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Streamfold dashboard: http://127.0.0.1:${port}`);
+  console.log(`Streamfold dashboard: http://127.0.0.1:${server.address().port}`);
 });

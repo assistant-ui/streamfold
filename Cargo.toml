@@ -13,3 +13,6 @@ codegen-units = 1
 lto = "fat"
 panic = "abort"
 strip = "symbols"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"

@@ -3,6 +3,20 @@
 ## Unreleased
 
 - Keep one large push from growing the shared Wasm memory for the life of the process. Patches are now built in batches of about 64 KiB, the input buffer is sized from the chunk's UTF-8 length rather than three bytes per character, and buffers larger than 64 KiB are returned to the allocator after each push. On Node 24, one 4 MB push of a number array grows Wasm memory by about 4 MiB instead of 140 MiB, a 16 MiB push by about 16 MiB instead of 529 MiB, and a 4 MB string by about 23 MiB instead of 39 MiB. Wasm memory still never shrinks; see `API.md`. Patches, values, and errors are unchanged.
+- **Behavior change:** `maxDepth` now accepts at most `65535`. Larger values
+  used to be accepted, but the Rust parser encodes path lengths in 16 bits, so
+  with `maxDepth: 1_000_000` a value nested 65,537 levels deep was reported at
+  depth 65,535 with no error. Those values now fail with `INVALID_OPTIONS`.
+- Report every invalid option in one `INVALID_OPTIONS` error. Scanners, pools,
+  adapter sessions, `readStructured` limits, and `createToolInputParser` used to
+  stop at the first problem; the message now names each invalid key, its
+  allowed values, and the value received. A single invalid limit is still a
+  `RangeError` and a single invalid `snapshots` mode is still a `TypeError`.
+- **Behavior change:** options that are not an object or `undefined` now fail
+  with `INVALID_OPTIONS`. `new IncrementalJsonScanner(null)` and
+  `createStructuredStreamPool(null)` used to throw a `TypeError` without a code,
+  and values such as `5` were silently treated as no options. Unknown keys are
+  still ignored.
 - **Behavior change:** `defineAdapter` sessions now fail with `INTEGRATION_ERROR`
   when the mapper returns a `start`, `delta`, `end`, or `abort` operation whose
   `id` is `undefined`, `null`, or `NaN`. Previously, `{ type: "start", id:

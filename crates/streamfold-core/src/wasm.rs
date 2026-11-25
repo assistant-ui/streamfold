@@ -1,3 +1,13 @@
+//! Wasm exports used by `packages/core/src/internal/wasm-runtime.js`.
+//!
+//! A parser handle is the address of a boxed `WasmParser` from `streamfold_parser_new`.
+//! Every other export takes a handle and is `unsafe` because it trusts the caller to
+//! pass a live one: returned by `streamfold_parser_new` on the same instance and not yet
+//! passed to `streamfold_parser_free`. The JS runtime upholds this by giving each
+//! scanner one handle, clearing it after the single free, and refusing calls after
+//! dispose. Wasm runs these exports on one thread and none of them calls back into JS,
+//! so no two references to the same parser are ever live at once.
+
 use crate::{StreamError, StreamState, StructuredJsonParser};
 
 const DEPTH_MASK: u32 = 0x00ff_ffff;
@@ -98,8 +108,17 @@ fn encode_state(state: StreamState) -> u32 {
         | if state.in_string { IN_STRING_FLAG } else { 0 }
 }
 
-fn parser_mut(handle: usize) -> &'static mut WasmParser {
+/// Borrows the parser behind `handle` for the rest of one export call.
+///
+/// # Safety
+///
+/// `handle` must be live (see the module docs), and no other reference to the same
+/// parser may exist while the returned one is used.
+unsafe fn parser_mut<'a>(handle: usize) -> &'a mut WasmParser {
     assert_ne!(handle, 0);
+    // SAFETY: a live handle is the pointer `Box::into_raw` returned in
+    // `streamfold_parser_new` and has not been freed, so it is aligned and points to an
+    // initialized `WasmParser`. The caller guarantees the borrow is unique.
     unsafe { &mut *(handle as *mut WasmParser) }
 }
 
@@ -108,18 +127,27 @@ pub extern "C" fn streamfold_parser_new(max_depth: usize, max_bytes: usize) -> u
     Box::into_raw(Box::new(WasmParser::new(max_depth, max_bytes))) as usize
 }
 
+/// # Safety
+///
+/// `handle` must be 0 or live, and must not be used again after this call.
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_free(handle: usize) {
+pub unsafe extern "C" fn streamfold_parser_free(handle: usize) {
     if handle != 0 {
+        // SAFETY: a live handle came from `Box::into_raw` and has not been freed, and
+        // the caller never uses it again, so this reclaims the only owner exactly once.
         unsafe {
             drop(Box::from_raw(handle as *mut WasmParser));
         }
     }
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_input(handle: usize, capacity: usize) -> usize {
-    let parser = parser_mut(handle);
+pub unsafe extern "C" fn streamfold_parser_input(handle: usize, capacity: usize) -> usize {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
     parser
         .input
         .reserve_exact(capacity.saturating_sub(parser.input.len()));
@@ -127,9 +155,13 @@ pub extern "C" fn streamfold_parser_input(handle: usize, capacity: usize) -> usi
     parser.input.as_mut_ptr() as usize
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_push(handle: usize, length: usize) -> u32 {
-    let parser = parser_mut(handle);
+pub unsafe extern "C" fn streamfold_parser_push(handle: usize, length: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
     assert!(length <= parser.input.len());
     parser.input_length = length;
     let result = parser
@@ -139,9 +171,14 @@ pub extern "C" fn streamfold_parser_push(handle: usize, length: usize) -> u32 {
 }
 
 /// Continues a push that returned `PENDING_FLAG`, after its patches were read.
+///
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_resume(handle: usize) -> u32 {
-    let parser = parser_mut(handle);
+pub unsafe extern "C" fn streamfold_parser_resume(handle: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
     let result = parser.parser.resume(
         &parser.input[..parser.input_length],
         parser.resume_at,
@@ -150,40 +187,74 @@ pub extern "C" fn streamfold_parser_resume(handle: usize) -> u32 {
     parser.encode_push(result)
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_finish(handle: usize) -> u32 {
-    let parser = parser_mut(handle);
+pub unsafe extern "C" fn streamfold_parser_finish(handle: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
     parser.input = Vec::new();
     let result = parser.parser.finish();
     parser.encode(result)
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_state(handle: usize) -> u32 {
-    encode_state(parser_mut(handle).parser.state())
+pub unsafe extern "C" fn streamfold_parser_state(handle: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    encode_state(parser.parser.state())
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_bytes_seen(handle: usize) -> usize {
-    parser_mut(handle).parser.state().bytes_seen
+pub unsafe extern "C" fn streamfold_parser_bytes_seen(handle: usize) -> usize {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    parser.parser.state().bytes_seen
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_error_offset(handle: usize) -> usize {
-    parser_mut(handle).error_offset
+pub unsafe extern "C" fn streamfold_parser_error_offset(handle: usize) -> usize {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    parser.error_offset
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_error_byte(handle: usize) -> u32 {
-    parser_mut(handle).error_byte.into()
+pub unsafe extern "C" fn streamfold_parser_error_byte(handle: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    parser.error_byte.into()
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_output(handle: usize) -> usize {
-    parser_mut(handle).parser.patch_bytes().as_ptr() as usize
+pub unsafe extern "C" fn streamfold_parser_output(handle: usize) -> usize {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    parser.parser.patch_bytes().as_ptr() as usize
 }
 
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
 #[unsafe(no_mangle)]
-pub extern "C" fn streamfold_parser_output_len(handle: usize) -> usize {
-    parser_mut(handle).parser.patch_bytes().len()
+pub unsafe extern "C" fn streamfold_parser_output_len(handle: usize) -> usize {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    parser.parser.patch_bytes().len()
 }

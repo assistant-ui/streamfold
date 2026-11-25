@@ -10,16 +10,16 @@ export type StructuredStreamPath = readonly (string | number)[];
 export type StructuredStreamFieldState = "partial" | "complete";
 
 export interface StructuredStreamOptions {
-  /** Maximum UTF-8 bytes accepted by one stream. Defaults to 16 MiB. */
+  /** Maximum UTF-8 bytes accepted by one stream, from 1 to 4294967295. Defaults to 16 MiB. */
   readonly maxBytes?: number;
-  /** Maximum nested object/array depth. Defaults to 128. */
+  /** Maximum nested object/array depth, from 1 to 65535. Defaults to 128. */
   readonly maxDepth?: number;
   /** Live views by default; immutable snapshots are frozen with structural sharing. */
   readonly snapshots?: "live" | "immutable";
 }
 
 export interface StructuredStreamPoolOptions extends StructuredStreamOptions {
-  /** Maximum number of concurrently active streams. Defaults to 256. */
+  /** Maximum number of concurrently active streams, from 1 to 4294967295. Defaults to 256. */
   readonly maxActiveStreams?: number;
 }
 
@@ -204,6 +204,7 @@ export function readStructured<Event, Id = string>(
 ): AsyncGenerator<StructuredStreamLifecycleUpdate<Id>, void, unknown>;
 
 export class IncrementalJsonScanner {
+  /** Throws one `INVALID_OPTIONS` error listing every invalid option. */
   constructor(options?: StructuredStreamOptions);
   push(chunk: string): StreamState;
   finish(): StreamState;
@@ -216,6 +217,7 @@ export class IncrementalJsonScanner {
 }
 
 export class StructuredStreamPool<Id = string> {
+  /** Throws one `INVALID_OPTIONS` error listing every invalid option. */
   constructor(options?: StructuredStreamPoolOptions);
   start(id: Id, initialChunk?: string): ActiveStructuredStream<Id>;
   push(id: Id, delta: string): ActiveStructuredStream<Id>;
