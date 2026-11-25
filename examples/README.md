@@ -74,6 +74,26 @@ Run `node --test examples/openai-agents.test.mjs` for the credential-free versio
 It runs the example with real Chat Completions and Responses models over local
 SSE fixtures. Both use the public entry in this checkout.
 
+## Pi native events (unreleased)
+
+Use the candidate package from this checkout. Streamfold 0.1.21 lacks
+`streamfold/pi`. With the pinned Pi AI 1.6.0 SDK, pass a function that opens one assistant
+message stream. The example shares an abort signal with the provider and
+closes the request when you leave the loop early.
+
+```js
+import { stream } from "@earendil-works/pi-ai";
+import { readToolInputs } from "./pi.mjs";
+
+for await (const update of readToolInputs(signal => stream(model, context, { signal }))) {
+  console.log(update.id, update.partialValue);
+}
+```
+
+Use your configured Pi model and conversation context. To run the reader with
+both real provider decoders and local responses, run
+`node --test benchmarks/pi-conformance.test.mjs` from the repository root.
+
 ## OpenAI Responses
 
 [`openai.mjs`](./openai.mjs) makes a live OpenAI Responses request and prints

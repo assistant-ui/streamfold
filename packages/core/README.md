@@ -48,7 +48,7 @@ replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
 
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/cohere`, `streamfold/bedrock`,
-`streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
+`streamfold/pi` (unreleased, Pi native events), `streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
 SDK events. Integrations use structural event types and do not load provider
 SDKs.
 

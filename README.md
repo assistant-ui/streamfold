@@ -96,6 +96,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | `streamfold/bedrock` | Amazon Bedrock ConverseStream |
 | `streamfold/gemini` | Gemini Interactions |
 | `streamfold/langchain` | LangChain message chunks |
+| `streamfold/pi` (unreleased) | Pi native `AssistantMessageEvent` tool calls |
 | `streamfold/ag-ui` | AG-UI events |
 
 ```ts

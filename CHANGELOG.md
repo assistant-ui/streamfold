@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Read Pi native tool-call events through `streamfold/pi`. Streamfold exposes
+  incremental argument previews and completes each call from Pi's final input.
+
 - Aborting a pending read in the Mistral Responses example now releases the SDK
   stream lock and cancels the response body with the abort reason.
 
