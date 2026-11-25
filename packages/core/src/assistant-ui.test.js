@@ -143,6 +143,26 @@ test("SDK tool arguments stay separate after text and reasoning parts", async ()
   });
 });
 
+test("explicit and root-path starts share the SDK part index sequence", async () => {
+  const events = [
+    { type: "part-start", path: [0], part: { type: "text" } },
+    { type: "part-finish", path: [0] },
+    { type: "part-start", path: [1], part: { type: "tool-call", toolCallId: "first", toolName: "weather" } },
+    { type: "part-start", path: [], part: { type: "tool-call", toolCallId: "second", toolName: "weather" } },
+    { type: "text-delta", path: [1], textDelta: '{"city":"Pa' },
+    { type: "text-delta", path: [2], textDelta: '{"city":"Tokyo"}' },
+    { type: "tool-call-args-text-finish", path: [2] },
+    { type: "text-delta", path: [1], textDelta: 'ris"}' },
+    { type: "tool-call-args-text-finish", path: [1] },
+  ];
+  const wire = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") + "data: [DONE]\n\n";
+  const updates = await collect(new Response(wire).body.pipeThrough(new AssistantTransportDecoder()));
+  assert.deepEqual(
+    updates.filter(({ type }) => type === "complete").map(({ id, value }) => [id, value]),
+    [["second", { city: "Tokyo" }], ["first", { city: "Paris" }]],
+  );
+});
+
 test("merged SDK streams route remapped indexes and empty tool arguments", async () => {
   const updates = await collect(createAssistantStream((controller) => {
     controller.appendData({ type: "data", name: "context", data: { ready: true } });

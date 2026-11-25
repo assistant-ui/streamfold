@@ -439,6 +439,10 @@ composable integration value:
 | `streamfold/langchain` | `langchain` |
 | `streamfold/ag-ui` | `agUI` |
 
+The assistant-ui adapter accepts both explicit part paths and root-path starts in
+the same stream. Each part start counts toward the index used to route later
+deltas, including text and reasoning parts.
+
 The assistant-ui integration rejects native `error` events, emits `STREAM_ERROR`,
 and aborts pending calls without finalizing their arguments. The stream's error
 text becomes the message, and the original event (including its code and
