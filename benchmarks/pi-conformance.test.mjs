@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeContext } from "@earendil-works/pi-ai";
 import { stream as anthropic } from "@earendil-works/pi-ai/api/anthropic-messages";
+import { stream as gemini } from "@earendil-works/pi-ai/api/google-generative-ai";
 import { stream as openai } from "@earendil-works/pi-ai/api/openai-completions";
 import { readToolInputs } from "../examples/pi.mjs";
 
@@ -157,25 +158,97 @@ test("Pi OpenAI length ending fails the message even after a complete call", asy
   );
 });
 
-test("cancelling a pending Pi read aborts the SDK fetch with the caller's reason", async () => {
-  const controller = new AbortController();
-  const started = Promise.withResolvers();
-  const reader = readToolInputs(
-    (signal) =>
-      openai({ ...model, api: "openai-completions", provider: "openai" }, context, {
-        apiKey: "fixture",
-        signal,
-        fetch: (_url, init) =>
-          new Promise((_, reject) => {
-            started.resolve(init.signal);
-            init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
-          }),
-      }),
-    { signal: controller.signal },
+const geminiModel = { ...model, api: "google-generative-ai", provider: "google" };
+
+function readGemini(calls, finishReason) {
+  const candidates = [
+    { content: { role: "model", parts: calls.map((functionCall) => ({ functionCall })) } },
+  ];
+  if (finishReason) candidates.push({ finishReason });
+  const wire = candidates
+    .map((candidate) => `data: ${JSON.stringify({ candidates: [candidate] })}\n\n`)
+    .join("");
+  return readToolInputs((signal) =>
+    gemini(geminiModel, context, { apiKey: "fixture", signal, fetch: async () => response(wire) }),
   );
-  const first = reader.next();
-  const transportSignal = await started.promise;
-  controller.abort(new Error("cancelled by caller"));
-  await assert.rejects(first, (err) => err === controller.signal.reason);
-  assert.equal(transportSignal.aborted, true);
+}
+
+test("Pi Gemini decodes object arguments and preserves each call's ID across updates", async () => {
+  const args = { cities: ["Paris", "Lyon"], options: { metric: true } };
+  const updates = await Array.fromAsync(
+    readGemini(
+      [
+        { id, name: "weather", args },
+        { name: "weather", args: {} },
+      ],
+      "STOP",
+    ),
+  );
+  const generatedId = updates[3]?.id;
+  assert.equal(typeof generatedId, "string");
+  assert.ok(generatedId.length > 0);
+  assert.notEqual(generatedId, id);
+  assert.deepEqual(
+    updates.map((u) => [u.type, u.id]),
+    [
+      ["start", id],
+      ["update", id],
+      ["complete", id],
+      ["start", generatedId],
+      ["update", generatedId],
+      ["complete", generatedId],
+    ],
+  );
+  assert.deepEqual(updates[1].partialValue, args);
+  assert.deepEqual(updates[2].value, args);
+  assert.deepEqual(updates[5].value, {});
 });
+
+for (const [ending, message] of [
+  ["MAX_TOKENS", /length/],
+  ["SAFETY", /SAFETY/],
+  [undefined, /without a finish reason/],
+]) {
+  test(`Pi Gemini rejects ${ending ?? "EOF without a finish reason"} after a complete call`, async () => {
+    const completed = [];
+    await assert.rejects(
+      async () => {
+        for await (const update of readGemini([{ id, name: "weather", args: {} }], ending)) {
+          if (update.type === "complete") completed.push([update.id, update.value]);
+        }
+      },
+      { code: "INTEGRATION_ERROR", message },
+    );
+    assert.deepEqual(completed, [[id, {}]]);
+  });
+}
+
+for (const [providerModel, stream] of [
+  [{ ...model, api: "openai-completions", provider: "openai" }, openai],
+  [geminiModel, gemini],
+]) {
+  test(`cancelling a pending Pi ${providerModel.api} read aborts the SDK fetch with the caller's reason`, async () => {
+    const controller = new AbortController();
+    const started = Promise.withResolvers();
+    const reader = readToolInputs(
+      (signal) =>
+        stream(providerModel, context, {
+          apiKey: "fixture",
+          signal,
+          fetch: (_url, init) =>
+            new Promise((_, reject) => {
+              started.resolve(init.signal);
+              init.signal.addEventListener("abort", () => reject(init.signal.reason), {
+                once: true,
+              });
+            }),
+        }),
+      { signal: controller.signal },
+    );
+    const first = reader.next();
+    const transportSignal = await started.promise;
+    controller.abort(new Error("cancelled by caller"));
+    await assert.rejects(first, (err) => err === controller.signal.reason);
+    assert.equal(transportSignal.aborted, true);
+  });
+}
