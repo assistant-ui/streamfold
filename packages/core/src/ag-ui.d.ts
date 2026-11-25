@@ -9,7 +9,7 @@ export type AgUiToolCallEvent =
   | {
       readonly type: "RUN_ERROR";
       readonly message: string;
-      readonly code?: string;
+      readonly code?: string | undefined;
     }
   | {
       readonly type: "TOOL_CALL_START";
@@ -26,7 +26,7 @@ export type AgUiToolCallEvent =
     }
   | {
       readonly type: string;
-      readonly toolCallId?: string;
+      readonly toolCallId?: string | undefined;
       readonly [key: string]: unknown;
     };
 
