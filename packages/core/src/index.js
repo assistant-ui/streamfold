@@ -7,18 +7,15 @@ import {
 } from "./internal/wasm-runtime.js";
 import { applyImmutableChanges } from "./internal/snapshots.js";
 import { annotateError, streamError } from "./internal/errors.js";
+import { normalizeStreamLimits } from "./internal/options.js";
 
 export { isStructuredStreamError } from "./internal/errors.js";
 export { prepareWasm as prepareStreamfold } from "./internal/wasm-runtime.js";
 export { defineAdapter } from "./adapter.js";
 export { readStructured } from "./read-structured.js";
+export { DEFAULT_STREAM_LIMITS } from "./internal/options.js";
 
 export const STREAMFOLD_ENGINE = "rust-wasm";
-export const DEFAULT_STREAM_LIMITS = Object.freeze({
-  maxActiveStreams: 256,
-  maxBytes: 16 * 1024 * 1024,
-  maxDepth: 128,
-});
 
 let parserFinalizer;
 
@@ -29,7 +26,7 @@ export class IncrementalJsonScanner {
   #error;
   #immutable;
 
-  constructor(options = {}) {
+  constructor(options) {
     const limits = normalizeStreamLimits(options);
     this.#immutable = limits.snapshots === "immutable";
     this.#parser = createWasmParser(limits);
@@ -178,8 +175,8 @@ export class StructuredStreamPool {
   #maxActiveStreams;
   #streamOptions;
 
-  constructor(options = {}) {
-    const limits = normalizePoolLimits(options);
+  constructor(options) {
+    const limits = normalizeStreamLimits(options, true);
     this.#maxActiveStreams = limits.maxActiveStreams;
     this.#streamOptions = {
       maxBytes: limits.maxBytes,
@@ -394,47 +391,3 @@ const isFieldComplete = (root, path) => {
   }
   return false;
 };
-
-const normalizeLimit = (value, fallback, name) => {
-  const limit = value ?? fallback;
-  if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 0xffff_ffff) {
-    throw streamError(
-      new RangeError(`${name} must be an integer between 1 and 4294967295`),
-      "INVALID_OPTIONS",
-    );
-  }
-  return limit;
-};
-
-const normalizeStreamLimits = (options) => ({
-  snapshots: normalizeSnapshots(options.snapshots),
-  maxBytes: normalizeLimit(
-    options.maxBytes,
-    DEFAULT_STREAM_LIMITS.maxBytes,
-    "maxBytes",
-  ),
-  maxDepth: normalizeLimit(
-    options.maxDepth,
-    DEFAULT_STREAM_LIMITS.maxDepth,
-    "maxDepth",
-  ),
-});
-
-const normalizeSnapshots = (snapshots = "live") => {
-  if (snapshots !== "live" && snapshots !== "immutable") {
-    throw streamError(
-      new TypeError('snapshots must be "live" or "immutable"'),
-      "INVALID_OPTIONS",
-    );
-  }
-  return snapshots;
-};
-
-const normalizePoolLimits = (options) => ({
-  ...normalizeStreamLimits(options),
-  maxActiveStreams: normalizeLimit(
-    options.maxActiveStreams,
-    DEFAULT_STREAM_LIMITS.maxActiveStreams,
-    "maxActiveStreams",
-  ),
-});

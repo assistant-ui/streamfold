@@ -11,6 +11,20 @@
   Gemini, assistant-ui, and Vercel event types. `createStructuredStream(options)`
   now also accepts `StructuredStreamOptions | undefined`, so a wrapper can
   forward its own optional `options`. Runtime behavior is unchanged.
+- **Behavior change:** `maxDepth` now accepts at most `65535`. Larger values
+  used to be accepted, but the Rust parser encodes path lengths in 16 bits, so
+  with `maxDepth: 1_000_000` a value nested 65,537 levels deep was reported at
+  depth 65,535 with no error. Those values now fail with `INVALID_OPTIONS`.
+- Report every invalid option in one `INVALID_OPTIONS` error. Scanners, pools,
+  adapter sessions, `readStructured` limits, and `createToolInputParser` used to
+  stop at the first problem; the message now names each invalid key, its
+  allowed values, and the value received. A single invalid limit is still a
+  `RangeError` and a single invalid `snapshots` mode is still a `TypeError`.
+- **Behavior change:** options that are not an object or `undefined` now fail
+  with `INVALID_OPTIONS`. `new IncrementalJsonScanner(null)` and
+  `createStructuredStreamPool(null)` used to throw a `TypeError` without a code,
+  and values such as `5` were silently treated as no options. Unknown keys are
+  still ignored.
 - **Behavior change:** `defineAdapter` sessions now fail with `INTEGRATION_ERROR`
   when the mapper returns a `start`, `delta`, `end`, or `abort` operation whose
   `id` is `undefined`, `null`, or `NaN`. Previously, `{ type: "start", id:

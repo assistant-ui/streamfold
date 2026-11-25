@@ -1,5 +1,6 @@
 import { createStructuredStreamPool } from "./index.js";
 import { streamError } from "./internal/errors.js";
+import { assertOptionsObject } from "./internal/options.js";
 import { abortableSource } from "./internal/abortable-source.js";
 import { clearCompletionHistory, disposeIntegration } from "./internal/integration.js";
 
@@ -17,6 +18,7 @@ export async function* readStructured(
       "INVALID_OPTIONS",
     );
   }
+  assertOptionsObject(limits, "limits");
   let pool;
   let stream;
   let source;
