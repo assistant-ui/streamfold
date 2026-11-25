@@ -3,6 +3,20 @@
 ## Unreleased
 
 - Keep one large push from growing the shared Wasm memory for the life of the process. Patches are now built in batches of about 64 KiB, the input buffer is sized from the chunk's UTF-8 length rather than three bytes per character, and buffers larger than 64 KiB are returned to the allocator after each push. On Node 24, one 4 MB push of a number array grows Wasm memory by about 4 MiB instead of 140 MiB, a 16 MiB push by about 16 MiB instead of 529 MiB, and a 4 MB string by about 23 MiB instead of 39 MiB. Wasm memory still never shrinks; see `API.md`. Patches, values, and errors are unchanged.
+- **Behavior change:** A `push` that opens and closes the root object or array
+  now reports `changes` as one `set` of the whole value at `[]` and one
+  `complete` at `[]`. Previously it reported a `set` and a `complete` for every
+  nested value, each with its own copy of the path, so one 1 MB push nested 127
+  levels deep allocated about 1 GB of heap, and a 4 MB push ran Node out of
+  memory. The same push now retains about 10 MB. This applies to whole documents
+  pushed at once, initial input passed to `start`, and pool `finish(id,
+  finalText)` replacements. Values, `partialValue`, and `getFieldState` are
+  unchanged. Code that reads `changes` sees fewer patches, `set` values that
+  are complete objects or arrays rather than `{}` or `[]`, no `append` for the
+  strings inside, and no `complete` for nested paths. Pushes that leave the
+  root open are unchanged. The embedded tool-input parser and the
+  assistant-stream backend now also reject `__proto__` and
+  `constructor.prototype` keys inside such a value.
 - **Behavior change:** `maxDepth` now accepts at most `65535`. Larger values
   used to be accepted, but the Rust parser encodes path lengths in 16 bits, so
   with `maxDepth: 1_000_000` a value nested 65,537 levels deep was reported at

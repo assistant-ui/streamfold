@@ -40,7 +40,10 @@ test("OpenAI completion uses final arguments with missing, partial, or different
         assert.equal(result.partialValue, previous);
         assert.deepEqual(result.changes, []);
       } else if (prefix !== undefined) {
-        assert.deepEqual(result.changes[0], { op: "set", path: [], value: {} });
+        assert.deepEqual(result.changes, [
+          { op: "set", path: [], value: { city: "Paris" } },
+          { op: "complete", path: [] },
+        ]);
       }
       if (snapshots === "immutable") assert.ok(Object.isFrozen(result.value));
       assert.equal(pool.size, 0);

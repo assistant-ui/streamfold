@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { createStructuredStream } from "./index.js";
+import { createToolInputParser } from "./vercel-ai.js";
 
 const indexUrl = new URL("./index.js", import.meta.url).href;
 const runtimeUrl = new URL("./internal/wasm-runtime.js", import.meta.url).href;
@@ -28,34 +29,75 @@ const measureGrowth = (source) => {
 
 const MiB = 1024 * 1024;
 
-test("one whole-document push does not build all of its patches in Wasm memory", () => {
-  // 2,000,000 elements make a 4 MB document and 4,000,002 patches. Before
-  // patches were batched, this grew Wasm memory by about 140 MiB.
+test("a whole-document push spanning many patch batches reports one root set in bounded Wasm memory", () => {
+  // 2,000,000 elements make a 4 MB document whose 4,000,002 encoded patches
+  // take about 38 MiB, or roughly 600 batches. Before patches were batched,
+  // this grew Wasm memory by about 140 MiB.
   const grown = measureGrowth(`
     const count = 2_000_000;
-    const streams = [createStructuredStream(), createStructuredStream()];
+    const streams = [createStructuredStream(), createStructuredStream({ snapshots: "immutable" })];
     for (const stream of streams) {
       const update = stream.push(digits(count));
       assert.equal(update.complete, true);
-      assert.equal(update.changes.length, 2 + count * 2);
-      assert.deepEqual(update.changes[0], { op: "set", path: [], value: [] });
+      assert.equal(update.changes.length, 2);
+      const [set, complete] = update.changes;
+      assert.equal(set.op, "set");
+      assert.deepEqual(set.path, []);
+      assert.equal(set.value.length, count);
       for (let i = 0; i < count; i++) {
-        const set = update.changes[1 + i * 2];
-        const complete = update.changes[2 + i * 2];
-        if (set.op !== "set" || set.path[0] !== i || set.value !== i % 10 ||
-            complete.op !== "complete" || complete.path[0] !== i) {
-          assert.fail("patch " + i + " is " + JSON.stringify([set, complete]));
-        }
+        if (set.value[i] !== i % 10) assert.fail("value " + i + " is " + set.value[i]);
       }
-      assert.deepEqual(update.changes.at(-1), { op: "complete", path: [] });
+      assert.notEqual(set.value, update.partialValue);
+      assert.deepEqual(complete, { op: "complete", path: [] });
+      assert.equal(stream.getFieldState([count - 1]), "complete");
     }
     // The second stream reuses what the first one returned to the allocator.
     for (const stream of streams) {
-      assert.equal(stream.finish().partialValue.length, count);
+      assert.deepEqual(stream.finish().changes, []);
       stream.dispose();
     }
   `);
   assert.ok(grown < 16 * MiB, `Wasm memory grew by ${grown} bytes for two 4 MB pushes`);
+});
+
+test("a push that leaves the root open keeps per-value patches across batches", () => {
+  const grown = measureGrowth(`
+    const count = 1_000_000;
+    const stream = createStructuredStream();
+    const open = digits(count).slice(0, -1);
+    const update = stream.push(open);
+    assert.equal(update.complete, false);
+    // The last number is still open, so it has a set but no complete yet.
+    assert.equal(update.changes.length, 2 * count);
+    assert.deepEqual(update.changes[0], { op: "set", path: [], value: [] });
+    for (let i = 0; i < count; i++) {
+      const set = update.changes[1 + i * 2];
+      if (set.op !== "set" || set.path.length !== 1 || set.path[0] !== i || set.value !== i % 10) {
+        assert.fail("patch " + (1 + i * 2) + " is " + JSON.stringify(set));
+      }
+      const done = update.changes[2 + i * 2];
+      if (i < count - 1 && (done.op !== "complete" || done.path[0] !== i)) {
+        assert.fail("patch " + (2 + i * 2) + " is " + JSON.stringify(done));
+      }
+    }
+    assert.deepEqual(stream.push("]").changes, [
+      { op: "complete", path: [count - 1] },
+      { op: "complete", path: [] },
+    ]);
+    assert.equal(stream.finish().partialValue.length, count);
+    stream.dispose();
+  `);
+  assert.ok(grown < 16 * MiB, `Wasm memory grew by ${grown} bytes for a 2 MB open push`);
+});
+
+test("unsafe keys after many patch batches are still rejected in a whole-document push", () => {
+  const padding = Array.from({ length: 50_000 }, (_, i) => i % 10).join(",");
+  for (const tail of ['{"__proto__":{"polluted":true}}', '{"constructor":{"prototype":{"polluted":true}}}']) {
+    const text = '{"padding":[' + padding + '],"items":[' + tail + "]}";
+    const parser = createToolInputParser();
+    assert.throws(() => parser.push(text), /unsafe key/);
+    assert.equal(Object.hasOwn(Object.prototype, "polluted"), false);
+  }
 });
 
 test("replacing a pool stream's text on finish keeps Wasm growth bounded", () => {
