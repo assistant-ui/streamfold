@@ -20,10 +20,11 @@ export const assistantUI = (pool = createStructuredStreamPool(), options) => {
         throw new Error("Assistant generation failed", { cause: event });
       }
       if (event.type === "part-start") {
-        // Native starts use the root path; older integrations supply the part path.
+        // The SDK appends every part in arrival order, including explicitly addressed parts.
         const key = event.path.length === 0
-          ? String(nextPartIndex++)
+          ? String(nextPartIndex)
           : pathKey(event.path);
+        nextPartIndex++;
         if (event.part.type === "tool-call") {
           idsByPath.set(key, event.part.toolCallId);
           return calls.start(event.part.toolCallId);

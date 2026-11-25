@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Route assistant-ui tool arguments to the correct call when a stream mixes
+  explicit part paths and root-path starts. Previously a later call could
+  lose its arguments and fail with `EMPTY_INPUT`.
+
 - Keep one large push from growing the shared Wasm memory for the life of the
   process. Patches are now built in batches of about 64 KiB, the input buffer
   is sized from the chunk's UTF-8 length rather than three bytes per
