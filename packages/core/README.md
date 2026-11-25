@@ -46,6 +46,8 @@ raw unpaired UTF-16 code units fail with `INVALID_CHUNK` instead of being silent
 replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
 (as produced by `JSON.stringify`).
 
+For Mistral `chat.stream`, use `mistralChat` from `streamfold/mistral` (unreleased).
+
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/cohere`, `streamfold/bedrock`,
 `streamfold/pi` (unreleased, Pi native events), `streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded

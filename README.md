@@ -89,6 +89,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | --- | --- |
 | `streamfold/assistant-ui` | assistant-stream |
 | `streamfold/vercel-ai` | Vercel AI SDK |
+| `streamfold/mistral` | Mistral `chat.stream` via `mistralChat` (unreleased) |
 | `streamfold/openai` | OpenAI Responses; Chat Completions via `openAIChatCompletions` (since 0.1.20) |
 | `streamfold/openai-agents` (unreleased) | OpenAI Agents Runner tool arguments from Chat Completions and Responses |
 | `streamfold/openrouter` (unreleased) | Native OpenRouter `chat.send` function tool streams |

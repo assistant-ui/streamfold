@@ -44,6 +44,10 @@
       "types": "./src/langchain.d.ts",
       "default": "./src/langchain.js"
     },
+    "./mistral": {
+      "types": "./src/mistral.d.ts",
+      "default": "./src/mistral.js"
+    },
     "./pi": {
       "types": "./src/pi.d.ts",
       "default": "./src/pi.js"

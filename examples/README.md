@@ -339,6 +339,38 @@ Those tests make no live provider requests and do not establish model
 availability, network latency, or live compatibility. The manual command is
 not part of the test or release scripts.
 
+## Mistral chat
+
+The unreleased `streamfold/mistral` entry accepts the stream returned by
+`client.chat.stream`. Use it from this checkout or its packed tarball.
+The following example runs alongside [mistral-chat.mjs](./mistral-chat.mjs)
+with `@mistralai/mistralai@3.4.0`, a tool-capable `MISTRAL_MODEL`, and
+`MISTRAL_API_KEY`.
+
+```js
+import { Mistral } from "@mistralai/mistralai";
+import { readToolInputs } from "./mistral-chat.mjs";
+
+const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+const controller = new AbortController();
+const source = await client.chat.stream({
+  model: process.env.MISTRAL_MODEL,
+  messages: [{ role: "user", content: "What's the weather in Paris?" }],
+  tools: [{ type: "function", function: {
+    name: "weather",
+    parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] },
+  } }],
+  toolChoice: "any",
+}, { signal: controller.signal });
+
+for await (const update of readToolInputs(source, { signal: controller.signal })) {
+  console.log(update.id, update.type, update.partialValue);
+}
+```
+
+Run `node --test examples/mistral-chat.test.mjs` for an offline example using
+the SDK decoder, including a stalled body read cancelled by the caller.
+
 ## Mistral Responses
 
 [`mistral.mjs`](./mistral.mjs) accepts the asynchronous stream returned by

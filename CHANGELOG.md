@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `mistralChat` from `streamfold/mistral` for decoded Mistral chat streams.
+  It tracks interleaved function calls by choice and tool index, accepts whole
+  argument objects, and rejects truncated calls.
+
 - Read Pi native tool-call events through `streamfold/pi`. Streamfold exposes
   incremental argument previews and completes each call from Pi's final input.
 

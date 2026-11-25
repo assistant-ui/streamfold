@@ -6,20 +6,21 @@ validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
 
 This matrix records the pinned SDK versions and local evidence checked on
-2026-11-18, with the Agents Runner and OpenRouter checked on 2026-11-25. No live model
+2026-11-18, with Mistral chat, the Agents Runner, and OpenRouter checked on 2026-11-25. No live model
 request was made for this review. Fixture compatibility does not guarantee
 support for every model or future SDK version.
 
 ## Event adapters
 
 Nine adapter subpaths shipped by Streamfold 0.1.19. The additional Chat
-Completions export requires 0.1.20 or newer. The Pi, OpenAI Agents, and OpenRouter entries
+Completions export requires 0.1.20 or newer. The four new entries (Pi, OpenAI Agents, OpenRouter, and Mistral chat)
 are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
 | assistant-stream chunks | `streamfold/assistant-ui` | `assistant-stream` 0.3.54 | Partial-value and field-state conformance; event/lifecycle fixtures; production demo |
 | Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs, no-argument tools, and failure tests |
+| Mistral `chat.stream` | `streamfold/mistral` (`mistralChat`, unreleased) | `@mistralai/mistralai` 3.4.0 | Real SSE decoder, interleaved IDs, whole argument objects, truncation, stalled reader cancellation |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
 | OpenAI Agents Runner (unreleased) | `streamfold/openai-agents` (`openAIAgents`) | `@openai/agents` 0.22.0, `openai` 7.47.0 | Offline Runner and HTTP SSE decoders, handoff across turns, failure, cancellation and final output |
@@ -126,7 +127,7 @@ Run the checked-in SDK fixtures and type boundaries without credentials:
 ```bash
 pnpm install --frozen-lockfile
 pnpm typecheck
-node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs benchmarks/ag-ui-sdk.test.mjs examples/mistral.test.mjs
+node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs benchmarks/ag-ui-sdk.test.mjs examples/mistral*.test.mjs
 pnpm check
 pnpm pack:check
 ```

@@ -7,11 +7,15 @@ const openAIFields = {
   finishReason: "finish_reason",
 };
 
-export const createChatCompletionsHandler = ({ toolCalls, finishReason } = openAIFields) => {
+export const createChatCompletionsHandler = ({
+  toolCalls, finishReason, unwrap, placeholderId, getFinalText,
+} = openAIFields) => {
+  let finalTexts;
   const choices = new Map();
   const seenIds = new Set();
   const finishedChoices = new Set();
   const clear = () => {
+    finalTexts?.clear();
     choices.clear();
     seenIds.clear();
     finishedChoices.clear();
@@ -25,7 +29,8 @@ export const createChatCompletionsHandler = ({ toolCalls, finishReason } = openA
   };
 
   return {
-    accept(event, calls) {
+    accept(frame, calls) {
+      const event = unwrap ? unwrap(frame) : frame;
       if (event.error != null) {
         throw event.error instanceof Error
           ? event.error
@@ -77,18 +82,19 @@ export const createChatCompletionsHandler = ({ toolCalls, finishReason } = openA
             tool.type !== "function"
           )
             continue;
+          const toolId = tool.id === placeholderId ? undefined : tool.id;
           let id = ids?.get(tool.index);
           if (id === undefined) {
-            if (typeof tool.id !== "string" || tool.id.length === 0) {
+            if (typeof toolId !== "string" || toolId.length === 0) {
               throw new Error(
                 "Chat Completions tool is missing its id; include the first chunk for every tool.",
               );
             }
-            if (seenIds.has(tool.id))
+            if (seenIds.has(toolId))
               throw new Error(
                 "Chat Completions tool id is reused; use unique IDs within a request.",
               );
-            id = tool.id;
+            id = toolId;
             seenIds.add(id);
             if (ids === undefined) {
               ids = new Map();
@@ -96,17 +102,32 @@ export const createChatCompletionsHandler = ({ toolCalls, finishReason } = openA
             }
             ids.set(tool.index, id);
             update = calls.start(id);
-          } else if (tool.id !== undefined && tool.id !== id) {
+          } else if (toolId !== undefined && toolId !== id) {
             throw new Error(
               "Chat Completions tool id changed; preserve each tool's id and index.",
             );
           }
           if (tool.function?.arguments !== undefined) {
-            update = calls.push(id, tool.function.arguments);
+            if (finalTexts?.has(id))
+              throw new Error(
+                "Chat Completions received arguments after a final object; send the object last.",
+              );
+            const args = tool.function.arguments;
+            const finalText = getFinalText?.(args);
+            if (finalText === undefined) {
+              update = calls.push(id, args);
+            } else {
+              finalTexts ??= new Map();
+              finalTexts.set(id, finalText);
+            }
           }
         }
         if (reason != null) {
-          for (const id of ids?.values() ?? []) update = calls.complete(id);
+          for (const id of ids?.values() ?? []) {
+            const finalText = finalTexts?.get(id);
+            update = calls.complete(id, finalText === undefined ? undefined : () => finalText);
+            finalTexts?.delete(id);
+          }
           choices.delete(choice.index);
           finishedChoices.add(choice.index);
         }
