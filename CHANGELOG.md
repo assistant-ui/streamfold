@@ -96,6 +96,8 @@
   `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument
   text must still form valid JSON, and OpenAI Chat Completions still rejects
   empty arguments.
+- Add `openAIAgents` from `streamfold/openai-agents` to read function arguments
+  across Chat Completions and Responses turns in an OpenAI Agents Runner stream.
 - Keep Wasm memory proportional to the input when a long object key sits above deep nesting or many values. The parser no longer copies key text into every nested frame and patch, so a 1 MB stream with one long key no longer traps after growing memory past 2 GiB. Patches and snapshots are unchanged.
 - Parse numbers streamed in small chunks in linear time. Each chunk now extends
   the number instead of rescanning it. Partial values and patches are unchanged.
