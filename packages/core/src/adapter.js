@@ -95,11 +95,11 @@ export function defineAdapter(mapEvent) {
                 `Adapter mapper returned ${name} operation with id ${String(id)}; return a string, number, or other stable \`id\` that is not undefined, null, or NaN`,
               );
             }
-            operationContext = { id: operation.id };
+            operationContext = { id };
             switch (operation.type) {
               case "start":
                 operationContext.operation = "start";
-                updates.push({ type: "start", ...pool.start(operation.id) });
+                updates.push({ type: "start", ...pool.start(id) });
                 break;
               case "delta":
                 operationContext.operation = "push";
@@ -108,18 +108,18 @@ export function defineAdapter(mapEvent) {
                 }
                 updates.push({
                   type: "update",
-                  ...pool.push(operation.id, operation.text),
+                  ...pool.push(id, operation.text),
                 });
                 break;
               case "end":
                 operationContext.operation = "finish";
                 updates.push({
                   type: "complete",
-                  ...pool.finish(operation.id),
+                  ...pool.finish(id),
                 });
                 break;
               case "abort":
-                pool.abort(operation.id);
+                pool.abort(id);
                 break;
               default:
                 throw new TypeError("Unknown adapter operation type");

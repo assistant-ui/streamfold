@@ -180,6 +180,43 @@ test("validates JavaScript mapper output and cleans up malformed batches", (t) =
   assert.throws(() => stream.pushAll(null), { message: "Adapter stream failed", cause: "failure" });
 });
 
+function operationWithIdGetter(type, id, text) {
+  let read = false;
+  return {
+    type,
+    text,
+    get id() {
+      assert.equal(read, false, `Read the ${type} operation ID twice`);
+      read = true;
+      return id;
+    },
+  };
+}
+
+test("dispatches each operation using its first ID read", () => {
+  const stream = operationsAdapter();
+  const updates = stream.pushAll([
+    operationWithIdGetter("start", "keep"),
+    operationWithIdGetter("start", "discard"),
+    operationWithIdGetter("delta", "keep", "42"),
+    operationWithIdGetter("abort", "discard"),
+    operationWithIdGetter("end", "keep"),
+  ]);
+  assert.deepEqual(updates.map(({ id }) => id), ["keep", "discard", "keep", "keep"]);
+  assert.equal(updates[3].value, 42);
+  assert.deepEqual(stream.finish(), []);
+});
+
+test("reports the captured ID when a mapped delta has invalid text", () => {
+  const stream = operationsAdapter();
+  assert.throws(() => stream.pushAll([operationWithIdGetter("delta", "call", 42)]), {
+    code: "INTEGRATION_ERROR",
+    id: "call",
+    operation: "push",
+    message: "An adapter delta must include text",
+  });
+});
+
 test("rejects operations with an undefined, null, or NaN id", (t) => {
   const dispose = t.mock.method(IncrementalJsonScanner.prototype, "dispose");
   let disposed = 0;
@@ -190,7 +227,7 @@ test("rejects operations with an undefined, null, or NaN id", (t) => {
         onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
       });
       stream.pushAll([{ type: "start", id: "active" }]);
-      assert.throws(() => stream.pushAll([{ type, id, text: "{}" }]), {
+      assert.throws(() => stream.pushAll([operationWithIdGetter(type, id, "{}")]), {
         name: "TypeError",
         code: "INTEGRATION_ERROR",
         adapter: "custom",
