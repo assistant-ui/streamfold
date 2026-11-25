@@ -61,12 +61,10 @@ test("authoritative final text replaces streamed values and emits replacement pa
     assert.equal(result.bytesSeen, Buffer.byteLength(text));
     assert.equal(result.complete, true);
     assert.deepEqual(result.changes, [
-      { op: "set", path: [], value: {} },
-      { op: "set", path: ["location"], value: "" },
-      { op: "append", path: ["location"], value: "Paris" },
-      { op: "complete", path: ["location"] },
+      { op: "set", path: [], value: { location: "Paris" } },
       { op: "complete", path: [] },
     ]);
+    assert.notEqual(result.changes[0].value, result.partialValue);
     assert.deepEqual(prior, { city: "Paris", extra: true });
     if (snapshots === "immutable") {
       assert.equal(Object.isFrozen(result.partialValue), true);

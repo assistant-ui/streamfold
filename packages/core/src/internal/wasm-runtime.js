@@ -256,7 +256,7 @@ const readPathString = (view, cursor, length) => {
 // Each encoded path repeats only the segments after the prefix it shares with
 // the previous path, so key strings are decoded once and shared between patches.
 // Every patch gets its own copy because callers may mutate `change.path`.
-const readPath = (parser, view, cursor) => {
+const readPath = (parser, view, cursor, copy = true) => {
   const shared = view.getUint16(cursor.offset, true);
   const length = view.getUint16(cursor.offset + 2, true);
   cursor.offset += 4;
@@ -276,7 +276,7 @@ const readPath = (parser, view, cursor) => {
       cursor.offset += 4;
     }
   }
-  return path.slice();
+  return copy ? path.slice() : path;
 };
 
 const readNumber = (view, cursor) => {
@@ -296,13 +296,89 @@ const readNumber = (view, cursor) => {
   return Number(text);
 };
 
-const readPatches = (parser) => {
+const setOwn = (target, key, value) => {
+  if (key === "__proto__") {
+    Object.defineProperty(target, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    });
+  } else {
+    target[key] = value;
+  }
+};
+
+// A push that opens and closes the root object or array would otherwise yield a
+// patch, with its own path array, for every value in the document, so memory
+// grew with input size times depth. It is reported as one root `set` with the
+// whole value instead. The patches are still read in order, so duplicate keys
+// and string appends resolve exactly as the live and immutable appliers would.
+const readDocument = (parser, view, cursor, length) => {
+  const containers = [];
+  while (cursor.offset < length) {
+    const operation = view.getUint8(cursor.offset++);
+    const path = readPath(parser, view, cursor, false);
+    const depth = path.length;
+    let value;
+    if (operation === PATCH_SET_OBJECT) {
+      value = {};
+    } else if (operation === PATCH_SET_ARRAY) {
+      value = [];
+    } else if (operation === PATCH_SET_STRING) {
+      value = "";
+    } else if (operation === PATCH_APPEND_STRING) {
+      const units = view.getUint32(cursor.offset, true);
+      cursor.offset += 4;
+      const parent = containers[depth - 1];
+      const key = path[depth - 1];
+      setOwn(parent, key, parent[key] + readAppendString(view, cursor, units));
+      continue;
+    } else if (operation === PATCH_SET_NUMBER) {
+      value = readNumber(view, cursor);
+    } else if (operation === PATCH_SET_TRUE) {
+      value = true;
+    } else if (operation === PATCH_SET_FALSE) {
+      value = false;
+    } else if (operation === PATCH_SET_NULL) {
+      value = null;
+    } else if (operation === PATCH_COMPLETE || operation === PATCH_INVALIDATE) {
+      continue;
+    } else {
+      throw new Error(`Unknown Rust patch operation: ${operation}`);
+    }
+    if (depth === 0) {
+      if (containers.length !== 0) throw new Error("Rust parser replaced a complete root");
+    } else {
+      setOwn(containers[depth - 1], path[depth - 1], value);
+    }
+    if (typeof value === "object" && value !== null) {
+      containers.length = depth;
+      containers.push(value);
+    }
+  }
+  return [
+    { op: "set", path: [], value: containers[0] },
+    { op: "complete", path: [] },
+  ];
+};
+
+const readPatches = (parser, complete = false) => {
   const { wasm, handle } = parser;
   const length = wasm.streamfold_parser_output_len(handle) >>> 0;
   if (length === 0) return [];
   const pointer = wasm.streamfold_parser_output(handle) >>> 0;
   const view = new DataView(wasm.memory.buffer, pointer, length);
   const cursor = { offset: 0 };
+  const first = view.getUint8(0);
+  // An empty path is encoded as two zero lengths after the operation byte.
+  if (
+    complete &&
+    (first === PATCH_SET_OBJECT || first === PATCH_SET_ARRAY) &&
+    view.getUint16(3, true) === 0
+  ) {
+    return readDocument(parser, view, cursor, length);
+  }
   const patches = [];
 
   while (cursor.offset < length) {
@@ -387,7 +463,7 @@ const pushChunk = (parser, chunk) => {
     length = result.written;
   }
   const state = readState(parser, wasm.streamfold_parser_push(handle, length));
-  return { state, changes: readPatches(parser) };
+  return { state, changes: readPatches(parser, state.complete) };
 };
 
 export const pushWasmParser = (parser, chunk) => {

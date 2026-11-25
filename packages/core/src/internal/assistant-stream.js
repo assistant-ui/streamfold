@@ -1,4 +1,5 @@
 import { createStructuredStream } from "../index.js";
+import { hasUnsafeKey } from "./unsafe-keys.js";
 
 const samePath = (left, right) =>
   left.length === right.length && left.every((key, index) => key === right[index]);
@@ -93,14 +94,7 @@ class StreamfoldParser {
   trackPaths(update) {
     const session = this.session;
     for (const change of update.changes) {
-      if (
-        change.path.some(
-          (key, index) =>
-            key === "__proto__" ||
-            (key === "prototype" && change.path[index - 1] === "constructor"),
-        )
-      )
-        throw new Error("Unsafe argument key");
+      if (hasUnsafeKey(change)) throw new Error("Unsafe argument key");
       if (change.op === "complete") {
         if (session.token && samePath(session.token, change.path)) session.token = undefined;
         if (session.containers.at(-1) && samePath(session.containers.at(-1), change.path))
