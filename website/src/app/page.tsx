@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Fold } from "../fold";
 import { Install, Replay } from "../playground";
 
 const repo = "https://github.com/assistant-ui/streamfold";
@@ -6,16 +7,6 @@ export const metadata = {
   title: "Streamfold — incremental JSON for AI streams",
   description: "Replay fragmented tool-call JSON and inspect the partial value after each push.",
 };
-
-function Fold({ small = false }) {
-  return (
-    <span className={small ? "fold small" : "fold"} aria-hidden="true">
-      <i />
-      <i />
-      <i />
-    </span>
-  );
-}
 
 export default function HomePage() {
   return (
@@ -25,7 +16,11 @@ export default function HomePage() {
       </a>
       <header>
         <a className="brand" href="/" aria-label="Streamfold home">
-          <Fold small />
+          <span className="brand-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
           Streamfold
         </a>
         <nav aria-label="Resources">
@@ -44,9 +39,7 @@ export default function HomePage() {
             <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
             <Install />
           </div>
-          <div className="drawing" aria-hidden="true">
-            <Fold />
-          </div>
+          <Fold />
         </section>
         <Replay />
       </main>

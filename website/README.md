@@ -27,4 +27,4 @@ pnpm exec playwright install chromium
 CAPTURE_PNG=1 pnpm test:browser
 ```
 
-The test drives desktop keyboard controls and a touch-enabled phone viewport. It checks clipboard contents, intermediate JSON, completion, replay, reset, and horizontal overflow. Set `CHROME_EXECUTABLE` to an installed Chrome binary to use it instead. With `CAPTURE_PNG=1`, the tests save full-page captures to `artifacts/website/{desktop,phone}.png` at the repository root.
+The test drives desktop keyboard controls and a touch-enabled phone viewport. It checks the folded illustration, button target sizes, clipboard contents, denied-copy selection, intermediate JSON, completion, replay, reset, and horizontal overflow. Set `CHROME_EXECUTABLE` to an installed Chrome binary to use it instead. With `CAPTURE_PNG=1`, the tests save full-page captures to `artifacts/website/{desktop,phone}-fold.png` at the repository root.

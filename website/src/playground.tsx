@@ -3,40 +3,52 @@
 import { useEffect, useRef, useState } from "react";
 import { createStructuredStream, type IncrementalJsonScanner } from "streamfold";
 
-const install = "npm install streamfold";
+import { ControlIcon } from "./control-icon";
+
+const command = ["npm", "install", "streamfold"] as const;
 const chunks = ['{"city":"', "San Fran", 'cisco",', '"units":"', 'metric"}'];
 
 export function Install() {
-  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<"idle" | "copied" | "denied">("idle");
+  const code = useRef<HTMLElement>(null);
   async function copy() {
     try {
-      await navigator.clipboard.writeText(install);
-      setMessage("Copied");
+      await navigator.clipboard.writeText(command.join(" "));
+      setResult("copied");
     } catch {
-      setMessage("Select the command to copy it.");
+      setResult("denied");
+      if (code.current) {
+        const range = document.createRange();
+        range.selectNodeContents(code.current);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
     }
   }
   return (
     <div className="install-wrap">
       <div className="install">
-        <span aria-hidden="true">$</span>
-        <code>{install}</code>
+        <span className="prompt" aria-hidden="true">
+          ❯
+        </span>
+        <code ref={code}>
+          <b>{command[0]}</b> {command[1]} <strong>{command[2]}</strong>
+        </code>
         <button onClick={copy} aria-label="Copy install command">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            <rect x="8" y="8" width="12" height="13" rx="2" />
-            <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
-          </svg>
+          <ControlIcon name={result === "copied" ? "check" : "copy"} />
+          <span aria-hidden="true">{result === "copied" ? "Copied" : "Copy"}</span>
         </button>
       </div>
-      <small role="status">{message}</small>
+      <small role="status">
+        {result === "denied" ? (
+          "Copy blocked. Use Copy on the selected command."
+        ) : result === "copied" ? (
+          <span className="sr-only">Copied to clipboard.</span>
+        ) : (
+          ""
+        )}
+      </small>
     </div>
   );
 }
@@ -139,13 +151,15 @@ export function Replay() {
         <div className="controls">
           <div>
             <button className="primary" onClick={play} disabled={!!error}>
-              <span aria-hidden="true">{playing ? "Ⅱ" : "▸"}</span>
+              <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
               {playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play"}
             </button>
             <button disabled={playing || complete || !!error} onClick={() => advance(count)}>
+              <ControlIcon name="step" />
               Step
             </button>
             <button disabled={!count && !error} onClick={reset}>
+              <ControlIcon name="reset" />
               Reset
             </button>
           </div>
