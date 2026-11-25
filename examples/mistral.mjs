@@ -1,32 +1,45 @@
 import { readStructured } from "streamfold";
 import { openAI } from "streamfold/openai";
 
-/**
- * @param {AsyncIterable<import('@mistralai/mistralai/models/components').ResponsesStreamFrame>} source
- */
-async function* normalizeEvents(source) {
-  for await (const { data } of source) {
-    if (data.type === "response.function_call_arguments.delta" ||
-        data.type === "response.function_call_arguments.done") {
-      yield { ...data, item_id: data.itemId };
-    } else if (data.type === "response.incomplete") {
-      yield {
-        ...data,
-        response: { ...data.response, incomplete_details: data.response.incompleteDetails },
-      };
-    } else {
-      yield data;
-    }
+/** @typedef {import('@mistralai/mistralai/models/components').ResponsesStreamFrame} MistralFrame */
+
+/** @param {MistralFrame} frame */
+function normalizeEvent({ data }) {
+  if (
+    data.type === "response.function_call_arguments.delta" ||
+    data.type === "response.function_call_arguments.done"
+  ) {
+    return { ...data, item_id: data.itemId };
   }
+  if (data.type === "response.incomplete") {
+    return {
+      ...data,
+      response: { ...data.response, incomplete_details: data.response.incompleteDetails },
+    };
+  }
+  return data;
 }
 
+/** @type {import("streamfold").BatchStructuredStreamIntegration<MistralFrame>} */
+const mistral = (pool, options) => {
+  const stream = openAI(pool, options);
+  const { push, pushAll } = stream;
+  // Keep the integration instance so the managed reader can dispose its state.
+  return Object.assign(stream, {
+    /** @param {MistralFrame} frame */
+    push: (frame) => push(normalizeEvent(frame)),
+    /** @param {MistralFrame} frame */
+    pushAll: (frame) => pushAll(normalizeEvent(frame)),
+  });
+};
+
 /**
- * @param {AsyncIterable<import('@mistralai/mistralai/models/components').ResponsesStreamFrame>} source
+ * @param {AsyncIterable<MistralFrame>} source
  * @param {{ signal?: AbortSignal }} [options]
  */
 export function readToolInputs(source, options = {}) {
-  return readStructured(normalizeEvents(source), {
-    integration: openAI,
+  return readStructured(source, {
+    integration: mistral,
     limits: { snapshots: "immutable" },
     ...options,
   });
