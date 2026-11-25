@@ -30,11 +30,18 @@ are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler, including tool blocks without input deltas |
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.4.1 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
-| Pi native `AssistantMessageEvent` | `streamfold/pi` (unreleased) | `@earendil-works/pi-ai` 1.6.0 (pinned) | Offline OpenAI Chat and Anthropic Messages decoders, SDK types, split and complete inputs, cancellation |
+| Pi native `AssistantMessageEvent` | `streamfold/pi` (unreleased) | `@earendil-works/pi-ai` 1.6.0 (pinned) | Offline OpenAI Chat, Anthropic Messages, and Google Gemini GenerateContent decoders, SDK types, split and complete inputs, cancellation |
 | AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved and no-argument calls, terminal errors, local HTTP cancellation, and SDK types |
 
-The Pi fixtures run against the pinned development SDK. A separate local run
-on 2026-11-25 also checked the native types and both decoders with Pi AI 1.6.1.
+With Pi AI 1.6.0, Gemini's native `google-generative-ai` decoder turns each
+complete `functionCall.args` object into one JSON `toolcall_delta`. Offline SSE
+fixtures verify multiple calls with supplied and generated IDs, including a
+response with no text parts. After a completed call, `MAX_TOKENS`, `SAFETY`,
+and EOF without a finish reason each fail the read. Cancelling a pending read
+aborts the SDK fetch.
+
+A separate local run on 2026-11-25 checked the native types and the OpenAI
+Chat and Anthropic Messages decoders with Pi AI 1.6.1.
 
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with

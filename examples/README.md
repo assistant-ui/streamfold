@@ -90,8 +90,8 @@ for await (const update of readToolInputs(signal => stream(model, context, { sig
 }
 ```
 
-Use your configured Pi model and conversation context. To run the reader with
-both real provider decoders and local responses, run
+Use your configured Pi model and conversation context. To exercise the OpenAI
+Chat, Anthropic Messages, and Google Gemini decoders with local SSE fixtures, run
 `node --test benchmarks/pi-conformance.test.mjs` from the repository root.
 
 ## OpenAI Responses
