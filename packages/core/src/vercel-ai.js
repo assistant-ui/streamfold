@@ -1,6 +1,7 @@
 import { createStructuredStream, createStructuredStreamPool } from "./index.js";
 import { annotateError } from "./internal/errors.js";
 import { hasUnsafeKey } from "./internal/unsafe-keys.js";
+import { assertOptionsObject } from "./internal/options.js";
 import { createEmptyArguments, createIntegration } from "./internal/integration.js";
 
 export const vercelAI = (pool = createStructuredStreamPool(), options) => {
@@ -94,7 +95,8 @@ export const vercelAI = (pool = createStructuredStreamPool(), options) => {
 
 export { vercelAI as createStructuredStream };
 
-export const createToolInputParser = (options = {}) => {
+export const createToolInputParser = (options) => {
+  assertOptionsObject(options);
   const parser = createStructuredStream({ ...options, snapshots: "immutable" });
   return {
     push(delta) {

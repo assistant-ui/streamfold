@@ -7,6 +7,9 @@ repository.workspace = true
 description = "Incremental streaming state engine for AI protocols"
 publish = false
 
+[lints]
+workspace = true
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
