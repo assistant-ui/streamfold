@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { defineAdapter, readStructured } from "./index.js";
+import { pi } from "./pi.js";
 import { agUI } from "./ag-ui.js";
 import { anthropic } from "./anthropic.js";
 import { assistantUI } from "./assistant-ui.js";
@@ -55,6 +56,12 @@ const adapters = {
     start: [{ contentBlockStart: { contentBlockIndex: 0, start: { toolUse: { toolUseId: id, name: "weather" } } } }],
     delta: (text) => ({ contentBlockDelta: { contentBlockIndex: 0, delta: { toolUse: { input: text } } } }),
     close: () => [{ contentBlockStop: { contentBlockIndex: 0 } }],
+  },
+  Pi: {
+    integration: pi,
+    start: [{ type: "toolcall_start", contentIndex: 0, partial: { content: [{ type: "toolCall", id }] } }],
+    delta: (delta) => ({ type: "toolcall_delta", contentIndex: 0, delta }),
+    close: () => [{ type: "toolcall_end", contentIndex: 0, toolCall: { id, arguments: {} } }],
   },
   "AG-UI": {
     integration: agUI,

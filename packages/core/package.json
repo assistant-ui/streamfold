@@ -44,9 +44,17 @@
       "types": "./src/langchain.d.ts",
       "default": "./src/langchain.js"
     },
+    "./pi": {
+      "types": "./src/pi.d.ts",
+      "default": "./src/pi.js"
+    },
     "./openai": {
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"
+    },
+    "./openai-agents": {
+      "types": "./src/openai-agents.d.ts",
+      "default": "./src/openai-agents.js"
     },
     "./openrouter": {
       "types": "./src/openrouter.d.ts",

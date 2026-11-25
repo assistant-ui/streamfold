@@ -63,6 +63,37 @@ Disabling is synchronous and idempotent, prevents pending initialization from
 registering later, and leaves existing parsers and other registrations intact.
 A cancelled initialization resolves to `false`; a later call can re-enable it.
 
+## OpenAI Agents Runner (unreleased)
+
+The [Runner example](./openai-agents.mjs) streams immutable argument previews
+and prints the Runner's final output. Its local weather tool returns an example
+forecast. With `OPENAI_API_KEY` and `OPENAI_MODEL` set, run
+`node examples/openai-agents.mjs`. Ctrl+C cancels both the request and the reader.
+
+Run `node --test examples/openai-agents.test.mjs` for the credential-free version.
+It runs the example with real Chat Completions and Responses models over local
+SSE fixtures. Both use the public entry in this checkout.
+
+## Pi native events (unreleased)
+
+Use the candidate package from this checkout. Streamfold 0.1.21 lacks
+`streamfold/pi`. With the pinned Pi AI 1.6.0 SDK, pass a function that opens one assistant
+message stream. The example shares an abort signal with the provider and
+closes the request when you leave the loop early.
+
+```js
+import { stream } from "@earendil-works/pi-ai";
+import { readToolInputs } from "./pi.mjs";
+
+for await (const update of readToolInputs(signal => stream(model, context, { signal }))) {
+  console.log(update.id, update.partialValue);
+}
+```
+
+Use your configured Pi model and conversation context. To run the reader with
+both real provider decoders and local responses, run
+`node --test benchmarks/pi-conformance.test.mjs` from the repository root.
+
 ## OpenAI Responses
 
 [`openai.mjs`](./openai.mjs) makes a live OpenAI Responses request and prints

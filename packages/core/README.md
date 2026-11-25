@@ -48,10 +48,14 @@ replaced during UTF-8 encoding. Use JSON Unicode escapes for unpaired code units
 
 Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/cohere`, `streamfold/bedrock`,
-`streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
+`streamfold/pi` (unreleased, Pi native events), `streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
 SDK events. Integrations use structural event types and do not load provider
 SDKs. The unreleased `streamfold/openrouter` subpath reads native OpenRouter
 chat tool calls.
+
+The unreleased `streamfold/openai-agents` entry accepts a streamed Runner result
+from `@openai/agents` 0.22.0. Use `readStructured(run, { integration: openAIAgents })`
+for Chat Completions or Responses function arguments.
 
 To opt into assistant-stream's shared parser, import
 `initializeAssistantStream` and `disableAssistantStream` from
