@@ -39,6 +39,10 @@
   root open are unchanged. The embedded tool-input parser and the
   assistant-stream backend now also reject `__proto__` and
   `constructor.prototype` keys inside such a value.
+- **Behavior change:** Explicit `null` for `maxBytes`, `maxDepth`, or
+  `maxActiveStreams` now raises `INVALID_OPTIONS` wherever that limit applies.
+  JavaScript and JSON configs that used `null` to select a default should omit
+  the key. JavaScript callers can also pass `undefined`.
 - **Behavior change:** `maxDepth` now accepts at most `65535`. Larger values
   used to be accepted, but the Rust parser encodes path lengths in 16 bits, so
   with `maxDepth: 1_000_000` a value nested 65,537 levels deep was reported at
