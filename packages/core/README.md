@@ -50,7 +50,8 @@ Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 `streamfold/anthropic`, `streamfold/cohere`, `streamfold/bedrock`,
 `streamfold/gemini`, `streamfold/langchain`, or `streamfold/ag-ui` for decoded
 SDK events. Integrations use structural event types and do not load provider
-SDKs.
+SDKs. The unreleased `streamfold/openrouter` subpath reads native OpenRouter
+chat tool calls.
 
 To opt into assistant-stream's shared parser, import
 `initializeAssistantStream` and `disableAssistantStream` from

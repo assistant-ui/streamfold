@@ -48,6 +48,10 @@
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"
     },
+    "./openrouter": {
+      "types": "./src/openrouter.d.ts",
+      "default": "./src/openrouter.js"
+    },
     "./vercel-ai": {
       "types": "./src/vercel-ai.d.ts",
       "default": "./src/vercel-ai.js"

@@ -165,6 +165,41 @@ They do not call a live provider or establish a performance improvement.
 
 Protocol reference: [OpenAI Chat Completions streaming events](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
 
+## OpenRouter chat
+
+From this checkout, run `node --test examples/openrouter.test.mjs` to feed
+offline SSE responses through the native SDK and [readToolInputs](./openrouter.mjs).
+The example uses the unreleased `streamfold/openrouter` subpath.
+
+For an application request, set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`
+to your key and a model that supports function tools.
+
+```js
+import { OpenRouter } from "@openrouter/sdk";
+import { readToolInputs } from "./openrouter.mjs";
+
+const sdk = new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
+const controller = new AbortController();
+const chunks = await sdk.chat.send({
+  chatRequest: {
+    stream: true,
+    model: process.env.OPENROUTER_MODEL,
+    messages: [{ role: "user", content: "Weather in Paris?" }],
+    tools: [{
+      type: "function",
+      function: {
+        name: "weather",
+        parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] },
+      },
+    }],
+  },
+}, { signal: controller.signal });
+
+for await (const update of readToolInputs(chunks, { signal: controller.signal })) {
+  console.log(update.type, update.id, update.partialValue);
+}
+```
+
 ## Ollama and Groq
 
 [`openai-compatible.mjs`](./openai-compatible.mjs) makes a streaming weather-tool

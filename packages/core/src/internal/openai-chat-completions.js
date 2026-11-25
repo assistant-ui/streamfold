@@ -2,9 +2,10 @@ import { createStructuredStreamPool } from "../index.js";
 import { createIntegration } from "./integration.js";
 
 /** Parse function tool arguments from one Chat Completions request. */
-export const openAIChatCompletions = (
+export const createChatCompletions = (
   pool = createStructuredStreamPool(),
   options,
+  { adapter, toolCalls, finishReason },
 ) => {
   const choices = new Map();
   const seenIds = new Set();
@@ -35,7 +36,7 @@ export const openAIChatCompletions = (
       }
       let update;
       for (const choice of event.choices ?? []) {
-        const reason = choice.finish_reason;
+        const reason = choice[finishReason];
         if (choice.delta?.function_call != null || reason === "function_call") {
           throw new Error(
             "Chat Completions function_call is unsupported; request function tools with `tools` instead.",
@@ -43,11 +44,11 @@ export const openAIChatCompletions = (
         }
         if (reason != null && reason !== "stop" && reason !== "tool_calls") {
           throw new Error(
-            `Chat Completions ended with finish_reason ${reason}; retry a complete response.`,
+            `Chat Completions ended with ${finishReason} ${reason}; retry a complete response.`,
             { cause: choice },
           );
         }
-        const tools = choice.delta?.tool_calls ?? [];
+        const tools = choice.delta?.[toolCalls] ?? [];
         if (tools.length === 0 && reason == null) continue;
         requireIndex(choice.index, "choice.index");
         if (finishedChoices.has(choice.index)) {
@@ -115,13 +116,22 @@ export const openAIChatCompletions = (
     () => {
       if (choices.size !== 0) {
         throw new Error(
-          "Chat Completions ended before finish_reason; consume the complete SDK stream or abort it.",
+          `Chat Completions ended before ${finishReason}; consume the complete SDK stream or abort it.`,
         );
       }
       clear();
     },
-    "openai-chat-completions",
+    adapter,
     options,
     clear,
   );
 };
+
+const openAIFields = {
+  adapter: "openai-chat-completions",
+  toolCalls: "tool_calls",
+  finishReason: "finish_reason",
+};
+
+export const openAIChatCompletions = (pool, options) =>
+  createChatCompletions(pool, options, openAIFields);

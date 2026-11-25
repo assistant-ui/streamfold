@@ -2,6 +2,7 @@ packages:
   - "packages/*"
 allowBuilds:
   "@google/genai": false
+  "@openrouter/sdk": false
   protobufjs: false
 # An explicit value turns on strict mode: too-new versions fail the install instead of being auto-excluded.
 minimumReleaseAge: 1440

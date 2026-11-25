@@ -29,6 +29,9 @@ importers:
       '@mistralai/mistralai':
         specifier: 3.4.0
         version: 3.4.0(@cfworker/json-schema@4.1.6)(@opentelemetry/api@1.10.0)
+      '@openrouter/sdk':
+        specifier: 1.5.137
+        version: 1.5.137
       ai:
         specifier: 7.0.166
         version: 7.0.166(zod@4.6.7)
@@ -271,6 +274,9 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
+
+  '@openrouter/sdk@1.5.137':
+    resolution: {integrity: sha512-ZR4n4+puU14od2bBs5SYrYCADtaX2QBCaECqZ+C7XVBOyW3H3+Ou8xWsO070u+j/csMId5LbXkSyicTE6s+kMg==}
 
   '@opentelemetry/api@1.10.0':
     resolution: {integrity: sha512-lMkyes8iHrG+mk6WH7X70MdCLI2RS0FwNBY1PyQ8UemaijE2m5mv5A0Niy3HtbYTFrgkUEQjFMXmSAk2hQDuPQ==}
@@ -1593,6 +1599,10 @@ snapshots:
       '@cfworker/json-schema': 4.1.6
     transitivePeerDependencies:
       - supports-color
+
+  '@openrouter/sdk@1.5.137':
+    dependencies:
+      zod: 4.6.7
 
   '@opentelemetry/api@1.10.0': {}
 
