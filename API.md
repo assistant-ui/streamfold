@@ -441,6 +441,7 @@ composable integration value:
 | --- | --- |
 | `streamfold/assistant-ui` | `assistantUI` |
 | `streamfold/vercel-ai` | `vercelAI` |
+| `streamfold/mistral` | `mistralChat` (chat.stream, unreleased) |
 | `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions) |
 | `streamfold/anthropic` | `anthropic` |
 | `streamfold/cohere` | `cohere` |
@@ -570,7 +571,7 @@ Completions still rejects empty arguments, as described above.
 
 A closed JSON value can't grow, so a call whose argument text already forms
 complete JSON needs no closing event. When the source ends (`finish()`, or the
-end of a `readStructured` source), every adapter except OpenAI Chat Completions
+end of a `readStructured` source), every adapter except Mistral chat and OpenAI Chat Completions
 finalizes each open call from the argument text it has received:
 
 - Complete JSON, such as `{"city":"SF"}`, completes.
@@ -581,8 +582,7 @@ finalizes each open call from the argument text it has received:
   adapters that reject empty arguments. LangChain has no per-call closing
   event, so EOF closes its calls.
 
-OpenAI Chat Completions is the exception: a choice completes only on its
-`finish_reason`, so EOF with an open call fails with `INTEGRATION_ERROR`, even
+OpenAI Chat Completions and Mistral chat require a successful choice finish, so EOF with an open call fails with `INTEGRATION_ERROR`, even
 when its argument text is complete JSON. Every failure aborts the adapter's
 pending calls.
 
@@ -604,6 +604,7 @@ finishes with the parsed argument text.
 | assistant-ui | `tool-call-args-text-finish` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | OpenAI Responses | `response.function_call_arguments.done` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | `defineAdapter` | `{ type: "end" }` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| Mistral chat | `finishReason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | OpenAI Chat Completions | `finish_reason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 
 Arguments a provider supplies whole, such as Gemini's nonempty `step.start`
@@ -659,6 +660,20 @@ arguments, even when the SDK's abort signal is not passed to `readStructured`.
 The serialized reason becomes the error message, with a fallback when omitted;
 the original event is preserved as `cause`. Passing a shared `signal` still
 rejects with that signal's original reason.
+
+For Mistral chat, pass the stream returned by `await client.chat.stream(...)`
+to `readStructured` with `integration: mistralChat`. The unreleased
+`streamfold/mistral` entry accepts decoded `MistralChatEvent` frames. It reads
+`frame.data.choices` and tracks each function by choice and tool index. A new
+pair needs a unique, nonempty ID. The SDK's literal `"null"` placeholder can
+continue a known pair, as can its original ID. Conflicting IDs or reuse at
+another pair fail with `INTEGRATION_ERROR`.
+
+String arguments stream as deltas. A whole argument object supersedes earlier
+deltas and seals the call's arguments. The adapter emits its final value on
+`finishReason: "tool_calls"` or `"stop"`. Other reasons and EOF with a pending
+call fail even when the buffered JSON is complete. See the
+[Mistral chat example](examples/README.md#mistral-chat).
 
 The [Mistral Responses example](examples/README.md#mistral-responses) translates
 `@mistralai/mistralai` frames into the existing OpenAI adapter's event shape.

@@ -44,6 +44,10 @@
       "types": "./src/langchain.d.ts",
       "default": "./src/langchain.js"
     },
+    "./mistral": {
+      "types": "./src/mistral.d.ts",
+      "default": "./src/mistral.js"
+    },
     "./openai": {
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"

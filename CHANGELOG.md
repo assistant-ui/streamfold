@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `mistralChat` from `streamfold/mistral` for decoded Mistral chat streams.
+  It tracks interleaved function calls by choice and tool index, accepts whole
+  argument objects, and rejects truncated calls.
+
 - Aborting a pending read in the Mistral Responses example now releases the SDK
   stream lock and cancels the response body with the abort reason.
 

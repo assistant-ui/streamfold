@@ -89,6 +89,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | --- | --- |
 | `streamfold/assistant-ui` | assistant-stream |
 | `streamfold/vercel-ai` | Vercel AI SDK |
+| `streamfold/mistral` | Mistral `chat.stream` via `mistralChat` (unreleased) |
 | `streamfold/openai` | OpenAI Responses; Chat Completions via `openAIChatCompletions` (since 0.1.20) |
 | `streamfold/anthropic` | Anthropic Messages |
 | `streamfold/cohere` | Cohere v2 Chat |

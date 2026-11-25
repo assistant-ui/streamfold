@@ -2,14 +2,13 @@ import { createStructuredStreamPool } from "../index.js";
 import { createIntegration } from "./integration.js";
 
 /** Parse function tool arguments from one Chat Completions request. */
-export const openAIChatCompletions = (
-  pool = createStructuredStreamPool(),
-  options,
-) => {
+export const createChatCompletions = (pool, options, adapter, normalize, getFinalText) => {
+  let finalTexts;
   const choices = new Map();
   const seenIds = new Set();
   const finishedChoices = new Set();
   const clear = () => {
+    finalTexts?.clear();
     choices.clear();
     seenIds.clear();
     finishedChoices.clear();
@@ -24,7 +23,8 @@ export const openAIChatCompletions = (
 
   return createIntegration(
     pool,
-    (event, calls) => {
+    (frame, calls) => {
+      const event = normalize ? normalize(frame) : frame;
       if (event.error != null) {
         throw event.error instanceof Error
           ? event.error
@@ -101,11 +101,26 @@ export const openAIChatCompletions = (
             );
           }
           if (tool.function?.arguments !== undefined) {
-            update = calls.push(id, tool.function.arguments);
+            if (finalTexts?.has(id))
+              throw new Error(
+                "Chat Completions received arguments after a final object; send the object last.",
+              );
+            const args = tool.function.arguments;
+            const finalText = getFinalText?.(args);
+            if (finalText === undefined) {
+              update = calls.push(id, args);
+            } else {
+              finalTexts ??= new Map();
+              finalTexts.set(id, finalText);
+            }
           }
         }
         if (reason != null) {
-          for (const id of ids?.values() ?? []) update = calls.complete(id);
+          for (const id of ids?.values() ?? []) {
+            const finalText = finalTexts?.get(id);
+            update = calls.complete(id, finalText === undefined ? undefined : () => finalText);
+            finalTexts?.delete(id);
+          }
           choices.delete(choice.index);
           finishedChoices.add(choice.index);
         }
@@ -120,8 +135,11 @@ export const openAIChatCompletions = (
       }
       clear();
     },
-    "openai-chat-completions",
+    adapter,
     options,
     clear,
   );
 };
+
+export const openAIChatCompletions = (pool = createStructuredStreamPool(), options) =>
+  createChatCompletions(pool, options, "openai-chat-completions");

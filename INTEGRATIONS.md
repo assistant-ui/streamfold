@@ -5,19 +5,20 @@ already decoded SDK events; it does not replace the provider SDK's own parser,
 validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
 
-This matrix records the pinned SDK versions and local evidence checked on
-2026-11-18. No live model request was made for this review. Fixture compatibility
-does not guarantee support for every model or future SDK version.
+This matrix records pinned SDK versions and offline verification. Fixture
+compatibility does not guarantee support for every model or future SDK version.
 
 ## Event adapters
 
-All nine subpaths below are available in Streamfold 0.1.19. The additional Chat
-Completions export requires 0.1.20 or newer. SDKs remain application dependencies.
+The Mistral chat subpath is unreleased. The other nine subpaths are available
+in 0.1.19. OpenAI Chat Completions requires 0.1.20 or newer. SDKs remain
+application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
 | assistant-stream chunks | `streamfold/assistant-ui` | `assistant-stream` 0.3.54 | Partial-value and field-state conformance; event/lifecycle fixtures; production demo |
 | Vercel AI SDK `fullStream` and UI messages | `streamfold/vercel-ai` | `ai` 7.0.166 | Real `streamText`/UI conversion with a mocked model; transformed final inputs, no-argument tools, and failure tests |
+| Mistral `chat.stream` | `streamfold/mistral` (`mistralChat`, unreleased) | `@mistralai/mistralai` 3.4.0 | Real SSE decoder, interleaved IDs, whole argument objects, truncation, stalled reader cancellation |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
@@ -30,9 +31,8 @@ Completions export requires 0.1.20 or newer. SDKs remain application dependencie
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with
 `@mistralai/mistralai` 3.4.0's real decoder. It unwraps `frame.data` and converts
-`itemId` to the OpenAI adapter's `item_id`; it is an example, not a tenth provider
-subpath. It also normalizes incomplete-response details so the existing adapter
-rejects failed, incomplete, and error events with their failure details intact.
+`itemId` to the OpenAI adapter's `item_id`. It also normalizes incomplete-response details so
+the existing adapter rejects failed, incomplete, and error events with their failure details intact.
 The example discards pending inputs on failure; completed tool arguments do not
 establish success of the entire response. Aborting a pending read releases the
 SDK stream lock and cancels the response body.
@@ -118,7 +118,7 @@ Run the checked-in SDK fixtures and type boundaries without credentials:
 ```bash
 pnpm install --frozen-lockfile
 pnpm typecheck
-node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs benchmarks/ag-ui-sdk.test.mjs examples/mistral.test.mjs
+node --test benchmarks/*conformance.test.mjs benchmarks/sdk-cases.test.mjs benchmarks/ag-ui-sdk.test.mjs examples/mistral*.test.mjs
 pnpm check
 pnpm pack:check
 ```
