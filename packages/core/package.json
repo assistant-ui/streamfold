@@ -44,6 +44,10 @@
       "types": "./src/langchain.d.ts",
       "default": "./src/langchain.js"
     },
+    "./pi": {
+      "types": "./src/pi.d.ts",
+      "default": "./src/pi.js"
+    },
     "./openai": {
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"

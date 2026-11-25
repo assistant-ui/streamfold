@@ -447,7 +447,18 @@ composable integration value:
 | `streamfold/bedrock` | `bedrock` |
 | `streamfold/gemini` | `gemini` |
 | `streamfold/langchain` | `langchain` |
+| `streamfold/pi` (unreleased) | `pi` |
 | `streamfold/ag-ui` | `agUI` |
+
+The Pi integration accepts native `AssistantMessageEvent` streams. It reads
+the call ID at `partial.content[contentIndex]` on `toolcall_start` and routes
+each `toolcall_delta` to that call. If a provider supplies the ID late, the
+first visible value for that call arrives at `toolcall_end`. The end event's
+`toolCall.arguments` replaces the preview, including when no delta arrived.
+Pi's `argumentsError`, an `error` event (including `aborted`), a `length`
+ending, or an open call at `done` or EOF fails the read. A tool completion
+can precede a message failure. Consume the message outcome before acting on
+its calls. Use the same abort signal for Pi and the managed reader.
 
 The assistant-ui adapter accepts both explicit part paths and root-path starts in
 the same stream. Each part start counts toward the index used to route later
@@ -570,7 +581,7 @@ Completions still rejects empty arguments, as described above.
 
 A closed JSON value can't grow, so a call whose argument text already forms
 complete JSON needs no closing event. When the source ends (`finish()`, or the
-end of a `readStructured` source), every adapter except OpenAI Chat Completions
+end of a `readStructured` source), every adapter except Pi and OpenAI Chat Completions
 finalizes each open call from the argument text it has received:
 
 - Complete JSON, such as `{"city":"SF"}`, completes.
@@ -581,9 +592,9 @@ finalizes each open call from the argument text it has received:
   adapters that reject empty arguments. LangChain has no per-call closing
   event, so EOF closes its calls.
 
-OpenAI Chat Completions is the exception: a choice completes only on its
-`finish_reason`, so EOF with an open call fails with `INTEGRATION_ERROR`, even
-when its argument text is complete JSON. Every failure aborts the adapter's
+OpenAI Chat Completions requires the choice's `finish_reason`. Pi requires
+`toolcall_end`. EOF with an open call fails with `INTEGRATION_ERROR` in both
+adapters, even when the argument text is complete JSON. Every failure aborts the adapter's
 pending calls.
 
 The first four outcome columns describe a call still open at EOF; the last two
@@ -597,6 +608,7 @@ finishes with the parsed argument text.
 | Gemini, `step.start` without `arguments` | `step.stop` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | Cohere | `tool-call-end` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
 | Bedrock | `contentBlockStop` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
+| Pi | `toolcall_end` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
 | AG-UI | `TOOL_CALL_END` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
 | Vercel `fullStream` | `tool-input-end`, `tool-call` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
 | Vercel UI stream | `tool-input-end`, `tool-input-available` | Completes | `INCOMPLETE_JSON` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `{}` | `{}` |
