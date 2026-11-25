@@ -350,6 +350,10 @@ The source can be a synchronous iterable, an async iterable from an SDK, or a
 native async iteration is unavailable. Streamfold does not decode
 HTTP bytes or SSE frames and does not start network requests.
 
+For iterables, `readStructured` invokes the selected iterator factory with the
+source as `this` and no arguments. As in native `for await`, the factory must
+be callable, and its own `call` property is never read.
+
 Iterator `next()` results must be objects (including callable objects), as in
 native `for await`. Synchronous results are read directly, with `done` read before
 awaiting `value`; their result object itself is not awaited. Async results are

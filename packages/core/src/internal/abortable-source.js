@@ -4,7 +4,7 @@ export function abortableSource(events, signal, onAbort) {
   const asyncFactory = reader === undefined ? events[Symbol.asyncIterator] : undefined;
   const synchronous = reader === undefined && asyncFactory == null;
   const iterator = reader === undefined
-    ? (asyncFactory ?? events[Symbol.iterator]).call(events)
+    ? Reflect.apply(asyncFactory ?? events[Symbol.iterator], events, [])
     : undefined;
   const nextMethod = reader === undefined ? iterator.next : undefined;
   const read = async () => {
