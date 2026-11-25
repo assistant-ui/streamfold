@@ -34,8 +34,25 @@ deploy time, and pages whose Content-Security-Policy `script-src` allows neither
 | `maxActiveStreams` | 256 | A pool |
 | `snapshots` | `"live"` | A scanner or every stream in a pool |
 
-Limits must be positive safe integers no greater than `4294967295`.
-`snapshots` accepts `"live"` or `"immutable"`; invalid modes throw `TypeError`.
+`maxBytes` and `maxActiveStreams` accept integers from `1` to `4294967295`.
+`maxDepth` accepts integers from `1` to `65535`, the deepest path the Rust
+parser can encode. `snapshots` accepts `"live"` or `"immutable"`.
+
+Invalid options throw one `INVALID_OPTIONS` error that lists every problem,
+naming each key, its allowed values, and the value received:
+
+```ts
+createStructuredStreamPool({ maxBytes: NaN, maxDepth: -1, snapshots: "bad" });
+// TypeError: maxBytes must be an integer between 1 and 4294967295 (received NaN);
+// maxDepth must be an integer between 1 and 65535 (received -1);
+// snapshots must be "live" or "immutable" (received "bad")
+```
+
+The error is a `RangeError` when every problem is an out-of-range limit and a
+`TypeError` otherwise. Options must be an object or `undefined`; `null` and
+other values fail the same way. Scanners check `maxBytes`, `maxDepth`, and
+`snapshots`; pools and adapters also check `maxActiveStreams`. Other keys are
+ignored, because adapter options also carry `onDiagnostic`.
 
 ## `IncrementalJsonScanner`
 
@@ -711,7 +728,8 @@ and [harness-sdk#527](https://github.com/assistant-ui/harness-sdk/pull/527).
 
 `push` returns a deeply frozen partial JSON value. Earlier values remain stable,
 and each factory invocation owns a separate scanner. The defaults are 16 MiB
-of UTF-8 input and 128 nesting levels. Malformed JSON, exceeded limits, and unsafe
+of UTF-8 input and 128 nesting levels, and both limits follow the
+[option rules](#options). Malformed JSON, exceeded limits, and unsafe
 `__proto__` or `constructor.prototype` paths throw. Raw surrogate pairs split
 across deltas become visible once both halves arrive; escaped lone surrogates
 remain lossless. These are Streamfold's partial-value semantics.
