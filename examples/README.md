@@ -318,8 +318,10 @@ iteration and discard pending inputs. Incomplete reasons such as
 The reused adapter reports `code: "INTEGRATION_ERROR"` and `adapter: "openai"`.
 A completed tool input does not guarantee that the overall response succeeded;
 continue consuming the stream to observe a later failure. The example does not
-execute tools or validate their schema. Breaking the loop closes the SDK
-iterator; pass the same signal to both calls to also cancel pending network reads.
+execute tools or validate their schema. Breaking the loop cancels the response body. Aborting
+`readToolInputs` during a pending read releases the SDK stream lock and cancels
+the body with the abort reason. Pass the same signal to `client.responses.create`
+to cover the initial request as well.
 
 Run `node --test examples/mistral.test.mjs` for a credential-free check through
 the real SDK's SSE decoder. `pnpm typecheck` also checks an actual

@@ -14,9 +14,16 @@ const events = [
   { type: "response.function_call_arguments.done", output_index: 0, item_id: "a", name: "weather", arguments: '{"city":"San Francisco"}' },
 ];
 
-const sse = events.map((event, sequence_number) =>
-  `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number })}\n\n`
-).join("");
+function encodeEvents(events) {
+  return events
+    .map(
+      (event, sequence_number) =>
+        `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number })}\n\n`,
+    )
+    .join("");
+}
+
+const sse = encodeEvents(events);
 
 function createStream(body) {
   const client = new Mistral({
@@ -62,6 +69,44 @@ test("stopping the Mistral example cancels the SDK response body", async () => {
     await iterator.return();
   }
   assert.equal(cancelled, true);
+});
+
+test("aborting a pending Mistral read unlocks the SDK stream and cancels the body", async () => {
+  const stalled = Promise.withResolvers();
+  const encoder = new TextEncoder();
+  let bodyController;
+  let partialFrameSent = false;
+  let cancellation;
+  const body = new ReadableStream(
+    {
+      start(controller) {
+        bodyController = controller;
+        controller.enqueue(encoder.encode(encodeEvents([events[0]])));
+      },
+      pull() {
+        if (partialFrameSent) stalled.resolve();
+      },
+      cancel(reason) {
+        cancellation = reason;
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  const source = await createStream(body);
+  const controller = new AbortController();
+  const iterator = readToolInputs(source, { signal: controller.signal });
+  assert.equal((await iterator.next()).value.type, "start");
+  const pending = iterator.next();
+  partialFrameSent = true;
+  bodyController.enqueue(encoder.encode("event: "));
+  // The decoder has consumed the partial frame and requested its remaining bytes.
+  await stalled.promise;
+  assert.equal(source.locked, true);
+  const reason = new Error("stopped");
+  controller.abort(reason);
+  await assert.rejects(pending, (error) => error === reason);
+  assert.equal(source.locked, false);
+  assert.equal(cancellation, reason);
 });
 
 const terminalResponse = {
@@ -112,16 +157,7 @@ for (const failure of failures) {
     ];
     const body = new ReadableStream({
       start(controller) {
-        controller.enqueue(
-          new TextEncoder().encode(
-            pending
-              .map(
-                (event, sequence_number) =>
-                  `event: ${event.type}\ndata: ${JSON.stringify({ ...event, sequence_number })}\n\n`,
-              )
-              .join(""),
-          ),
-        );
+        controller.enqueue(new TextEncoder().encode(encodeEvents(pending)));
       },
       cancel() {
         cancelled = true;

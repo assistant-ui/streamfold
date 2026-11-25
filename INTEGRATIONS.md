@@ -34,7 +34,8 @@ Mistral Responses also works through the maintained
 subpath. It also normalizes incomplete-response details so the existing adapter
 rejects failed, incomplete, and error events with their failure details intact.
 The example discards pending inputs on failure; completed tool arguments do not
-establish success of the entire response.
+establish success of the entire response. Aborting a pending read releases the
+SDK stream lock and cancels the response body.
 
 Gemini's adapter targets **Interactions**, not native GenerateContent object
 arguments. The Ollama example below targets its OpenAI-compatible endpoint,

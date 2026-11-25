@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Aborting a pending read in the Mistral Responses example now releases the SDK
+  stream lock and cancels the response body with the abort reason.
+
 - Route assistant-ui tool arguments to the correct call when a stream mixes
   explicit part paths and root-path starts. Previously a later call could
   lose its arguments and fail with `EMPTY_INPUT`.
