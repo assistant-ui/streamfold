@@ -32,7 +32,7 @@ export type AnthropicToolInputEvent =
   | { readonly type: string }
   | {
       readonly type: string;
-      readonly index?: number;
+      readonly index?: number | undefined;
       readonly [key: string]: unknown;
     };
 

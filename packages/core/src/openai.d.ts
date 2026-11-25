@@ -44,24 +44,24 @@ export type OpenAiChatCompletionsEvent =
   | {
       readonly choices: readonly {
         readonly index: number;
-        readonly finish_reason?: string | null;
+        readonly finish_reason?: string | null | undefined;
         readonly delta: {
-          readonly content?: string | null;
+          readonly content?: string | null | undefined;
           readonly function_call?: unknown;
           readonly tool_calls?: readonly {
             readonly index: number;
-            readonly id?: string;
-            readonly type?: string;
+            readonly id?: string | undefined;
+            readonly type?: string | undefined;
             readonly function?: {
-              readonly name?: string;
-              readonly arguments?: string;
-            };
+              readonly name?: string | undefined;
+              readonly arguments?: string | undefined;
+            } | undefined;
             readonly custom?: unknown;
-          }[];
+          }[] | undefined;
         };
       }[];
     }
-  | { readonly error: Error | { readonly message?: string } };
+  | { readonly error: Error | { readonly message?: string | undefined } };
 
 /**
  * Parse function tool arguments from one Chat Completions request.

@@ -19,7 +19,7 @@ export type GeminiToolCallEvent =
       readonly step: {
         readonly type: string;
         readonly id: string;
-        readonly arguments?: string | object;
+        readonly arguments?: string | object | undefined;
       };
     }
   | {

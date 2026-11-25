@@ -6,19 +6,22 @@ import type {
 } from "./index.js";
 
 type ToolCall = {
-  readonly id?: string;
-  readonly function?: { readonly arguments?: string };
+  readonly id?: string | undefined;
+  readonly function?: { readonly arguments?: string | undefined } | undefined;
 };
 
 export type CohereToolCallEvent =
   | {
       readonly type: "tool-call-start" | "tool-call-delta";
-      readonly index?: number;
+      readonly index?: number | undefined;
       readonly delta?: {
-        readonly message?: { readonly toolCalls?: ToolCall; readonly tool_calls?: ToolCall };
-      };
+        readonly message?: {
+          readonly toolCalls?: ToolCall | undefined;
+          readonly tool_calls?: ToolCall | undefined;
+        } | undefined;
+      } | undefined;
     }
-  | { readonly type: "tool-call-end"; readonly index?: number }
+  | { readonly type: "tool-call-end"; readonly index?: number | undefined }
   | {
       readonly type: "message-end";
       readonly delta?: {
