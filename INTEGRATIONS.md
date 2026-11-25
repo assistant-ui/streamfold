@@ -6,14 +6,14 @@ validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
 
 This matrix records the pinned SDK versions and local evidence checked on
-2026-11-18, with the Agents Runner checked on 2026-11-25. No live model
+2026-11-18, with the Agents Runner and OpenRouter checked on 2026-11-25. No live model
 request was made for this review. Fixture compatibility does not guarantee
 support for every model or future SDK version.
 
 ## Event adapters
 
 Nine adapter subpaths shipped by Streamfold 0.1.19. The additional Chat
-Completions export requires 0.1.20 or newer. The Pi and OpenAI Agents entries
+Completions export requires 0.1.20 or newer. The Pi, OpenAI Agents, and OpenRouter entries
 are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
@@ -23,6 +23,7 @@ are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
 | OpenAI Agents Runner (unreleased) | `streamfold/openai-agents` (`openAIAgents`) | `@openai/agents` 0.22.0, `openai` 7.47.0 | Offline Runner and HTTP SSE decoders, handoff across turns, failure, cancellation and final output |
+| OpenRouter chat | `streamfold/openrouter` (`openRouter`, unreleased) | `@openrouter/sdk` 1.5.137 (pinned), 1.5.141 (separate fixture run) | Native `chat.send` SSE decoder, interleaved calls, error chunks, length truncation, pending-read cancellation |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
 | Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.1 | Real SDK SSE decoder, camelCase conversion, interleaved calls, no-argument calls, terminal failures |
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler, including tool blocks without input deltas |

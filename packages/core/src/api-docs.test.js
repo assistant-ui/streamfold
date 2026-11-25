@@ -11,6 +11,7 @@ import { cohere } from "./cohere.js";
 import { gemini } from "./gemini.js";
 import { langchain } from "./langchain.js";
 import { openAI, openAIChatCompletions } from "./openai.js";
+import { openRouter } from "./openrouter.js";
 import { vercelAI } from "./vercel-ai.js";
 
 const apiDoc = await readFile(new URL("../../../API.md", import.meta.url), "utf8");
@@ -104,6 +105,12 @@ const adapters = {
     start: [{ operations: [{ type: "start", id }] }],
     delta: (text) => ({ operations: [{ type: "delta", id, text }] }),
     close: () => [{ operations: [{ type: "end", id }] }],
+  },
+  "OpenRouter chat": {
+    integration: openRouter,
+    start: [{ choices: [{ index: 0, delta: { toolCalls: [{ index: 0, id, type: "function", function: { name: "weather", arguments: "" } }] }, finishReason: null }] }],
+    delta: (text) => ({ choices: [{ index: 0, delta: { toolCalls: [{ index: 0, function: { arguments: text } }] }, finishReason: null }] }),
+    close: () => [{ choices: [{ index: 0, delta: {}, finishReason: "tool_calls" }] }],
   },
   "OpenAI Chat Completions": {
     integration: openAIChatCompletions,

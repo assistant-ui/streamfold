@@ -443,6 +443,7 @@ composable integration value:
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions) |
 | `streamfold/openai-agents` (unreleased) | `openAIAgents` (Runner) |
+| `streamfold/openrouter` (unreleased) | `openRouter` (native streaming `chat.send`) |
 | `streamfold/anthropic` | `anthropic` |
 | `streamfold/cohere` | `cohere` |
 | `streamfold/bedrock` | `bedrock` |
@@ -541,6 +542,12 @@ custom tools are ignored. Deprecated `function_call` deltas are rejected;
 request function tools with `tools` instead. Streamfold parses JSON but does not
 validate the tool schema or execute the call.
 
+The unreleased `openRouter` adapter from `streamfold/openrouter` accepts the
+decoded stream from `await sdk.chat.send({ chatRequest: { ..., stream: true } })`.
+It reads `delta.toolCalls` and `finishReason` with the same choice and call
+index rules. A provider error preserves its message and details in `cause`.
+See the [OpenRouter example](examples/README.md#openrouter-chat).
+
 #### OpenAI Agents Runner (unreleased)
 
 Pass the result of `runner.run(agent, input, { stream: true })` directly.
@@ -624,7 +631,7 @@ Completions still rejects empty arguments, as described above.
 
 A closed JSON value can't grow, so a call whose argument text already forms
 complete JSON needs no closing event. When the source ends (`finish()`, or the
-end of a `readStructured` source), every adapter except Pi and OpenAI Chat
+end of a `readStructured` source), every adapter except Pi, OpenRouter chat, and OpenAI Chat
 Completions (including its Runner path) finalizes each open call from the
 argument text it has received:
 
@@ -636,9 +643,10 @@ argument text it has received:
   adapters that reject empty arguments. LangChain has no per-call closing
   event, so EOF closes its calls.
 
-OpenAI Chat Completions requires the choice's `finish_reason`. Pi requires
-`toolcall_end`. EOF with an open call fails with `INTEGRATION_ERROR` in both
-adapters, even when the argument text is complete JSON. Every failure aborts the adapter's
+OpenAI Chat Completions and OpenRouter chat require a successful choice ending
+(`finish_reason` and `finishReason`, respectively). Pi requires `toolcall_end`.
+For these adapters, EOF with an open call fails with `INTEGRATION_ERROR` even
+when the argument text is complete JSON. Every failure aborts the adapter's
 pending calls.
 
 The first four outcome columns describe a call still open at EOF; the last two
@@ -661,6 +669,7 @@ finishes with the parsed argument text.
 | OpenAI Responses | `response.function_call_arguments.done` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | `defineAdapter` | `{ type: "end" }` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | OpenAI Chat Completions | `finish_reason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| OpenRouter chat | `finishReason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 
 Arguments a provider supplies whole, such as Gemini's nonempty `step.start`
 arguments, Vercel's `tool-call` input, or OpenAI's `.done` arguments, follow

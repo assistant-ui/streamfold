@@ -1,7 +1,13 @@
 import { createStructuredStreamPool } from "../index.js";
 import { createIntegration } from "./integration.js";
 
-export const createChatCompletionsHandler = () => {
+const openAIFields = {
+  adapter: "openai-chat-completions",
+  toolCalls: "tool_calls",
+  finishReason: "finish_reason",
+};
+
+export const createChatCompletionsHandler = ({ toolCalls, finishReason } = openAIFields) => {
   const choices = new Map();
   const seenIds = new Set();
   const finishedChoices = new Set();
@@ -30,7 +36,7 @@ export const createChatCompletionsHandler = () => {
       }
       let update;
       for (const choice of event.choices ?? []) {
-        const reason = choice.finish_reason;
+        const reason = choice[finishReason];
         if (choice.delta?.function_call != null || reason === "function_call") {
           throw new Error(
             "Chat Completions function_call is unsupported; request function tools with `tools` instead.",
@@ -38,11 +44,11 @@ export const createChatCompletionsHandler = () => {
         }
         if (reason != null && reason !== "stop" && reason !== "tool_calls") {
           throw new Error(
-            `Chat Completions ended with finish_reason ${reason}; retry a complete response.`,
+            `Chat Completions ended with ${finishReason} ${reason}; retry a complete response.`,
             { cause: choice },
           );
         }
-        const tools = choice.delta?.tool_calls ?? [];
+        const tools = choice.delta?.[toolCalls] ?? [];
         if (tools.length === 0 && reason == null) continue;
         requireIndex(choice.index, "choice.index");
         if (finishedChoices.has(choice.index)) {
@@ -110,7 +116,7 @@ export const createChatCompletionsHandler = () => {
     finish() {
       if (choices.size !== 0) {
         throw new Error(
-          "Chat Completions ended before finish_reason; consume the complete SDK stream or abort it.",
+          `Chat Completions ended before ${finishReason}; consume the complete SDK stream or abort it.`,
         );
       }
       clear();
@@ -120,7 +126,10 @@ export const createChatCompletionsHandler = () => {
 };
 
 /** Parse function tool arguments from one Chat Completions request. */
-export const openAIChatCompletions = (pool = createStructuredStreamPool(), options) => {
-  const chat = createChatCompletionsHandler();
-  return createIntegration(pool, chat.accept, chat.finish, "openai-chat-completions", options, chat.clear);
+export const createChatCompletions = (pool = createStructuredStreamPool(), options, fields) => {
+  const chat = createChatCompletionsHandler(fields);
+  return createIntegration(pool, chat.accept, chat.finish, fields.adapter, options, chat.clear);
 };
+
+export const openAIChatCompletions = (pool, options) =>
+  createChatCompletions(pool, options, openAIFields);

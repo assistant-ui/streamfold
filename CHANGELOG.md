@@ -128,6 +128,12 @@
   shadows `Function.prototype.call`. Non-callable factories with a `call`
   method now reject with `TypeError`, matching native `for await`.
 
+### OpenRouter chat streams
+
+- Read streamed function arguments from the native OpenRouter SDK with
+  `openRouter` from `streamfold/openrouter`. Interleaved calls retain their
+  IDs, and a provider error or length limit aborts pending calls.
+
 ## 0.1.21
 
 - Add `disableAssistantStream()` to unregister the optional shared parser backend, cancel pending initialization, and permit re-enabling without affecting existing parsers.

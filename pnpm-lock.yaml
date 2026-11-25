@@ -35,6 +35,9 @@ importers:
       '@openai/agents':
         specifier: 0.22.0
         version: 0.22.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@7.30.2)(ws@8.23.0)(zod@4.6.7)
+      '@openrouter/sdk':
+        specifier: 1.5.137
+        version: 1.5.137
       ai:
         specifier: 7.0.166
         version: 7.0.166(zod@4.6.7)
@@ -351,6 +354,9 @@ packages:
     resolution: {integrity: sha512-ytI0Bebtd3at00nq+vTzkafdCqxbdD/xHEsIPCFdTQfjrXpGfeYQM8pPfdOnp0K4fnLshovHXEeQ/xXfg+SCPQ==}
     peerDependencies:
       zod: ^4.0.0
+
+  '@openrouter/sdk@1.5.137':
+    resolution: {integrity: sha512-ZR4n4+puU14od2bBs5SYrYCADtaX2QBCaECqZ+C7XVBOyW3H3+Ou8xWsO070u+j/csMId5LbXkSyicTE6s+kMg==}
 
   '@opentelemetry/api@1.10.0':
     resolution: {integrity: sha512-lMkyes8iHrG+mk6WH7X70MdCLI2RS0FwNBY1PyQ8UemaijE2m5mv5A0Niy3HtbYTFrgkUEQjFMXmSAk2hQDuPQ==}
@@ -1912,6 +1918,10 @@ snapshots:
       - undici
       - utf-8-validate
       - ws
+
+  '@openrouter/sdk@1.5.137':
+    dependencies:
+      zod: 4.6.7
 
   '@opentelemetry/api@1.10.0': {}
 

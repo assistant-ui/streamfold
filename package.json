@@ -41,6 +41,7 @@
     "@langchain/core": "1.4.1",
     "@mistralai/mistralai": "3.4.0",
     "@openai/agents": "0.22.0",
+    "@openrouter/sdk": "1.5.137",
     "ai": "7.0.166",
     "assistant-stream": "0.3.54",
     "bumpp": "^12.3.0",
