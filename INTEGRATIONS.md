@@ -5,14 +5,16 @@ already decoded SDK events; it does not replace the provider SDK's own parser,
 validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
 
-This matrix records pinned SDK versions and offline verification. Fixture
-compatibility does not guarantee support for every model or future SDK version.
+This matrix records the pinned SDK versions and local evidence checked on
+2026-11-18, with Mistral chat, the Agents Runner, and OpenRouter checked on 2026-11-25. No live model
+request was made for this review. Fixture compatibility does not guarantee
+support for every model or future SDK version.
 
 ## Event adapters
 
-The Mistral chat subpath is unreleased. The other nine subpaths are available
-in 0.1.19. OpenAI Chat Completions requires 0.1.20 or newer. SDKs remain
-application dependencies.
+Nine adapter subpaths shipped by Streamfold 0.1.19. The additional Chat
+Completions export requires 0.1.20 or newer. The four new entries (Pi, OpenAI Agents, OpenRouter, and Mistral chat)
+are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
@@ -21,18 +23,25 @@ application dependencies.
 | Mistral `chat.stream` | `streamfold/mistral` (`mistralChat`, unreleased) | `@mistralai/mistralai` 3.4.0 | Real SSE decoder, interleaved IDs, whole argument objects, truncation, stalled reader cancellation |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
+| OpenAI Agents Runner (unreleased) | `streamfold/openai-agents` (`openAIAgents`) | `@openai/agents` 0.22.0, `openai` 7.47.0 | Offline Runner and HTTP SSE decoders, handoff across turns, failure, cancellation and final output |
+| OpenRouter chat | `streamfold/openrouter` (`openRouter`, unreleased) | `@openrouter/sdk` 1.5.137 (pinned), 1.5.141 (separate fixture run) | Native `chat.send` SSE decoder, interleaved calls, error chunks, length truncation, pending-read cancellation |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
 | Cohere v2 Chat | `streamfold/cohere` | `cohere-ai` 8.3.1 | Real SDK SSE decoder, camelCase conversion, interleaved calls, no-argument calls, terminal failures |
 | Amazon Bedrock ConverseStream | `streamfold/bedrock` | `@aws-sdk/client-bedrock-runtime` 3.1161.0 | Real SDK event-stream serialization/deserialization through an injected request handler, including tool blocks without input deltas |
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.4.1 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
+| Pi native `AssistantMessageEvent` | `streamfold/pi` (unreleased) | `@earendil-works/pi-ai` 1.6.0 (pinned) | Offline OpenAI Chat and Anthropic Messages decoders, SDK types, split and complete inputs, cancellation |
 | AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved and no-argument calls, terminal errors, local HTTP cancellation, and SDK types |
+
+The Pi fixtures run against the pinned development SDK. A separate local run
+on 2026-11-25 also checked the native types and both decoders with Pi AI 1.6.1.
 
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with
 `@mistralai/mistralai` 3.4.0's real decoder. It unwraps `frame.data` and converts
-`itemId` to the OpenAI adapter's `item_id`. It also normalizes incomplete-response details so
-the existing adapter rejects failed, incomplete, and error events with their failure details intact.
+`itemId` to the existing OpenAI adapter's `item_id`. It also normalizes
+incomplete-response details so the existing adapter
+rejects failed, incomplete, and error events with their failure details intact.
 The example discards pending inputs on failure; completed tool arguments do not
 establish success of the entire response. Aborting a pending read releases the
 SDK stream lock and cancels the response body.

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { defineAdapter, readStructured } from "./index.js";
+import { pi } from "./pi.js";
 import { agUI } from "./ag-ui.js";
 import { anthropic } from "./anthropic.js";
 import { assistantUI } from "./assistant-ui.js";
@@ -11,6 +12,7 @@ import { gemini } from "./gemini.js";
 import { mistralChat } from "./mistral.js";
 import { langchain } from "./langchain.js";
 import { openAI, openAIChatCompletions } from "./openai.js";
+import { openRouter } from "./openrouter.js";
 import { vercelAI } from "./vercel-ai.js";
 
 const apiDoc = await readFile(new URL("../../../API.md", import.meta.url), "utf8");
@@ -55,6 +57,12 @@ const adapters = {
     start: [{ contentBlockStart: { contentBlockIndex: 0, start: { toolUse: { toolUseId: id, name: "weather" } } } }],
     delta: (text) => ({ contentBlockDelta: { contentBlockIndex: 0, delta: { toolUse: { input: text } } } }),
     close: () => [{ contentBlockStop: { contentBlockIndex: 0 } }],
+  },
+  Pi: {
+    integration: pi,
+    start: [{ type: "toolcall_start", contentIndex: 0, partial: { content: [{ type: "toolCall", id }] } }],
+    delta: (delta) => ({ type: "toolcall_delta", contentIndex: 0, delta }),
+    close: () => [{ type: "toolcall_end", contentIndex: 0, toolCall: { id, arguments: {} } }],
   },
   "AG-UI": {
     integration: agUI,
@@ -104,6 +112,12 @@ const adapters = {
     start: [{ data: { choices: [{ index: 0, delta: { toolCalls: [{ index: 0, id, function: { name: "weather", arguments: "" } }] }, finishReason: null }] } }],
     delta: (text) => ({ data: { choices: [{ index: 0, delta: { toolCalls: [{ index: 0, id: "null", function: { name: "weather", arguments: text } }] }, finishReason: null }] } }),
     close: () => [{ data: { choices: [{ index: 0, delta: {}, finishReason: "tool_calls" }] } }],
+  },
+  "OpenRouter chat": {
+    integration: openRouter,
+    start: [{ choices: [{ index: 0, delta: { toolCalls: [{ index: 0, id, type: "function", function: { name: "weather", arguments: "" } }] }, finishReason: null }] }],
+    delta: (text) => ({ choices: [{ index: 0, delta: { toolCalls: [{ index: 0, function: { arguments: text } }] }, finishReason: null }] }),
+    close: () => [{ choices: [{ index: 0, delta: {}, finishReason: "tool_calls" }] }],
   },
   "OpenAI Chat Completions": {
     integration: openAIChatCompletions,

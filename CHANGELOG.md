@@ -6,6 +6,9 @@
   It tracks interleaved function calls by choice and tool index, accepts whole
   argument objects, and rejects truncated calls.
 
+- Read Pi native tool-call events through `streamfold/pi`. Streamfold exposes
+  incremental argument previews and completes each call from Pi's final input.
+
 - Aborting a pending read in the Mistral Responses example now releases the SDK
   stream lock and cancels the response body with the abort reason.
 
@@ -100,6 +103,8 @@
   `ai` SDK. These calls previously failed with `EMPTY_INPUT`. Received argument
   text must still form valid JSON, and OpenAI Chat Completions still rejects
   empty arguments.
+- Add `openAIAgents` from `streamfold/openai-agents` to read function arguments
+  across Chat Completions and Responses turns in an OpenAI Agents Runner stream.
 - Keep Wasm memory proportional to the input when a long object key sits above deep nesting or many values. The parser no longer copies key text into every nested frame and patch, so a 1 MB stream with one long key no longer traps after growing memory past 2 GiB. Patches and snapshots are unchanged.
 - Parse numbers streamed in small chunks in linear time. Each chunk now extends
   the number instead of rescanning it. Partial values and patches are unchanged.
@@ -126,6 +131,12 @@
 - Fix `readStructured` acquisition of sync and async iterators whose factory
   shadows `Function.prototype.call`. Non-callable factories with a `call`
   method now reject with `TypeError`, matching native `for await`.
+
+### OpenRouter chat streams
+
+- Read streamed function arguments from the native OpenRouter SDK with
+  `openRouter` from `streamfold/openrouter`. Interleaved calls retain their
+  IDs, and a provider error or length limit aborts pending calls.
 
 ## 0.1.21
 

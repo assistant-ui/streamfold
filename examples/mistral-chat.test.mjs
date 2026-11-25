@@ -69,7 +69,7 @@ for (const [label, choices, message] of [
   ],
   ["length", [choice(0, [tool(0, "a", {})]), choice(0, [], "length")], /length/],
   ["error", [choice(0, [tool(0, "a", "{}")]), choice(0, [], "error")], /error/],
-  ["open call at EOF", [choice(0, [tool(0, "a", "{}")])], /before finish_reason/],
+  ["open call at EOF", [choice(0, [tool(0, "a", "{}")])], /before finishReason/],
 ]) {
   test(`Mistral chat rejects ${label} and discards pending parsers`, async () => {
     const pool = createStructuredStreamPool();

@@ -48,9 +48,21 @@
       "types": "./src/mistral.d.ts",
       "default": "./src/mistral.js"
     },
+    "./pi": {
+      "types": "./src/pi.d.ts",
+      "default": "./src/pi.js"
+    },
     "./openai": {
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"
+    },
+    "./openai-agents": {
+      "types": "./src/openai-agents.d.ts",
+      "default": "./src/openai-agents.js"
+    },
+    "./openrouter": {
+      "types": "./src/openrouter.d.ts",
+      "default": "./src/openrouter.js"
     },
     "./vercel-ai": {
       "types": "./src/vercel-ai.d.ts",

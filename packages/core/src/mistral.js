@@ -1,27 +1,17 @@
-import { createStructuredStreamPool } from "./index.js";
 import { createChatCompletions } from "./internal/openai-chat-completions.js";
 
-const normalize = ({ data }) => ({
-  choices: data.choices.map(({ index, finishReason, delta }) => ({
-    index,
-    finish_reason: finishReason,
-    delta: {
-      tool_calls: delta.toolCalls?.map((tool) => ({
-        index: tool.index,
-        id: tool.id === "null" ? undefined : tool.id,
-        type: tool.type,
-        function: tool.function,
-      })),
-    },
-  })),
-});
+const fields = {
+  adapter: "mistral-chat",
+  toolCalls: "toolCalls",
+  finishReason: "finishReason",
+  unwrap: (frame) => frame.data,
+  placeholderId: "null",
+  getFinalText: (args) =>
+    args !== null && typeof args === "object" && !Array.isArray(args)
+      ? JSON.stringify(args)
+      : undefined,
+};
 
-const getFinalText = (args) =>
-  args !== null && typeof args === "object" && !Array.isArray(args)
-    ? JSON.stringify(args)
-    : undefined;
-
-export const mistralChat = (pool = createStructuredStreamPool(), options) =>
-  createChatCompletions(pool, options, "mistral-chat", normalize, getFinalText);
+export const mistralChat = (pool, options) => createChatCompletions(pool, options, fields);
 
 export { mistralChat as createStructuredStream };
