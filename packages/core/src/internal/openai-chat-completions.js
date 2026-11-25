@@ -1,11 +1,7 @@
 import { createStructuredStreamPool } from "../index.js";
 import { createIntegration } from "./integration.js";
 
-/** Parse function tool arguments from one Chat Completions request. */
-export const openAIChatCompletions = (
-  pool = createStructuredStreamPool(),
-  options,
-) => {
+export const createChatCompletionsHandler = () => {
   const choices = new Map();
   const seenIds = new Set();
   const finishedChoices = new Set();
@@ -22,9 +18,8 @@ export const openAIChatCompletions = (
     }
   };
 
-  return createIntegration(
-    pool,
-    (event, calls) => {
+  return {
+    accept(event, calls) {
       if (event.error != null) {
         throw event.error instanceof Error
           ? event.error
@@ -112,7 +107,7 @@ export const openAIChatCompletions = (
       }
       return update;
     },
-    () => {
+    finish() {
       if (choices.size !== 0) {
         throw new Error(
           "Chat Completions ended before finish_reason; consume the complete SDK stream or abort it.",
@@ -120,8 +115,12 @@ export const openAIChatCompletions = (
       }
       clear();
     },
-    "openai-chat-completions",
-    options,
     clear,
-  );
+  };
+};
+
+/** Parse function tool arguments from one Chat Completions request. */
+export const openAIChatCompletions = (pool = createStructuredStreamPool(), options) => {
+  const chat = createChatCompletionsHandler();
+  return createIntegration(pool, chat.accept, chat.finish, "openai-chat-completions", options, chat.clear);
 };

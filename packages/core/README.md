@@ -52,6 +52,10 @@ Use `streamfold/assistant-ui`, `streamfold/vercel-ai`, `streamfold/openai`,
 SDK events. Integrations use structural event types and do not load provider
 SDKs.
 
+The unreleased `streamfold/openai-agents` entry accepts a streamed Runner result
+from `@openai/agents` 0.22.0. Use `readStructured(run, { integration: openAIAgents })`
+for Chat Completions or Responses function arguments.
+
 To opt into assistant-stream's shared parser, import
 `initializeAssistantStream` and `disableAssistantStream` from
 `streamfold/assistant-ui`. Check the initializer's boolean result; it returns

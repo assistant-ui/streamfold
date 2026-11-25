@@ -52,6 +52,10 @@
       "types": "./src/openai.d.ts",
       "default": "./src/openai.js"
     },
+    "./openai-agents": {
+      "types": "./src/openai-agents.d.ts",
+      "default": "./src/openai-agents.js"
+    },
     "./vercel-ai": {
       "types": "./src/vercel-ai.d.ts",
       "default": "./src/vercel-ai.js"

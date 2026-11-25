@@ -442,6 +442,7 @@ composable integration value:
 | `streamfold/assistant-ui` | `assistantUI` |
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions) |
+| `streamfold/openai-agents` (unreleased) | `openAIAgents` (Runner) |
 | `streamfold/anthropic` | `anthropic` |
 | `streamfold/cohere` | `cohere` |
 | `streamfold/bedrock` | `bedrock` |
@@ -540,6 +541,48 @@ custom tools are ignored. Deprecated `function_call` deltas are rejected;
 request function tools with `tools` instead. Streamfold parses JSON but does not
 validate the tool schema or execute the call.
 
+#### OpenAI Agents Runner (unreleased)
+
+Pass the result of `runner.run(agent, input, { stream: true })` directly.
+This subpath is available from a build containing this change. Streamfold
+0.1.21 does not export it.
+
+```ts
+import { readStructured } from "streamfold";
+import { openAIAgents } from "streamfold/openai-agents";
+
+const run = await runner.run(agent, input, { stream: true, signal });
+for await (const update of readStructured(run, { integration: openAIAgents, signal })) {
+  renderToolInput(update.id, update.partialValue);
+}
+await run.completed;
+const output = run.finalOutput;
+```
+
+With `@openai/agents` 0.22.0, this reads `raw_model_stream_event` envelopes
+with `data.type === "model"` and dispatches `data.event` by the SDK's `source`:
+
+| Source | Argument lifecycle |
+| --- | --- |
+| `openai-chat-completions` | Emits the function call ID. Uses Chat Completions finish reasons and resets choice/tool indexes at each `response_done`. |
+| `openai-responses` | Emits the output item ID. The argument-done event supplies authoritative JSON. Pending arguments finalize under the Responses EOF rules at turn end or normal EOF. |
+
+Use one integration per sequential Runner stream. Preserve its model turn
+boundaries. Run items, agent updates, text, and unknown sources produce no
+argument updates. A handoff represented by a model function call emits
+arguments once, like any other function call. Custom model providers, Realtime
+events and text-only streams such as `run.toTextStream()` are outside this API.
+
+A `complete` update describes one function's arguments. The Runner owns tool
+execution, handoffs and final output. Read `run.finalOutput` after successful
+completion. Reader or Runner errors can still occur after a call completes.
+Pass the same abort signal to both consumers so cancelling an in-flight
+request also discards pending arguments. To handle other SDK events in your
+own loop, create one instance with `const inputs = openAIAgents()`,
+call `inputs.pushAll(event)` for each event and call `inputs.finish()` on successful EOF.
+
+#### Integration methods
+
 | Method | Returns |
 | --- | --- |
 | `pushAll(event)` | All lifecycle updates caused by this event, in order; `[]` for ignored events |
@@ -581,8 +624,9 @@ Completions still rejects empty arguments, as described above.
 
 A closed JSON value can't grow, so a call whose argument text already forms
 complete JSON needs no closing event. When the source ends (`finish()`, or the
-end of a `readStructured` source), every adapter except Pi and OpenAI Chat Completions
-finalizes each open call from the argument text it has received:
+end of a `readStructured` source), every adapter except Pi and OpenAI Chat
+Completions (including its Runner path) finalizes each open call from the
+argument text it has received:
 
 - Complete JSON, such as `{"city":"SF"}`, completes.
 - Incomplete JSON, such as `{"city":"S`, fails with `INCOMPLETE_JSON`.
