@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   createStructuredStream,
   createStructuredStreamPool,
+  DEFAULT_STREAM_LIMITS,
   defineAdapter,
   IncrementalJsonScanner,
   readStructured,
   StructuredStreamPool,
 } from "./index.js";
+import { normalizeStreamLimits } from "./internal/options.js";
 import { langchain } from "./langchain.js";
 import { createToolInputParser } from "./vercel-ai.js";
 
@@ -23,6 +25,48 @@ const adapter = defineAdapter((operations) => operations);
 const drain = async (iterator) => {
   for await (const _ of iterator);
 };
+
+test("null numeric limits are reported at each applicable entry point", async () => {
+  const limits = { maxBytes: null, maxDepth: null, maxActiveStreams: null };
+  const bytes = /maxBytes [^;]*\(received null\)/;
+  const depth = /maxDepth [^;]*\(received null\)/;
+  const active = /maxActiveStreams [^;]*\(received null\)/;
+  const streamError = invalid(RangeError, bytes, depth);
+  const poolError = invalid(RangeError, bytes, depth, active);
+
+  assert.throws(() => new IncrementalJsonScanner(limits), streamError);
+  assert.throws(() => createStructuredStream(limits), streamError);
+  assert.throws(() => createToolInputParser(limits), streamError);
+  assert.throws(() => new StructuredStreamPool(limits), poolError);
+  assert.throws(() => createStructuredStreamPool(limits), poolError);
+  assert.throws(() => adapter(limits), poolError);
+  await assert.rejects(drain(readStructured([], { adapter, limits })), poolError);
+  await assert.rejects(drain(readStructured([], { integration: langchain, limits })), poolError);
+});
+
+test("null limits are aggregated with other invalid options", () => {
+  assert.throws(
+    () => createStructuredStreamPool({ maxBytes: null, maxDepth: 0, snapshots: "bad" }),
+    invalid(
+      TypeError,
+      /maxBytes [^;]*received null/,
+      /maxDepth [^;]*received 0/,
+      /snapshots [^;]*received "bad"/,
+    ),
+  );
+});
+
+test("omitted and undefined numeric limits resolve to the documented defaults", () => {
+  const expected = { ...DEFAULT_STREAM_LIMITS, snapshots: "live" };
+  assert.deepEqual(normalizeStreamLimits({}, true), expected);
+  assert.deepEqual(
+    normalizeStreamLimits(
+      { maxBytes: undefined, maxDepth: undefined, maxActiveStreams: undefined },
+      true,
+    ),
+    expected,
+  );
+});
 
 test("maxDepth is capped at the parser's 16-bit path length", () => {
   const deepest = new IncrementalJsonScanner({ maxDepth: 65_535 });

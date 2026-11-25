@@ -39,8 +39,8 @@ export const assertOptionsObject = (options, name = "Streamfold options") => {
 
 const readLimit = (issues, options, name, max) => {
   const value = options[name];
-  const limit = value ?? DEFAULT_STREAM_LIMITS[name];
-  if (Number.isSafeInteger(limit) && limit > 0 && limit <= max) return limit;
+  if (value === undefined) return DEFAULT_STREAM_LIMITS[name];
+  if (Number.isSafeInteger(value) && value > 0 && value <= max) return value;
   issues.push({
     message: `${name} must be an integer between 1 and ${max} (received ${describe(value)})`,
     range: true,

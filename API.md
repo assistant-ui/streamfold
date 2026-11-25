@@ -36,7 +36,11 @@ deploy time, and pages whose Content-Security-Policy `script-src` allows neither
 
 `maxBytes` and `maxActiveStreams` accept integers from `1` to `4294967295`.
 `maxDepth` accepts integers from `1` to `65535`, the deepest path the Rust
-parser can encode. `snapshots` accepts `"live"` or `"immutable"`.
+parser can encode. Omit a numeric limit or pass `undefined` in JavaScript to
+use its default. An explicit `null` now fails with `INVALID_OPTIONS`. In JSON
+configuration, remove the key to keep the previous default.
+
+`snapshots` accepts `"live"` or `"immutable"`.
 
 Invalid options throw one `INVALID_OPTIONS` error that lists every problem,
 naming each key, its allowed values, and the value received:
