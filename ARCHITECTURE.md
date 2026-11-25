@@ -24,7 +24,9 @@ cleanup functions using numeric values and Wasm linear memory.
 1. lazily instantiates the embedded Wasm module once, replacing it only after
    a trap (open streams on the trapped instance fail with `WASM_TRAP`);
 2. encodes each JavaScript fragment directly into a parser-owned Rust buffer;
-3. calls the Rust state transition;
+3. calls the Rust state transition, which stops once about 64 KiB of patches
+   are pending; the runtime reads them and resumes, so a whole document's
+   patches never sit in Wasm memory at once;
 4. decodes compact path patches from Wasm linear memory, where each path
    carries only the segments after the prefix it shares with the previous
    patch, so key text crosses the boundary once per key;

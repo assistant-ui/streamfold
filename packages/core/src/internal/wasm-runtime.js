@@ -4,6 +4,7 @@ import { streamError } from "./errors.js";
 const DEPTH_MASK = 0x00ff_ffff;
 const COMPLETE_FLAG = 1 << 24;
 const IN_STRING_FLAG = 1 << 25;
+const PENDING_FLAG = 1 << 26;
 const ERROR_SHIFT = 28;
 const PATCH_SET_OBJECT = 0;
 const PATCH_SET_ARRAY = 1;
@@ -314,8 +315,8 @@ const setOwn = (target, key, value) => {
 // grew with input size times depth. It is reported as one root `set` with the
 // whole value instead. The patches are still read in order, so duplicate keys
 // and string appends resolve exactly as the live and immutable appliers would.
-const readDocument = (parser, view, cursor, length) => {
-  const containers = [];
+// `containers` carries the open containers from one patch batch to the next.
+const readDocument = (parser, view, cursor, length, containers) => {
   while (cursor.offset < length) {
     const operation = view.getUint8(cursor.offset++);
     const path = readPath(parser, view, cursor, false);
@@ -357,29 +358,45 @@ const readDocument = (parser, view, cursor, length) => {
       containers.push(value);
     }
   }
-  return [
-    { op: "set", path: [], value: containers[0] },
-    { op: "complete", path: [] },
-  ];
 };
 
-const readPatches = (parser, complete = false) => {
+// One push's patches can arrive in several batches; `read` collects them.
+// Only a push's first patch can open the root, so the first batch decides
+// whether the push collapses to one root set.
+const createPatchRead = () => ({ patches: [], containers: undefined });
+
+const patchesOf = (read) =>
+  read.containers === undefined
+    ? read.patches
+    : [
+        { op: "set", path: [], value: read.containers[0] },
+        { op: "complete", path: [] },
+      ];
+
+const readBatch = (parser, complete, read) => {
   const { wasm, handle } = parser;
   const length = wasm.streamfold_parser_output_len(handle) >>> 0;
-  if (length === 0) return [];
+  if (length === 0) return read;
   const pointer = wasm.streamfold_parser_output(handle) >>> 0;
   const view = new DataView(wasm.memory.buffer, pointer, length);
   const cursor = { offset: 0 };
+  if (read.containers !== undefined) {
+    readDocument(parser, view, cursor, length, read.containers);
+    return read;
+  }
   const first = view.getUint8(0);
   // An empty path is encoded as two zero lengths after the operation byte.
   if (
     complete &&
+    read.patches.length === 0 &&
     (first === PATCH_SET_OBJECT || first === PATCH_SET_ARRAY) &&
     view.getUint16(3, true) === 0
   ) {
-    return readDocument(parser, view, cursor, length);
+    read.containers = [];
+    readDocument(parser, view, cursor, length, read.containers);
+    return read;
   }
-  const patches = [];
+  const { patches } = read;
 
   while (cursor.offset < length) {
     const operation = view.getUint8(cursor.offset++);
@@ -415,8 +432,11 @@ const readPatches = (parser, complete = false) => {
     }
   }
 
-  return patches;
+  return read;
 };
+
+const readPatches = (parser, complete = false) =>
+  patchesOf(readBatch(parser, complete, createPatchRead()));
 
 export const createWasmParser = ({ maxBytes, maxDepth }) => {
   const target = getRuntime();
@@ -451,19 +471,37 @@ const pushChunk = (parser, chunk) => {
   const bytesSeen = wasm.streamfold_parser_bytes_seen(handle) >>> 0;
   const remaining = parser.maxBytes - bytesSeen;
   if (chunk.length > remaining) throw parserError(parser, 7, bytesSeen);
-  const capacity = Math.min(chunk.length * 3, remaining);
-  const pointer = wasm.streamfold_parser_input(handle, capacity);
-  let length = 0;
-  if (capacity > 0) {
-    const input = new Uint8Array(wasm.memory.buffer, pointer, capacity);
-    const result = encoder.encodeInto(chunk, input);
-    if (result.read !== chunk.length) {
+  // UTF-8 takes one to three bytes per UTF-16 code unit. Reserving the lower
+  // bound first, and three bytes only for what did not fit, keeps ASCII input
+  // from claiming three times its size in Wasm memory, which never shrinks.
+  let pointer = wasm.streamfold_parser_input(handle, chunk.length);
+  let { read, written } = encoder.encodeInto(
+    chunk, new Uint8Array(wasm.memory.buffer, pointer, chunk.length),
+  );
+  if (read < chunk.length) {
+    const capacity = Math.min(written + (chunk.length - read) * 3, remaining);
+    pointer = wasm.streamfold_parser_input(handle, capacity);
+    const rest = encoder.encodeInto(chunk.slice(read), new Uint8Array(
+      wasm.memory.buffer, pointer + written, capacity - written,
+    ));
+    if (rest.read !== chunk.length - read) {
       throw parserError(parser, 7, bytesSeen);
     }
-    length = result.written;
+    written += rest.written;
   }
-  const state = readState(parser, wasm.streamfold_parser_push(handle, length));
-  return { state, changes: readPatches(parser, state.complete) };
+  // A large chunk's patches arrive in bounded batches that continue one
+  // sequence. The scanner checks the whole chunk before any patch is built,
+  // so the first result already carries the final completion flag that
+  // decides whether a whole document collapses to one root set.
+  let encoded = wasm.streamfold_parser_push(handle, written);
+  const complete = (encoded & COMPLETE_FLAG) !== 0;
+  const batches = createPatchRead();
+  while ((encoded & PENDING_FLAG) !== 0) {
+    readBatch(parser, complete, batches);
+    encoded = wasm.streamfold_parser_resume(handle);
+  }
+  const state = readState(parser, encoded);
+  return { state, changes: patchesOf(readBatch(parser, complete, batches)) };
 };
 
 export const pushWasmParser = (parser, chunk) => {

@@ -13,11 +13,19 @@ use crate::{StreamError, StreamState, StructuredJsonParser};
 const DEPTH_MASK: u32 = 0x00ff_ffff;
 const COMPLETE_FLAG: u32 = 1 << 24;
 const IN_STRING_FLAG: u32 = 1 << 25;
+const PENDING_FLAG: u32 = 1 << 26;
 const ERROR_SHIFT: u32 = 28;
+/// Patch bytes built per call. A whole document in one push is processed in
+/// batches of this size, so its patches never sit in Wasm memory all at once.
+const PATCH_BATCH_BYTES: usize = 64 * 1024;
+/// Input capacity a parser keeps between pushes.
+const RETAINED_INPUT_BYTES: usize = 64 * 1024;
 
 struct WasmParser {
     parser: StructuredJsonParser,
     input: Vec<u8>,
+    input_length: usize,
+    resume_at: usize,
     error_offset: usize,
     error_byte: u8,
 }
@@ -27,9 +35,24 @@ impl WasmParser {
         Self {
             parser: StructuredJsonParser::with_limits(max_depth, max_bytes),
             input: Vec::new(),
+            input_length: 0,
+            resume_at: 0,
             error_offset: 0,
             error_byte: 0,
         }
+    }
+
+    fn encode_push(&mut self, result: Result<Option<usize>, StreamError>) -> u32 {
+        if let Ok(Some(index)) = result {
+            self.resume_at = index;
+            return encode_state(self.parser.state()) | PENDING_FLAG;
+        }
+        // Wasm memory never shrinks, so a large chunk's buffer is returned to
+        // the allocator for other parsers instead of being kept until finish.
+        if self.input.capacity() > RETAINED_INPUT_BYTES {
+            self.input = Vec::new();
+        }
+        self.encode(result.map(|_| self.parser.state()))
     }
 
     fn encode(&mut self, result: Result<StreamState, StreamError>) -> u32 {
@@ -125,6 +148,9 @@ pub unsafe extern "C" fn streamfold_parser_free(handle: usize) {
 pub unsafe extern "C" fn streamfold_parser_input(handle: usize, capacity: usize) -> usize {
     // SAFETY: the caller passes a live handle, and this is the only borrow of it.
     let parser = unsafe { parser_mut(handle) };
+    parser
+        .input
+        .reserve_exact(capacity.saturating_sub(parser.input.len()));
     parser.input.resize(capacity, 0);
     parser.input.as_mut_ptr() as usize
 }
@@ -137,8 +163,28 @@ pub unsafe extern "C" fn streamfold_parser_push(handle: usize, length: usize) ->
     // SAFETY: the caller passes a live handle, and this is the only borrow of it.
     let parser = unsafe { parser_mut(handle) };
     assert!(length <= parser.input.len());
-    let result = parser.parser.push(&parser.input[..length]);
-    parser.encode(result)
+    parser.input_length = length;
+    let result = parser
+        .parser
+        .push_bounded(&parser.input[..length], PATCH_BATCH_BYTES);
+    parser.encode_push(result)
+}
+
+/// Continues a push that returned `PENDING_FLAG`, after its patches were read.
+///
+/// # Safety
+///
+/// `handle` must be live (see the module docs).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn streamfold_parser_resume(handle: usize) -> u32 {
+    // SAFETY: the caller passes a live handle, and this is the only borrow of it.
+    let parser = unsafe { parser_mut(handle) };
+    let result = parser.parser.resume(
+        &parser.input[..parser.input_length],
+        parser.resume_at,
+        PATCH_BATCH_BYTES,
+    );
+    parser.encode_push(result)
 }
 
 /// # Safety

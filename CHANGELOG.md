@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Keep one large push from growing the shared Wasm memory for the life of the
+  process. Patches are now built in batches of about 64 KiB, the input buffer
+  is sized from the chunk's UTF-8 length rather than three bytes per
+  character, and buffers larger than 64 KiB are returned to the allocator
+  after each push. On Node 24, one 4 MB push of a number array grows Wasm
+  memory by about 4 MiB instead of 140 MiB, a 16 MiB push by about 16 MiB
+  instead of 529 MiB, and a 4 MB string by about 23 MiB instead of 39 MiB. A
+  whole-document push still reports one root `set` and `complete` however many
+  batches it spans. Wasm memory still never shrinks; see `API.md`. Patches,
+  values, and errors are unchanged.
 - Accept an explicit `undefined` for optional fields under TypeScript's
   `exactOptionalPropertyTypes`, matching what the runtime already does. This
   covers stream and pool options (`maxBytes`, `maxDepth`, `snapshots`,

@@ -71,6 +71,20 @@ Call `dispose()` when abandoning a scanner before completion.
 Successful `finish()` releases the input buffer and unused patch capacity;
 final values, state, and field queries remain available.
 
+All scanners in a process share one Wasm instance, and Wasm memory never
+shrinks. Releasing a buffer returns it to the instance's allocator for other
+scanners to reuse; it does not return memory to the process. The memory a
+process holds is the largest amount its scanners ever needed at once. Patches
+are built in batches of about 64 KiB, so one push of a whole document does not
+hold all of its patches at once. After a push, a scanner keeps at most 64 KiB
+of input capacity, and patch capacity beyond 64 KiB is released on its next
+`push()` or `finish()`. A push still needs its whole input as UTF-8, plus the
+full text of any string value in it, which the parser encodes as one UTF-16
+patch. A whole-document push still reports one root `set` however many batches
+it takes. For example, on Node 24, one push of a 4 MB array of 2,000,000
+numbers grows Wasm memory by about 4 MiB, and one push of a 4 MB string grows
+it by about 23 MiB.
+
 Chunks contain Unicode text and are encoded as UTF-8. Valid surrogate pairs
 can span pushes; raw unpaired UTF-16 code units throw `INVALID_CHUNK` rather
 than being replaced with U+FFFD. Encode unpaired code units as JSON Unicode
