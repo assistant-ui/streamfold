@@ -146,3 +146,44 @@ test("next getter failures dispose the adapter and leave no abort listener", asy
   assert.equal(disposed, 1);
   assert.equal(getEventListeners(signal, "abort").length, 0);
 });
+
+for (const symbol of [Symbol.iterator, Symbol.asyncIterator]) {
+  test(`managed acquisition ignores the ${symbol.description} factory's call property`, async () => {
+    let closes = 0;
+    const source = {
+      [symbol](...args) {
+        assert.equal(this, source);
+        assert.deepEqual(args, []);
+        return {
+          next: () => ({ done: false, value: events[0] }),
+          return() {
+            closes++;
+            return { done: true };
+          },
+        };
+      },
+    };
+    Object.defineProperty(source[symbol], "call", {
+      get() {
+        throw new Error("iterator factory's call property was read");
+      },
+    });
+
+    for await (const value of source) {
+      assert.deepEqual(value, events[0]);
+      break;
+    }
+    assert.equal(closes, 1);
+    for await (const update of readStructured(source, { adapter })) {
+      assert.equal(update.type, "start");
+      break;
+    }
+    assert.equal(closes, 2);
+  });
+
+  test(`managed acquisition rejects a non-callable ${symbol.description} factory`, async () => {
+    const source = { [symbol]: { call: () => events[Symbol.iterator]() } };
+    await assert.rejects(collect(source), TypeError);
+    await assert.rejects(collect(readStructured(source, { adapter })), TypeError);
+  });
+}

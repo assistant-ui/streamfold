@@ -29,3 +29,11 @@ acquisition errors, and released reader locks/listeners. First prove the new
 cases fail on the original code. Run the focused and full suites, packed-runtime
 checks, and the contributor-documented managed-read benchmark with parity and
 cleanup controls. Make no speedup claim from this correctness fix.
+
+## Iterator factory acquisition
+
+The same invocation rule applies to the selected iterator factory. Invoke it
+with the source as its receiver and zero arguments, without reading its
+`call` property. A non-callable factory must raise `TypeError` even if it
+has a callable `call` property. Verify both protocols against native
+`for await` and exercise early return on the acquired iterator.

@@ -112,6 +112,9 @@
   Completions. Correct the docs for whitespace-only Anthropic and Gemini
   arguments, which fail with `EMPTY_INPUT` rather than completing as `{}`, and
   list `WASM_COMPILE_BLOCKED` among the error codes. Behavior is unchanged.
+- Fix `readStructured` acquisition of sync and async iterators whose factory
+  shadows `Function.prototype.call`. Non-callable factories with a `call`
+  method now reject with `TypeError`, matching native `for await`.
 
 ## 0.1.21
 
