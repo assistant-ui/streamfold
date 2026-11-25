@@ -5,17 +5,24 @@ import { createStructuredStream, type IncrementalJsonScanner } from "streamfold"
 
 import { ControlIcon } from "./control-icon";
 
+import { Fold } from "./fold";
+
 const command = ["npm", "install", "streamfold"] as const;
 const chunks = ['{"city":"', "San Fran", 'cisco",', '"units":"', 'metric"}'];
 
-export function Install() {
+function Install() {
   const [result, setResult] = useState<"idle" | "copied" | "denied">("idle");
+  const feedback = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(feedback.current), []);
   const code = useRef<HTMLElement>(null);
   async function copy() {
     try {
       await navigator.clipboard.writeText(command.join(" "));
+      window.clearTimeout(feedback.current);
       setResult("copied");
+      feedback.current = window.setTimeout(() => setResult("idle"), 1600);
     } catch {
+      window.clearTimeout(feedback.current);
       setResult("denied");
       if (code.current) {
         const range = document.createRange();
@@ -35,7 +42,7 @@ export function Install() {
         <code ref={code}>
           <b>{command[0]}</b> {command[1]} <strong>{command[2]}</strong>
         </code>
-        <button onClick={copy} aria-label="Copy install command">
+        <button data-copied={result === "copied"} onClick={copy} aria-label="Copy install command">
           <ControlIcon name={result === "copied" ? "check" : "copy"} />
           <span aria-hidden="true">{result === "copied" ? "Copied" : "Copy"}</span>
         </button>
@@ -72,6 +79,13 @@ export function Replay() {
           : "Ready";
 
   useEffect(() => () => scanner.current?.dispose(), []);
+  useEffect(() => {
+    function onVisibility() {
+      if (document.hidden) setPlaying(false);
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
   function reset() {
     scanner.current?.dispose();
     scanner.current = null;
@@ -115,60 +129,80 @@ export function Replay() {
   }
 
   return (
-    <section className="replay" aria-labelledby="replay-title">
-      <div className="section-head">
+    <>
+      <section className="hero">
         <div>
-          <span className="label">01 / Playground</span>
-          <h2 id="replay-title">Fragment replay</h2>
+          <span className="label">Streamfold / Rust + Wasm</span>
+          <h1>
+            JSON, <em>as it arrives.</em>
+          </h1>
+          <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
+          <Install />
         </div>
-        <span className="file">weather.json</span>
-      </div>
-      <div className="console">
-        <div className="panes">
-          <div className="pane">
-            <h3>Incoming fragments</h3>
-            <ol>
-              {chunks.map((chunk, i) => (
-                <li
-                  key={chunk}
-                  className={i === count - 1 ? "current" : i < count ? "sent" : ""}
-                  aria-current={i === count - 1 ? "step" : undefined}
-                >
-                  <span>{String(i + 1).padStart(2, "0")}</span>
-                  <code>{chunk}</code>
-                  {i === count - 1 && <b aria-label="Last received">←</b>}
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div className="pane result">
-            <h3>
-              Partial value <span>{bytes} B</span>
-            </h3>
-            <pre>{error || output || "// Waiting for the first fragment"}</pre>
-          </div>
-        </div>
-        <div className="controls">
+        <Fold
+          count={count}
+          chunks={chunks}
+          output={output}
+          playing={playing}
+          disabled={!!error}
+          onPlay={play}
+        />
+      </section>
+      <section className="replay" aria-labelledby="replay-title">
+        <div className="section-head">
           <div>
-            <button className="primary" onClick={play} disabled={!!error}>
-              <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
-              {playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play"}
-            </button>
-            <button disabled={playing || complete || !!error} onClick={() => advance(count)}>
-              <ControlIcon name="step" />
-              Step
-            </button>
-            <button disabled={!count && !error} onClick={reset}>
-              <ControlIcon name="reset" />
-              Reset
-            </button>
+            <span className="label">01 / Playground</span>
+            <h2 id="replay-title">Fragment replay</h2>
           </div>
-          <small role="status">
-            <i className={count || playing ? "lit" : ""} />
-            {status} · {count}/{chunks.length}
-          </small>
+          <span className="file">weather.json</span>
         </div>
-      </div>
-    </section>
+        <div className="console">
+          <div className="panes">
+            <div className="pane">
+              <h3>Incoming fragments</h3>
+              <ol>
+                {chunks.map((chunk, i) => (
+                  <li
+                    key={chunk}
+                    className={i === count - 1 ? "current" : i < count ? "sent" : ""}
+                    aria-current={i === count - 1 ? "step" : undefined}
+                  >
+                    <span>{String(i + 1).padStart(2, "0")}</span>
+                    <code>{chunk}</code>
+                    {i === count - 1 && <b aria-label="Last received">←</b>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="pane result">
+              <h3>
+                Partial value <span>{bytes} B</span>
+              </h3>
+              <pre>{error || output || "// Waiting for the first fragment"}</pre>
+            </div>
+          </div>
+          <div className="controls">
+            <div>
+              <button className="primary" onClick={play} disabled={!!error}>
+                <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
+                {playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play"}
+              </button>
+              <button disabled={playing || complete || !!error} onClick={() => advance(count)}>
+                <ControlIcon name="step" />
+                Step
+              </button>
+              <button disabled={!count && !error} onClick={reset}>
+                <ControlIcon name="reset" />
+                Reset
+              </button>
+            </div>
+            <small role="status">
+              <i className={count || playing ? "lit" : ""} />
+              {status} · {count}/{chunks.length}
+            </small>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

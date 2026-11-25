@@ -76,7 +76,7 @@ header {
   border-bottom: 1px solid var(--line);
 }
 nav {
-  gap: clamp(2px, 2vw, 24px);
+  gap: 2px;
   font-size: 12px;
 }
 nav a,
@@ -88,7 +88,6 @@ footer a,
   align-items: center;
   justify-content: center;
 }
-nav a:hover,
 footer a:hover {
   text-decoration: underline;
   text-underline-offset: 5px;
@@ -114,7 +113,7 @@ footer a:hover {
 .hero {
   padding: clamp(40px, 3.5vw, 54px) 0;
   display: grid;
-  grid-template-columns: 1.65fr 1fr;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   align-items: center;
   gap: 5%;
   border-bottom: 1px solid var(--line);
@@ -219,9 +218,7 @@ h1 em {
 }
 .drawing {
   display: block;
-  width: 113%;
-  max-width: 475px;
-  justify-self: end;
+  width: 100%;
   height: auto;
 }
 .brand-mark {
@@ -344,13 +341,15 @@ pre {
   background: #141414;
   color: #dfdfdf;
 }
-button:not(:disabled):hover {
-  background: #292929;
-  color: white;
-}
-.controls .primary:not(:disabled):hover {
-  background: #d4d4d4;
-  color: #111;
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover {
+    background: #292929;
+    color: white;
+  }
+  .controls .primary:not(:disabled):hover {
+    background: #d4d4d4;
+    color: #111;
+  }
 }
 .install button:active:not(:disabled),
 .controls button:active:not(:disabled) {
@@ -376,6 +375,161 @@ footer {
   border-top: 1px dashed var(--line);
   min-height: 68px;
 }
+
+header {
+  min-height: 64px;
+  border-bottom-style: dashed;
+}
+nav a {
+  position: relative;
+  gap: 6px;
+  padding: 0 10px;
+  color: #b7b7b7;
+  border-radius: 3px;
+}
+nav a::after {
+  content: "";
+  position: absolute;
+  inset: auto 10px 4px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+nav a:focus-visible,
+nav a:active {
+  background: #191919;
+  color: #ededed;
+}
+nav a:focus-visible::after,
+nav a:active::after {
+  transform: scaleX(1);
+}
+.fold-scene {
+  margin: 0;
+  min-width: 0;
+}
+.fold-bar,
+.fold-scene figcaption {
+  border-block: 1px dashed var(--line);
+  font: 11px/1.35 var(--mono);
+}
+.fold-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 0;
+}
+.fold-bar > span,
+.fold-scene figcaption span {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.fold-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 114px;
+  height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-left: 1px dashed var(--line);
+  background: transparent;
+  font-size: 11px;
+}
+.facets path {
+  stroke: #d4d4cd;
+  stroke-width: 0.85;
+  transform-box: fill-box;
+  transform-origin: 15% 65%;
+}
+.facets [data-pending="true"] {
+  fill: #111;
+  stroke: #494946;
+}
+.fold-scene figcaption {
+  padding: 9px 0 10px;
+  border-bottom: 0;
+}
+.fold-scene figcaption div {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr);
+  gap: 12px;
+  padding: 2px 0;
+}
+.fold-scene figcaption code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.controls button,
+.install button,
+.fold-bar button {
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+.controls .primary {
+  box-shadow: inset 0 -2px #bdbdbd;
+}
+.controls button:nth-child(2) {
+  box-shadow:
+    inset 0 1px #323232,
+    inset 0 -2px #0a0a0a;
+}
+.install button[data-copied="true"] {
+  color: #a4d5ba;
+}
+.controls button:focus-visible,
+.fold-bar button:focus-visible,
+.install button:focus-visible {
+  outline-offset: 2px;
+}
+.fold-bar button:active,
+.install button:active:not(:disabled),
+.controls button:active:not(:disabled) {
+  box-shadow: inset 0 2px 0 rgb(0 0 0 / 0.25);
+}
+@media (hover: hover) and (pointer: fine) {
+  nav a:hover {
+    background: #181818;
+    color: #ededed;
+  }
+  nav a:hover::after {
+    transform: scaleX(1);
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .controls button:not(:disabled):hover svg,
+  .fold-bar button:not(:disabled):hover svg {
+    transform: translateX(1.5px);
+  }
+  .install button:hover svg {
+    transform: translateY(-1px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  nav a::after,
+  button svg {
+    transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  nav a,
+  button {
+    transition:
+      background-color 140ms,
+      border-color 140ms,
+      color 140ms;
+  }
+}
+@media (max-width: 365px) {
+  nav a {
+    padding: 0 5px;
+  }
+  nav a svg {
+    display: none;
+  }
+}
 @media (max-width: 700px) {
   header {
     min-height: 64px;
@@ -386,8 +540,14 @@ footer {
     gap: 18px;
   }
   .drawing {
-    width: min(100%, 312px);
-    justify-self: center;
+    width: min(100%, 308px);
+    margin: auto;
+  }
+  nav a {
+    padding-inline: 5px;
+  }
+  .fold-scene figcaption div:last-child {
+    min-height: 34px;
   }
   .controls button {
     padding: 0 9px;

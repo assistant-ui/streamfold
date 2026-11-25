@@ -1,6 +1,6 @@
 import "./globals.css";
-import { Fold } from "../fold";
-import { Install, Replay } from "../playground";
+import { ControlIcon } from "../control-icon";
+import { Replay } from "../playground";
 
 const repo = "https://github.com/assistant-ui/streamfold";
 export const metadata = {
@@ -15,7 +15,7 @@ export default function HomePage() {
         Skip to content
       </a>
       <header>
-        <a className="brand" href="/" aria-label="Streamfold home">
+        <a className="brand" href="/" aria-label="Streamfold home" aria-current="page">
           <span className="brand-mark" aria-hidden="true">
             <i />
             <i />
@@ -24,23 +24,21 @@ export default function HomePage() {
           Streamfold
         </a>
         <nav aria-label="Resources">
-          <a href={repo + "#readme"}>Docs</a>
-          <a href={repo + "/blob/main/API.md"}>API</a>
-          <a href={repo}>GitHub ↗</a>
+          <a href={repo + "#readme"}>
+            <ControlIcon name="book" />
+            Docs
+          </a>
+          <a href={repo + "/blob/main/API.md"}>
+            <ControlIcon name="code" />
+            API
+          </a>
+          <a href={repo}>
+            <ControlIcon name="branch" />
+            GitHub
+          </a>
         </nav>
       </header>
       <main id="main">
-        <section className="hero">
-          <div>
-            <span className="label">Streamfold / Rust + Wasm</span>
-            <h1>
-              JSON, <em>as it arrives.</em>
-            </h1>
-            <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
-            <Install />
-          </div>
-          <Fold />
-        </section>
         <Replay />
       </main>
       <footer>
