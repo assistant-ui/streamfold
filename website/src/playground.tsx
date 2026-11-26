@@ -48,7 +48,16 @@ function OutputPane({
         <span>First nonempty city</span>
         <strong>{firstCityMs === null ? "Pending" : seconds(firstCityMs)}</strong>
       </div>
-      <pre data-empty={!output}>{output || waiting}</pre>
+      <pre data-empty={!output}>
+        {output
+          ? output.split("\n").map((line, index) => (
+              <span key={line}>
+                {index > 0 && "\n"}
+                {line}
+              </span>
+            ))
+          : waiting}
+      </pre>
     </section>
   );
 }
@@ -265,6 +274,12 @@ export function Replay() {
             <a href="https://github.com/assistant-ui/streamfold/blob/v0.1.20/benchmarks/SDK_ADAPTER_REPORT.md">
               Parser benchmarks ↗
             </a>
+          </div>
+          <div className="arrival-track" aria-hidden="true">
+            <span
+              data-advancing={count > 1}
+              style={{ transform: `scaleX(${count / chunks.length})` }}
+            />
           </div>
           <div className="panes">
             <OutputPane

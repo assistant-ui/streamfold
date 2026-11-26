@@ -2,6 +2,8 @@
 
 Replay the same five weather tool-call fragments through a buffered `JSON.parse` and the published Streamfold scanner. The simulated arrival clock starts at 0.0 s and advances 0.8 s per fragment. The buffered path parses once after the final fragment. Streamfold calls `push()` on every fragment and `finish()` on the last. The displayed milestone records when each output first contains a nonempty `city` string. The 2.4 s lead measures availability on this schedule, independent of parsing speed or wall-clock pauses.
 
+The progress line advances with each fragment. Updated JSON lines briefly highlight. With reduced motion enabled, progress and values update immediately.
+
 The install switch copies the command for the selected package manager. Use Step to inspect one partial value or Play to run the replay. Switching tabs pauses playback. The footer links to the integration guide for the pinned release. The GitHub mark is from [Simple Icons 13.0.0](https://github.com/simple-icons/simple-icons/tree/13.0.0), distributed under CC0.
 
 ## Local production preview

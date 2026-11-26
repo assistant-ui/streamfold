@@ -234,3 +234,63 @@ test("pausing the schedule preserves both parsers' milestones", async (t) => {
   assert.deepEqual(await page.locator(".milestone strong").allTextContents(), ["3.2 s", "0.8 s"]);
   assert.equal(await clock.innerText(), "3.2 s");
 });
+
+test(
+  "arrival motion tracks rapid steps and respects live motion preferences",
+  { timeout: 20000 },
+  async (t) => {
+    const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
+    t.after(() => browser.close());
+    const page = await browser.newPage({ ...devices["Pixel 7"], reducedMotion: "no-preference" });
+    await page.goto(url);
+    const step = page.getByRole("button", { name: "Step", exact: true });
+    await step.tap();
+    const bar = page.locator(".arrival-track span");
+    await bar.evaluate((el) => {
+      window.motionSample = new Promise((resolve) => {
+        el.addEventListener(
+          "transitionrun",
+          () => {
+            const [slide] = el.getAnimations();
+            slide.pause();
+            slide.currentTime = slide.effect.getTiming().duration / 2;
+            const scale = new DOMMatrix(getComputedStyle(el).transform).a;
+            const highlighted = [...document.querySelectorAll(".pane pre span")]
+              .filter((line) =>
+                line.getAnimations().some((a) => a.animationName === "updated-line"),
+              )
+              .map((line) => line.textContent);
+            resolve({ scale, highlighted });
+          },
+          { once: true },
+        );
+      });
+    });
+    await step.press("Enter");
+    const { scale, highlighted } = await page.evaluate(() => window.motionSample);
+    assert.ok(scale > 0.2 && scale < 0.4, String(scale));
+    assert.ok(highlighted.some((line) => line.includes("San Fran")));
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    assert.equal(await bar.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a), 0.4);
+    await step.tap();
+    assert.equal(
+      await page
+        .locator(".console")
+        .evaluate(
+          (el) =>
+            el
+              .getAnimations({ subtree: true })
+              .filter(
+                (a) => a.animationName === "updated-line" || a.transitionProperty === "transform",
+              ).length,
+        ),
+      0,
+    );
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await step.press("Space");
+    await step.press("Space");
+    await page.getByText("Complete · 5/5").waitFor();
+    await page.getByRole("button", { name: "Reset", exact: true }).tap();
+    assert.equal(await bar.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a), 0);
+  },
+);
