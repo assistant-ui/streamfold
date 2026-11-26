@@ -442,7 +442,7 @@ composable integration value:
 | `streamfold/assistant-ui` | `assistantUI` |
 | `streamfold/vercel-ai` | `vercelAI` |
 | `streamfold/mistral` | `mistralChat` (chat.stream, unreleased) |
-| `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions) |
+| `streamfold/openai` | `openAI` (Responses), `openAIChatCompletions` (Chat Completions), `openAIRealtime` (Realtime, unreleased) |
 | `streamfold/openai-agents` (unreleased) | `openAIAgents` (Runner) |
 | `streamfold/openrouter` (unreleased) | `openRouter` (native streaming `chat.send`) |
 | `streamfold/anthropic` | `anthropic` |
@@ -549,6 +549,38 @@ It reads `delta.toolCalls` and `finishReason` with the same choice and call
 index rules. A provider error preserves its message and details in `cause`.
 See the [OpenRouter example](examples/README.md#openrouter-chat).
 
+#### OpenAI Realtime (unreleased)
+
+Import `openAIRealtime` from `streamfold/openai` in a build containing this
+change. The published `streamfold@0.1.20` omits this export. Pass decoded
+Realtime server events to `pushAll`, or pass an iterable of them to the managed
+reader. The SDK WebSocket emits each decoded server event on its `event` channel.
+
+```ts
+import { readStructured } from "streamfold";
+import { openAIRealtime } from "streamfold/openai";
+
+for await (const update of readStructured(events, { integration: openAIRealtime })) {
+  if (update.type === "update") renderPreview(update.id, update.partialValue);
+  if (update.type === "complete") confirmArguments(update.id, update.value);
+}
+```
+
+Updates carry the function's `call_id`. An added function item starts a parser,
+and each argument delta exposes its partial value. Both
+`response.function_call_arguments.done` and `response.output_item.done` can
+arrive during interruption. Their argument snapshots wait for `response.done`
+with status `completed` and the same response ID. Its output list supplies the
+authoritative calls and final arguments, including calls received whole. If
+the SDK omits the list, each pending call needs a final argument or item event.
+Use `pushAll` to receive every completion from a multi-call response.
+
+A cancelled, incomplete, failed or unknown status, a server error, or EOF
+with pending calls fails the integration and releases all pending parsers.
+An unrelated successful response leaves other responses' calls open.
+Text, audio, session updates and function outputs produce no updates. The
+application owns socket error handling, connection closure and tool execution.
+
 #### OpenAI Agents Runner (unreleased)
 
 Pass the result of `runner.run(agent, input, { stream: true })` directly.
@@ -632,7 +664,7 @@ Completions still rejects empty arguments, as described above.
 
 A closed JSON value can't grow, so a call whose argument text already forms
 complete JSON needs no closing event. When the source ends (`finish()`, or the
-end of a `readStructured` source), every adapter except Pi, Mistral chat, OpenRouter chat, and
+end of a `readStructured` source), every adapter except OpenAI Realtime, Pi, Mistral chat, OpenRouter chat, and
 OpenAI Chat Completions (including its Runner path) finalizes each open call from the
 argument text it has received:
 
@@ -644,7 +676,7 @@ argument text it has received:
   adapters that reject empty arguments. LangChain has no per-call closing
   event, so EOF closes its calls.
 
-OpenAI Chat Completions requires a successful `finish_reason`. OpenRouter and
+OpenAI Realtime requires a completed response. OpenAI Chat Completions requires a successful `finish_reason`. OpenRouter and
 Mistral chat require a successful `finishReason`. Pi requires `toolcall_end`.
 For these adapters, EOF with an open call fails with `INTEGRATION_ERROR` even
 when the argument text is complete JSON. Every failure aborts the adapter's
@@ -670,6 +702,7 @@ finishes with the parsed argument text.
 | OpenAI Responses | `response.function_call_arguments.done` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | `defineAdapter` | `{ type: "end" }` | Completes | `INCOMPLETE_JSON` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | Mistral chat | `finishReason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
+| OpenAI Realtime | completed `response.done` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | OpenAI Chat Completions | `finish_reason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 | OpenRouter chat | `finishReason` `tool_calls` or `stop` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `INTEGRATION_ERROR` | `EMPTY_INPUT` | `EMPTY_INPUT` |
 

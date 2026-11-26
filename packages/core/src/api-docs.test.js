@@ -11,7 +11,7 @@ import { cohere } from "./cohere.js";
 import { gemini } from "./gemini.js";
 import { mistralChat } from "./mistral.js";
 import { langchain } from "./langchain.js";
-import { openAI, openAIChatCompletions } from "./openai.js";
+import { openAI, openAIChatCompletions, openAIRealtime } from "./openai.js";
 import { openRouter } from "./openrouter.js";
 import { vercelAI } from "./vercel-ai.js";
 
@@ -94,6 +94,12 @@ const adapters = {
     start: [{ type: "part-start", path: [], part: { type: "tool-call", toolCallId: id, toolName: "weather" } }],
     delta: (text) => ({ type: "text-delta", path: [0], textDelta: text }),
     close: () => [{ type: "tool-call-args-text-finish", path: [0] }],
+  },
+  "OpenAI Realtime": {
+    integration: openAIRealtime,
+    start: [{ type: "response.output_item.added", response_id: "r", item: { type: "function_call", call_id: id, arguments: "" } }],
+    delta: (delta) => ({ type: "response.function_call_arguments.delta", response_id: "r", call_id: id, delta }),
+    close: (text) => [{ type: "response.done", response: { id: "r", status: "completed", output: [{ type: "function_call", call_id: id, arguments: text }] } }],
   },
   "OpenAI Responses": {
     integration: openAI,

@@ -55,6 +55,9 @@ SDK events. Integrations use structural event types and do not load provider
 SDKs. The unreleased `streamfold/openrouter` subpath reads native OpenRouter
 chat tool calls.
 
+The unreleased `openAIRealtime` export from `streamfold/openai` previews
+function arguments on deltas and completes calls when their response succeeds.
+
 The unreleased `streamfold/openai-agents` entry accepts a streamed Runner result
 from `@openai/agents` 0.22.0. Use `readStructured(run, { integration: openAIAgents })`
 for Chat Completions or Responses function arguments.
