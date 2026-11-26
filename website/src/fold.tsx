@@ -88,26 +88,7 @@ export function Fold({ count, chunks, output, playing, disabled, onPlay, onStep 
   const complete = count === chunks.length;
   const action = playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play";
   return (
-    <figure className="fold-scene">
-      <div className="fold-bar">
-        <span>
-          Fragment {String(count).padStart(2, "0")} / {String(chunks.length).padStart(2, "0")}
-        </span>
-        <div className="fold-actions">
-          <button
-            onClick={onStep}
-            disabled={disabled || playing || complete}
-            aria-label="Step fold"
-          >
-            <ControlIcon name="step" />
-            Step
-          </button>
-          <button onClick={onPlay} disabled={disabled} aria-label={action + " fold"}>
-            <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
-            {action} fold
-          </button>
-        </div>
-      </div>
+    <figure id="fold-heading" className="fold-scene">
       <svg
         ref={drawing}
         className="drawing"
@@ -162,6 +143,25 @@ export function Fold({ count, chunks, output, playing, disabled, onPlay, onStep 
           </g>
         )}
       </svg>
+      <div className="fold-bar">
+        <span>
+          Fragment {String(count).padStart(2, "0")} / {String(chunks.length).padStart(2, "0")}
+        </span>
+        <div className="fold-actions">
+          <button
+            onClick={onStep}
+            disabled={disabled || playing || complete}
+            aria-label="Step fold"
+          >
+            <ControlIcon name="step" />
+            Step
+          </button>
+          <button onClick={onPlay} disabled={disabled} aria-label={action + " fold"}>
+            <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
+            {action} fold
+          </button>
+        </div>
+      </div>
       <figcaption>
         <div>
           <span>{count ? "push" : "next"}</span>

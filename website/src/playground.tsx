@@ -5,7 +5,6 @@ import { createStructuredStream, type IncrementalJsonScanner } from "streamfold"
 
 import { ControlIcon } from "./control-icon";
 
-import { Adapters } from "./adapters";
 import { Fold } from "./fold";
 
 const commands = {
@@ -150,36 +149,31 @@ export function Replay() {
 
   return (
     <>
-      <section className="hero ruled">
+      <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <a className="release" href="https://www.npmjs.com/package/streamfold/v/0.1.20">
-            <code>v0.1.20</code> Playground release <span aria-hidden="true">→</span>
-          </a>
-          <h1>
-            JSON, as it arrives.
-            <br />
-            <em>Render each partial value.</em>
+          <span className="eyebrow">Streamfold / Rust + Wasm</span>
+          <h1 id="hero-title">
+            JSON, <em>as it arrives.</em>
           </h1>
-          <p>
-            Turn fragmented tool-call arguments into live JSON values, one chunk at a time.
-            Streamfold keeps its place between chunks, so you can render an object before it closes.
-          </p>
-          <div className="hero-actions">
-            <a
-              className="primary-link"
-              href="https://github.com/assistant-ui/streamfold#quick-start"
-            >
-              Get started <span aria-hidden="true">→</span>
-            </a>
-            <a href="#how-it-works">How it works</a>
-          </div>
+          <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
           <Install />
         </div>
-        <section className="console" aria-labelledby="replay-title">
-          <div className="window-head">
-            <h2 id="replay-title">Fragment replay</h2>
-            <span>weather.json</span>
-          </div>
+        <Fold
+          count={count}
+          chunks={chunks}
+          output={output}
+          playing={playing}
+          disabled={!!error}
+          onPlay={play}
+          onStep={() => advance(count)}
+        />
+      </section>
+      <section className="replay" aria-labelledby="replay-title">
+        <div className="section-head">
+          <h2 id="replay-title">Fragment replay</h2>
+          <span className="file">weather.json</span>
+        </div>
+        <div className="console">
           <div className="panes">
             <div className="pane">
               <h3>Incoming fragments</h3>
@@ -224,61 +218,44 @@ export function Replay() {
               {status} · {count}/{chunks.length}
             </small>
           </div>
-        </section>
+        </div>
       </section>
-      <Adapters />
-      <section className="mechanism ruled" id="how-it-works" aria-labelledby="fold-heading">
-        <div className="eyebrow">
-          01 <span>How it works</span>
+      <section className="mechanism" id="how-it-works" aria-labelledby="method-title">
+        <div className="section-head">
+          <h2 id="method-title">How it works</h2>
+          <a href="https://github.com/assistant-ui/streamfold#quick-start">Quick start ↗</a>
         </div>
-        <h2 id="fold-heading">From fragment to value.</h2>
-        <p>
-          Follow the same weather call through five pushes. Each fragment adds one facet to the
-          fold.
-        </p>
-        <div className="scene-layout">
-          <Fold
-            count={count}
-            chunks={chunks}
-            output={output}
-            playing={playing}
-            disabled={!!error}
-            onPlay={play}
-            onStep={() => advance(count)}
-          />
-
-          <ol className="method-list">
-            <li>
-              <code>01</code>
-              <div>
-                <h3>Create a scanner</h3>
-                <p>
-                  <code>createStructuredStream()</code> starts one JSON document.
-                </p>
-              </div>
-            </li>
-            <li>
-              <code>02</code>
-              <div>
-                <h3>Read the partial value</h3>
-                <p>
-                  Pass each fragment to <code>push()</code>. Its <code>partialValue</code> contains
-                  the fields parsed so far.
-                </p>
-              </div>
-            </li>
-            <li>
-              <code>03</code>
-              <div>
-                <h3>Finish the document</h3>
-                <p>
-                  <code>finish()</code> validates the complete value. Call <code>dispose()</code> to
-                  release the scanner.
-                </p>
-              </div>
-            </li>
-          </ol>
-        </div>
+        <ol className="method-list">
+          <li>
+            <code>01</code>
+            <div>
+              <h3>Create a scanner</h3>
+              <p>
+                <code>createStructuredStream()</code> starts one JSON document.
+              </p>
+            </div>
+          </li>
+          <li>
+            <code>02</code>
+            <div>
+              <h3>Read the partial value</h3>
+              <p>
+                Pass each fragment to <code>push()</code>. Its <code>partialValue</code> contains
+                the fields parsed so far.
+              </p>
+            </div>
+          </li>
+          <li>
+            <code>03</code>
+            <div>
+              <h3>Finish the document</h3>
+              <p>
+                <code>finish()</code> validates the complete value. Call <code>dispose()</code> to
+                release the scanner.
+              </p>
+            </div>
+          </li>
+        </ol>
       </section>
     </>
   );

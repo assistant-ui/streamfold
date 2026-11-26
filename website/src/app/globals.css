@@ -3,19 +3,18 @@
 
 :root {
   color-scheme: dark;
-  --canvas: #151515;
-  --well: #101010;
-  --raised: #1d1d1d;
+  --canvas: #000;
+  --well: #0b0b0b;
+  --raised: #181818;
   --ink: #ededed;
   --text: #c2c2c2;
   --muted: #a3a3a3;
   --dim: #929292;
   --edge: #2d2d2d;
-  --rule: 1px dashed #353535;
-  --soft-rule: 1px dashed #2d2d2d;
+  --rule: 1px solid var(--edge);
+  --soft-rule: 1px solid #232323;
   --mono: "Geist Mono Variable", ui-monospace, monospace;
   --inset: inset 0 1px rgb(255 255 255/0.06), 0 1px 2px rgb(0 0 0/0.16);
-  --pad: 40px;
   background: var(--canvas);
   color: var(--ink);
   font-family: "Geist Variable", system-ui, sans-serif;
@@ -65,19 +64,16 @@ code,
 pre,
 small,
 .eyebrow,
-.release,
-.strip-head,
-.window-head,
+.file,
 .fold-scene,
 .method-list > li > code,
 footer {
   font-family: var(--mono);
 }
 .shell {
-  max-width: 1240px;
+  width: min(1184px, calc(100% - clamp(32px, 8vw, 112px)));
   min-height: 100vh;
   margin: auto;
-  border-inline: var(--soft-rule);
   display: flex;
   flex-direction: column;
 }
@@ -88,14 +84,13 @@ header,
 footer,
 nav,
 .brand,
-.hero-actions,
-.window-head,
+.section-head,
+.footer-links,
 .controls,
 .controls > div,
 .controls small,
 .fold-bar,
 .fold-actions,
-.strip-head,
 .install,
 .install-options {
   display: flex;
@@ -103,23 +98,20 @@ nav,
 }
 header,
 footer,
-.window-head,
+.section-head,
 .controls,
-.fold-bar,
-.strip-head {
+.fold-bar {
   justify-content: space-between;
 }
 header {
-  padding: 0 24px;
-  height: 56px;
+  min-height: 64px;
   border-bottom: var(--rule);
   gap: 8px;
 }
 .brand,
 nav a,
 footer a,
-.strip-head a,
-.hero-actions a {
+.section-head a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -193,105 +185,43 @@ nav a:active::after {
 .skip:focus {
   top: 8px;
 }
-.ruled {
-  position: relative;
-  border-bottom: var(--rule);
-}
-.ruled::before,
-.ruled::after {
-  content: "";
-  width: 9px;
-  height: 9px;
-  position: absolute;
-  bottom: -5px;
-  pointer-events: none;
-  background:
-    linear-gradient(#616161, #616161) center/1px 100% no-repeat,
-    linear-gradient(#616161, #616161) center/100% 1px no-repeat;
-}
-.ruled::before {
-  left: -5px;
-}
-.ruled::after {
-  right: -5px;
-}
-/* Draw only the inward arms when the frame meets the viewport edges. */
-@media (max-width: 1248px) {
-  .ruled::before,
-  .ruled::after {
-    width: 5px;
-  }
-  .ruled::before {
-    left: -1px;
-    background-position:
-      left center,
-      center;
-  }
-  .ruled::after {
-    right: -1px;
-    background-position:
-      right center,
-      center;
-  }
-}
-.hero,
-.scene-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: 48px;
-  align-items: center;
-}
 .hero {
-  padding: 64px var(--pad);
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
+  gap: clamp(36px, 5vw, 80px);
+  align-items: center;
+  padding-block: clamp(44px, 5vw, 76px);
 }
 .hero-copy {
-  display: grid;
-  gap: 18px;
-  justify-items: start;
+  min-width: 0;
 }
-.release {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  padding: 5px 8px;
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  color: var(--muted);
-  font-size: 11px;
+.eyebrow,
+.file {
+  color: var(--dim);
+  font: 11px var(--mono);
 }
-.release::before {
-  content: "";
-  position: absolute;
-  inset: -8px 0;
-}
-.release code {
-  background: #232323;
-  color: var(--ink);
-  border-radius: 2px;
-  padding: 1px 5px;
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
 }
 h1 {
-  font-size: clamp(30px, 3.6vw, 40px);
-  font-weight: 500;
-  line-height: 1.12;
-  letter-spacing: -0.024em;
+  font-size: clamp(48px, 5.3vw, 76px);
+  font-weight: 440;
+  line-height: 1.02;
+  letter-spacing: -0.06em;
+  margin: 16px 0;
 }
 h1 em {
-  color: #929292;
+  color: #aaa;
   font-style: normal;
+  white-space: nowrap;
 }
-.hero-copy > p,
-.mechanism > p {
-  max-width: 44ch;
-  color: var(--muted);
-  font-size: 15.5px;
-  line-height: 1.65;
+.hero-copy p {
+  max-width: 43ch;
+  color: var(--text);
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.55;
 }
-.hero-actions {
-  gap: 10px;
-}
-.hero-actions a,
 .controls button,
 .fold-actions button,
 .install button {
@@ -300,13 +230,6 @@ h1 em {
   background: var(--raised);
   box-shadow: var(--inset);
 }
-.hero-actions a {
-  gap: 12px;
-  padding: 0 17px;
-  font-size: 13px;
-  font-weight: 520;
-}
-.hero-actions .primary-link,
 .controls .primary {
   background: var(--ink);
   color: var(--well);
@@ -314,9 +237,9 @@ h1 em {
 }
 .install-wrap {
   position: relative;
-  margin-top: 6px;
-  width: min(100%, 400px);
-  background: var(--raised);
+  margin-top: 28px;
+  width: min(100%, 352px);
+  background: var(--well);
   border: 1px solid var(--edge);
   border-radius: 5px;
 }
@@ -392,42 +315,36 @@ h1 em {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.console,
-.fold-scene {
-  min-width: 0;
-  border: 1px solid var(--edge);
+.section-head {
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.section-head h2 {
+  font-size: clamp(24px, 2.5vw, 32px);
+  font-weight: 470;
+  letter-spacing: -0.045em;
+}
+.section-head a {
+  color: var(--muted);
+  font: 12px var(--mono);
+}
+.console {
+  border: var(--rule);
   border-radius: 5px;
   background: var(--well);
 }
-.window-head,
-.fold-bar {
-  padding: 5px 14px;
-  min-height: 46px;
-  border-bottom: var(--rule);
-  gap: 8px;
-}
-.window-head h2 {
-  font: 450 11px var(--mono);
-  text-transform: uppercase;
-  background: var(--ink);
-  color: var(--well);
-  padding: 7px 10px;
-  border-radius: 4px;
-}
-.window-head span,
-.controls small,
-.fold-bar > span {
-  font: 11px var(--mono);
-  color: var(--muted);
+.panes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .pane {
-  padding: 16px 14px;
+  padding: clamp(16px, 2vw, 28px);
 }
 .pane h3,
-.fold-scene figcaption span,
-.strip-head h2 {
+.fold-scene figcaption span {
   color: var(--dim);
   font: 450 10.5px var(--mono);
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 .pane h3 {
@@ -440,10 +357,10 @@ h1 em {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 3px 4px 3px 8px;
+  padding: 5px 6px 5px 8px;
   border-left: 2px solid transparent;
   color: var(--text);
-  font: 12px/1.55 var(--mono);
+  font: 13px/1.55 var(--mono);
 }
 .pane li span,
 .pane li small {
@@ -459,11 +376,11 @@ h1 em {
   color: var(--ink);
 }
 .result {
-  border-top: var(--soft-rule);
+  border-left: var(--soft-rule);
   min-height: 134px;
 }
 pre {
-  font: 12px/1.55 var(--mono);
+  font: 13px/1.55 var(--mono);
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -472,13 +389,15 @@ pre {
   border-top: var(--rule);
   gap: 8px;
   flex-wrap: wrap;
-  padding: 7px 10px;
+  padding: 10px 14px;
 }
 .controls > div,
 .fold-actions {
   gap: 6px;
 }
 .controls small {
+  font: 11px var(--mono);
+  color: var(--muted);
   gap: 6px;
   font-variant-numeric: tabular-nums;
 }
@@ -494,65 +413,17 @@ pre {
 .controls .primary {
   min-width: 84px;
 }
-.strip-head {
-  padding: 10px var(--pad);
-  gap: 16px;
-}
-.strip-head a {
-  font-size: 11px;
-  color: var(--text);
-  gap: 5px;
-}
-.adapter-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  border-top: var(--soft-rule);
-}
-.adapter-grid li + li {
-  border-left: var(--soft-rule);
-}
-.adapter-grid a {
-  display: flex;
-  min-height: 94px;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font: 12px var(--mono);
-}
-.adapter-grid img {
-  object-fit: contain;
-  filter: invert(0.66);
-}
-.mechanism {
-  padding: 52px var(--pad);
-}
-.eyebrow {
-  font-size: 11px;
-  color: var(--dim);
-  margin-bottom: 12px;
-}
-.eyebrow span {
-  margin-left: 10px;
-}
-.mechanism h2 {
-  font-weight: 500;
-  font-size: 23px;
-  letter-spacing: -0.02em;
-  margin-bottom: 10px;
-}
-.mechanism > p {
-  max-width: 65ch;
-}
-.scene-layout {
-  margin-top: 26px;
-  align-items: start;
+.fold-scene {
+  min-width: 0;
 }
 .fold-bar {
+  min-height: 54px;
+  border-block: var(--rule);
   color: var(--muted);
-  font-size: 11px;
+  font: 11px var(--mono);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  gap: 6px;
 }
 .fold-actions button {
   text-transform: uppercase;
@@ -560,9 +431,9 @@ pre {
 }
 .drawing {
   display: block;
-  width: min(100%, 420px);
+  width: 100%;
   height: auto;
-  margin: 10px auto;
+  margin: 0 auto 12px;
 }
 .facets path {
   stroke: #d4d4cd;
@@ -575,8 +446,7 @@ pre {
   stroke: #494946;
 }
 figcaption {
-  border-top: var(--rule);
-  padding: 10px 14px;
+  padding-top: 8px;
 }
 figcaption div {
   display: grid;
@@ -591,12 +461,20 @@ figcaption code {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.method-list li {
+.mechanism {
+  margin-top: clamp(40px, 5vw, 72px);
+}
+.method-list {
   border-top: var(--rule);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+.method-list li {
   display: grid;
   grid-template-columns: 24px auto;
   gap: 8px;
-  padding: 14px 0;
+  padding: 20px 0;
 }
 .method-list > li > code {
   font-size: 11px;
@@ -618,37 +496,34 @@ figcaption code {
   color: var(--text);
 }
 footer {
-  padding: 10px 24px;
+  border-top: var(--rule);
+  margin-top: 44px;
+  padding-block: 10px;
   font-size: 11px;
   color: var(--dim);
 }
+.footer-links {
+  gap: 16px;
+}
 @media (hover: hover) and (pointer: fine) {
   nav a:hover,
-  .strip-head a:hover,
-  footer a:hover,
-  .release:hover {
+  .section-head a:hover,
+  footer a:hover {
     color: var(--ink);
   }
   nav a:hover::after {
     transform: scaleX(1);
   }
-  button:not(:disabled):hover,
-  .hero-actions a:hover,
-  .adapter-grid a:hover {
+  button:not(:disabled):hover {
     background: #262626;
     color: var(--ink);
   }
-  .hero-actions .primary-link:hover,
   .controls .primary:hover {
     background: #dcdcdc;
     color: #151515;
   }
-  .adapter-grid a:hover img {
-    filter: invert(0.9);
-  }
 }
-button:active:not(:disabled),
-.hero-actions a:active {
+button:active:not(:disabled) {
   box-shadow: inset 0 2px 2px rgb(0 0 0/0.4);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -664,55 +539,52 @@ button:active:not(:disabled),
   }
 }
 @media (max-width: 780px) {
-  :root {
-    --pad: 20px;
-  }
-  .hero,
-  .scene-layout {
+  .hero {
     grid-template-columns: minmax(0, 1fr);
+    padding-block: 36px;
     gap: 28px;
   }
-  .hero {
-    padding-block: 38px;
-  }
-  .hero-copy > p {
-    max-width: 55ch;
-  }
-  .mechanism {
-    padding-block: 36px;
-  }
-  .adapter-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .adapter-grid li:nth-child(n + 4) {
-    border-top: var(--soft-rule);
-  }
-  .adapter-grid li:nth-child(4) {
-    border-left: 0;
-  }
-  .adapter-grid a {
-    min-height: 78px;
+  .fold-scene {
+    width: min(100%, 500px);
+    justify-self: center;
   }
   .drawing {
-    width: min(100%, 330px);
+    width: min(100%, 360px);
+  }
+  .method-list {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .method-list li + li {
+    border-top: var(--soft-rule);
+  }
+}
+@media (max-width: 620px) {
+  .panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .result {
+    border-left: 0;
+    border-top: var(--soft-rule);
   }
 }
 @media (max-width: 420px) {
-  :root {
-    --pad: 15px;
-  }
-  header,
-  footer {
-    padding-inline: 12px;
+  header {
+    min-height: 56px;
   }
   nav {
     gap: 0;
   }
-  .brand {
-    gap: 6px;
+  .hero {
+    padding-block: 26px 34px;
+    gap: 20px;
   }
-  .hero-copy {
-    gap: 15px;
+  h1 {
+    font-size: clamp(48px, 13vw, 55px);
+    margin-block: 12px;
+  }
+  .install-wrap {
+    margin-top: 20px;
   }
   .controls {
     padding: 7px;
@@ -720,20 +592,14 @@ button:active:not(:disabled),
   }
   .controls button,
   .fold-actions button {
-    padding: 0 7px;
+    padding-inline: 7px;
   }
   .controls > div,
   .fold-actions {
     gap: 3px;
   }
-  .fold-bar {
-    padding-inline: 8px;
-  }
-  .strip-head {
-    gap: 6px;
-  }
-  .strip-head h2,
-  .strip-head a {
-    font-size: 10px;
+  footer {
+    flex-wrap: wrap;
+    gap: 0 16px;
   }
 }

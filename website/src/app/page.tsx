@@ -36,7 +36,12 @@ export default function HomePage() {
       </main>
       <footer>
         <span>assistant-ui / streamfold</span>
-        <a href={repo + "/blob/main/LICENSE"}>MIT License ↗</a>
+        <div className="footer-links">
+          <a id="adapters-title" href={repo + "/blob/v0.1.20/INTEGRATIONS.md#event-adapters"}>
+            Integrations
+          </a>
+          <a href={repo + "/blob/main/LICENSE"}>MIT License ↗</a>
+        </div>
       </footer>
     </>
   );

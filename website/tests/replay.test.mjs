@@ -26,7 +26,9 @@ for (const mode of ["desktop", "phone"]) {
     const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
     t.after(() => browser.close());
     const context = await browser.newContext({
-      ...(mode === "phone" ? devices["Pixel 7"] : { viewport: { width: 1440, height: 900 } }),
+      ...(mode === "phone"
+        ? { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } }
+        : { viewport: { width: 1440, height: 900 } }),
       permissions: ["clipboard-read", "clipboard-write"],
     });
     const page = await context.newPage();
@@ -55,13 +57,24 @@ for (const mode of ["desktop", "phone"]) {
         () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
       ),
     );
-    for (const logo of await page.locator(".adapter-grid img").all()) {
-      assert.ok(
-        await logo.evaluate(async (img) => {
-          await img.decode();
-          return img.naturalWidth > 0;
-        }),
-      );
+    const hero = page.locator(".hero");
+    assert.equal(await hero.getByRole("heading", { level: 1 }).innerText(), "JSON, as it arrives.");
+    assert.equal(await hero.locator(".drawing").count(), 1);
+    assert.ok(figure.y >= 0 && figure.y + figure.height <= page.viewportSize().height);
+    const replay = await page.getByRole("heading", { name: "Fragment replay" }).boundingBox();
+    assert.ok(replay.y >= figure.y + figure.height);
+    const [incoming, partial] = await Promise.all(
+      (await page.locator(".pane").all()).map((pane) => pane.boundingBox()),
+    );
+    if (mode === "desktop") {
+      assert.equal(incoming.y, partial.y);
+      assert.ok(partial.x >= incoming.x + incoming.width - 1);
+    } else {
+      assert.ok(partial.y >= incoming.y + incoming.height - 1);
+    }
+    if (process.env.CAPTURE_PNG) {
+      await mkdir(screenshots, { recursive: true });
+      await page.screenshot({ path: fileURLToPath(new URL(mode + ".png", screenshots)) });
     }
     await page.keyboard.press("Tab");
     assert.equal(await page.locator(":focus").textContent(), "Skip to content");
@@ -209,7 +222,7 @@ test("Fold follows the parser, motion preferences and viewport", async (t) => {
   await button("Step").scrollIntoViewIfNeeded();
   await page.waitForFunction(
     () =>
-      document.querySelector(".drawing").getBoundingClientRect().top >= innerHeight &&
+      document.querySelector(".drawing").getBoundingClientRect().bottom <= 0 &&
       !document.querySelector(".drawing").getAnimations({ subtree: true }).length,
   );
   await button("Step").press("Enter");
@@ -258,7 +271,7 @@ test("320px touch layout starts still with reduced motion", async (t) => {
   );
 });
 
-test("section crosshairs keep the page inside both phone viewports", async (t) => {
+test("the page fits both phone viewports", async (t) => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
   t.after(() => browser.close());
   const page = await browser.newPage({ ...devices["Pixel 7"] });
