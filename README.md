@@ -101,7 +101,7 @@ Streamfold includes isolated adapters for decoded SDK events:
 | `streamfold/gemini` | Gemini Interactions |
 | `streamfold/langchain` | LangChain message chunks |
 | `streamfold/pi` (unreleased) | Pi native `AssistantMessageEvent` tool calls |
-| `streamfold/ag-ui` | AG-UI events |
+| `streamfold/ag-ui` | AG-UI events, including [TanStack AI chat streams](INTEGRATIONS.md#tanstack-ai-chat-streams) |
 
 ```ts
 import { createStructuredStreamPool } from "streamfold";
