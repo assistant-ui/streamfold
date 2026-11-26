@@ -21,6 +21,8 @@ Content-Security-Policy blocks Wasm; those fail with
 pnpm add streamfold
 ```
 
+Replay the same scanner one fragment at a time in the [local website](website/README.md).
+
 ## Quick start
 
 ```ts

@@ -1,0 +1,26 @@
+{
+  "name": "streamfold-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "farm build --preset node-server && tsc --noEmit",
+    "preview": "node .farm/.output/server/index.mjs",
+    "test:browser": "node --test tests/replay.test.mjs"
+  },
+  "dependencies": {
+    "@farm.js/core": "0.1.81",
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "streamfold": "0.1.20"
+  },
+  "devDependencies": {
+    "@farm.js/cli": "0.1.81",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "playwright": "1.64.1",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "pnpm@11.10.0"
+}
