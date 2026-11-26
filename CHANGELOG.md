@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a [Claude Agent SDK example](examples/claude-agent.mjs) for top-level
+  streamed tool arguments. It uses the existing `streamfold/anthropic` export
+  and works with published Streamfold 0.1.20.
+
 - Add `mistralChat` from `streamfold/mistral` for decoded Mistral chat streams.
   It tracks interleaved function calls by choice and tool index, accepts whole
   argument objects, and rejects truncated calls.

@@ -43,6 +43,13 @@ aborts the SDK fetch.
 A separate local run on 2026-11-25 checked the native types and the OpenAI
 Chat and Anthropic Messages decoders with Pi AI 1.6.1.
 
+The [Claude Agent SDK example](examples/README.md#claude-agent-sdk-tool-inputs)
+uses the published `streamfold/anthropic` export. On 2026-11-26 the offline
+`query()` transport tests passed with Agent SDK 0.3.332 against both published
+Streamfold 0.1.20 and the candidate tarball. Coverage is limited to top-level
+tool argument previews, completion and interruption. The example is repository
+source and adds no package export.
+
 Mistral Responses also works through the maintained
 [`examples/mistral.mjs`](examples/mistral.mjs) normalization layer, tested with
 `@mistralai/mistralai` 3.4.0's real decoder. It unwraps `frame.data` and converts

@@ -63,6 +63,39 @@ Disabling is synchronous and idempotent, prevents pending initialization from
 registering later, and leaves existing parsers and other registrations intact.
 A cancelled initialization resolves to `false`; a later call can re-enable it.
 
+## Claude Agent SDK tool inputs
+
+Run the offline example test from the checkout:
+
+```sh
+node --test examples/claude-agent.test.mjs
+```
+
+It calls the installed `@anthropic-ai/claude-agent-sdk@0.3.332` iterator. A
+local Node subprocess answers the SDK initialization request and writes
+JSON-lines fixtures to stdout. This exercises the SDK transport, envelope
+decoder, cancellation and process cleanup without a model or credentials.
+
+For a live run with configured Claude credentials, use
+`node examples/claude-agent.mjs` from a directory containing `README.md`.
+The prompt asks Claude to read that file. Ctrl+C aborts the query.
+The application supplies the Agent SDK. The example lives in this repository
+and works with the `streamfold/anthropic` export in published `streamfold@0.1.20`.
+
+The [example](./claude-agent.mjs) enables `includePartialMessages: true` and
+forwards `stream_event.event` to a fresh `anthropic(pool)` for each top-level
+message. Read `update.partialValue` for an immutable preview and
+`update.value` on `complete`. Only a tool's `content_block_stop` completes
+its arguments. Tool execution and the final query result belong to the SDK.
+
+Block indexes restart in later messages. A new message, message stop, turn
+result or EOF with an open tool rejects the preview. The example aborts
+pending parsers and closes the query on exit. It skips full assistant
+messages, which can repeat tool input, and all frames with a parent tool
+ID. Claude documents partial streaming for the main agent only. The
+subagent fixture checks isolation if a parent-tagged frame appears.
+[Agent SDK streaming reference](https://code.claude.com/docs/en/agent-sdk/streaming-output)
+
 ## OpenAI Agents Runner (unreleased)
 
 The [Runner example](./openai-agents.mjs) streams immutable argument previews
