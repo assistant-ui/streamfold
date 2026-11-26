@@ -215,6 +215,25 @@ nav a:active::after {
 .ruled::after {
   right: -5px;
 }
+/* Draw only the inward arms when the frame meets the viewport edges. */
+@media (max-width: 1248px) {
+  .ruled::before,
+  .ruled::after {
+    width: 5px;
+  }
+  .ruled::before {
+    left: -1px;
+    background-position:
+      left center,
+      center;
+  }
+  .ruled::after {
+    right: -1px;
+    background-position:
+      right center,
+      center;
+  }
+}
 .hero,
 .scene-layout {
   display: grid;

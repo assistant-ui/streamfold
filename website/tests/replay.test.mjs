@@ -50,7 +50,11 @@ for (const mode of ["desktop", "phone"]) {
     }
     await page.evaluate(() => document.fonts.ready);
     assert.equal(await page.locator("body").evaluate((el) => getComputedStyle(el).margin), "0px");
-    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
+      ),
+    );
     for (const logo of await page.locator(".adapter-grid img").all()) {
       assert.ok(
         await logo.evaluate(async (img) => {
@@ -225,7 +229,11 @@ test("320px touch layout starts still with reduced motion", async (t) => {
     reducedMotion: "reduce",
   });
   await page.goto(url);
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
+    ),
+  );
   for (const link of await page.locator("nav a").all()) {
     const box = await link.boundingBox();
     assert.ok(box.width >= 44 && box.height >= 44 && box.x + box.width <= 320);
@@ -243,5 +251,31 @@ test("320px touch layout starts still with reduced motion", async (t) => {
   await page.getByRole("button", { name: "Resume fold", exact: true }).tap();
   await page.getByText("Complete · 5/5").waitFor();
   await assertCompleteCaptionGap(page);
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
+    ),
+  );
+});
+
+test("section crosshairs keep the page inside both phone viewports", async (t) => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
+  t.after(() => browser.close());
+  const page = await browser.newPage({ ...devices["Pixel 7"] });
+  const widths = [];
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(url);
+    await page.evaluate(() => document.fonts.ready);
+    widths.push(
+      await page.evaluate(() => [
+        document.documentElement.clientWidth,
+        document.documentElement.scrollWidth,
+      ]),
+    );
+  }
+  assert.deepEqual(widths, [
+    [320, 320],
+    [390, 390],
+  ]);
 });
