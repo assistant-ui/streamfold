@@ -2,7 +2,7 @@
 
 Replay a weather tool call in five fragments. Each step pushes the next string into one scanner from the pinned npm release of Streamfold. The last step calls `finish()`. Reset starts a fresh replay.
 
-Play fold and the playground share one scanner. Each push seats one facet of the paper plane and updates the figure’s input and output. Step advances a single fragment. Reduced motion draws the same state immediately. Scrolling the figure out of view cancels its flight while the playground remains usable. Switching tabs pauses playback.
+The hero console and the How it works figure share one scanner. The install switch copies the command for the selected package manager. The adapter strip links to the declarations from the pinned release. The provider and GitHub marks are from [Simple Icons 13.0.0](https://github.com/simple-icons/simple-icons/tree/13.0.0), distributed under CC0. Each push seats one facet of the paper plane and updates the figure’s input and output. Step advances a single fragment. Reduced motion draws the same state immediately. Scrolling the figure out of view cancels its flight while the playground remains usable. Switching tabs pauses playback.
 
 ## Local production preview
 
@@ -29,4 +29,4 @@ pnpm exec playwright install chromium
 CAPTURE_PNG=1 pnpm test:browser
 ```
 
-The browser tests cover keyboard, pointer, touch, and a 320px phone viewport. They check the server-rendered Fold, intermediate motion frames, offscreen cancellation, and live changes to the reduced-motion preference. They also check button target sizes, clipboard contents, denied-copy selection, intermediate JSON, completion, replay, reset, and horizontal overflow. Set `CHROME_EXECUTABLE` to an installed Chrome binary to use it instead. With `CAPTURE_PNG=1`, the tests save full-page captures to `artifacts/website/{desktop,phone}-motion.png` at the repository root.
+The browser tests cover keyboard, pointer, touch, and a 320px phone viewport. They check the server-rendered Fold, intermediate motion frames, offscreen cancellation, and live changes to the reduced-motion preference. They also check button target sizes, clipboard contents, denied-copy selection, intermediate JSON, completion, replay, reset, and horizontal overflow. Set `CHROME_EXECUTABLE` to an installed Chrome binary to use it instead. With `CAPTURE_PNG=1`, the tests save full-page captures to `artifacts/website/{desktop,phone}-console.png` at the repository root.

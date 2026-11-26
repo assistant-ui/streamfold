@@ -5,12 +5,16 @@ import { createStructuredStream, type IncrementalJsonScanner } from "streamfold"
 
 import { ControlIcon } from "./control-icon";
 
+import { Adapters } from "./adapters";
 import { Fold } from "./fold";
 
-const command = ["npm", "install", "streamfold"] as const;
+const commands = {
+  npm: ["npm", "install", "streamfold"],
+  pnpm: ["pnpm", "add", "streamfold"],
+} as const;
 const chunks = ['{"city":"', "San Fran", 'cisco",', '"units":"', 'metric"}'];
 
-function Install() {
+function CommandLine({ command }: { command: readonly string[] }) {
   const [result, setResult] = useState<"idle" | "copied" | "denied">("idle");
   const feedback = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(feedback.current), []);
@@ -34,10 +38,10 @@ function Install() {
     }
   }
   return (
-    <div className="install-wrap">
+    <>
       <div className="install">
         <span className="prompt" aria-hidden="true">
-          ❯
+          $
         </span>
         <code ref={code}>
           <b>{command[0]}</b> {command[1]} <strong>{command[2]}</strong>
@@ -56,6 +60,22 @@ function Install() {
           ""
         )}
       </small>
+    </>
+  );
+}
+
+function Install() {
+  const [manager, setManager] = useState<keyof typeof commands>("npm");
+  return (
+    <div className="install-wrap">
+      <div className="install-options" role="group" aria-label="Package manager">
+        {(["npm", "pnpm"] as const).map((name) => (
+          <button key={name} aria-pressed={manager === name} onClick={() => setManager(name)}>
+            {name}
+          </button>
+        ))}
+      </div>
+      <CommandLine key={manager} command={commands[manager]} />
     </div>
   );
 }
@@ -130,33 +150,36 @@ export function Replay() {
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <span className="label">Streamfold / Rust + Wasm</span>
+      <section className="hero ruled">
+        <div className="hero-copy">
+          <a className="release" href="https://www.npmjs.com/package/streamfold/v/0.1.20">
+            <code>v0.1.20</code> Playground release <span aria-hidden="true">→</span>
+          </a>
           <h1>
-            JSON, <em>as it arrives.</em>
+            JSON, as it arrives.
+            <br />
+            <em>Render each partial value.</em>
           </h1>
-          <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
+          <p>
+            Turn fragmented tool-call arguments into live JSON values, one chunk at a time.
+            Streamfold keeps its place between chunks, so you can render an object before it closes.
+          </p>
+          <div className="hero-actions">
+            <a
+              className="primary-link"
+              href="https://github.com/assistant-ui/streamfold#quick-start"
+            >
+              Get started <span aria-hidden="true">→</span>
+            </a>
+            <a href="#how-it-works">How it works</a>
+          </div>
           <Install />
         </div>
-        <Fold
-          count={count}
-          chunks={chunks}
-          output={output}
-          playing={playing}
-          disabled={!!error}
-          onPlay={play}
-        />
-      </section>
-      <section className="replay" aria-labelledby="replay-title">
-        <div className="section-head">
-          <div>
-            <span className="label">01 / Playground</span>
+        <section className="console" aria-labelledby="replay-title">
+          <div className="window-head">
             <h2 id="replay-title">Fragment replay</h2>
+            <span>weather.json</span>
           </div>
-          <span className="file">weather.json</span>
-        </div>
-        <div className="console">
           <div className="panes">
             <div className="pane">
               <h3>Incoming fragments</h3>
@@ -169,7 +192,7 @@ export function Replay() {
                   >
                     <span>{String(i + 1).padStart(2, "0")}</span>
                     <code>{chunk}</code>
-                    {i === count - 1 && <b aria-label="Last received">←</b>}
+                    <small>{i < count ? "received" : "queued"}</small>
                   </li>
                 ))}
               </ol>
@@ -201,6 +224,60 @@ export function Replay() {
               {status} · {count}/{chunks.length}
             </small>
           </div>
+        </section>
+      </section>
+      <Adapters />
+      <section className="mechanism ruled" id="how-it-works" aria-labelledby="fold-heading">
+        <div className="eyebrow">
+          01 <span>How it works</span>
+        </div>
+        <h2 id="fold-heading">From fragment to value.</h2>
+        <p>
+          Follow the same weather call through five pushes. Each fragment adds one facet to the
+          fold.
+        </p>
+        <div className="scene-layout">
+          <Fold
+            count={count}
+            chunks={chunks}
+            output={output}
+            playing={playing}
+            disabled={!!error}
+            onPlay={play}
+            onStep={() => advance(count)}
+          />
+
+          <ol className="method-list">
+            <li>
+              <code>01</code>
+              <div>
+                <h3>Create a scanner</h3>
+                <p>
+                  <code>createStructuredStream()</code> starts one JSON document.
+                </p>
+              </div>
+            </li>
+            <li>
+              <code>02</code>
+              <div>
+                <h3>Read the partial value</h3>
+                <p>
+                  Pass each fragment to <code>push()</code>. Its <code>partialValue</code> contains
+                  the fields parsed so far.
+                </p>
+              </div>
+            </li>
+            <li>
+              <code>03</code>
+              <div>
+                <h3>Finish the document</h3>
+                <p>
+                  <code>finish()</code> validates the complete value. Call <code>dispose()</code> to
+                  release the scanner.
+                </p>
+              </div>
+            </li>
+          </ol>
         </div>
       </section>
     </>

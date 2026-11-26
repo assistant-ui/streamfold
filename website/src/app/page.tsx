@@ -1,5 +1,4 @@
 import "./globals.css";
-import { ControlIcon } from "../control-icon";
 import { Replay } from "../playground";
 
 const repo = "https://github.com/assistant-ui/streamfold";
@@ -24,16 +23,10 @@ export default function HomePage() {
           Streamfold
         </a>
         <nav aria-label="Resources">
-          <a href={repo + "#readme"}>
-            <ControlIcon name="book" />
-            Docs
-          </a>
-          <a href={repo + "/blob/main/API.md"}>
-            <ControlIcon name="code" />
-            API
-          </a>
+          <a href={repo + "#readme"}>Docs</a>
+          <a href={repo + "/blob/main/API.md"}>API</a>
           <a href={repo}>
-            <ControlIcon name="branch" />
+            <img src="/github.svg" alt="" width="14" height="14" className="github-mark" />
             GitHub
           </a>
         </nav>

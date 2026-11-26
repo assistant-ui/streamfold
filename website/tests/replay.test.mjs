@@ -51,6 +51,14 @@ for (const mode of ["desktop", "phone"]) {
     await page.evaluate(() => document.fonts.ready);
     assert.equal(await page.locator("body").evaluate((el) => getComputedStyle(el).margin), "0px");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    for (const logo of await page.locator(".adapter-grid img").all()) {
+      assert.ok(
+        await logo.evaluate(async (img) => {
+          await img.decode();
+          return img.naturalWidth > 0;
+        }),
+      );
+    }
     await page.keyboard.press("Tab");
     assert.equal(await page.locator(":focus").textContent(), "Skip to content");
     assert.equal(await button("Reset").isDisabled(), true);
@@ -86,7 +94,7 @@ for (const mode of ["desktop", "phone"]) {
     if (process.env.CAPTURE_PNG) {
       await mkdir(screenshots, { recursive: true });
       await page.screenshot({
-        path: fileURLToPath(new URL(mode + "-motion.png", screenshots)),
+        path: fileURLToPath(new URL(mode + "-console.png", screenshots)),
         fullPage: true,
       });
     }
@@ -110,6 +118,12 @@ for (const mode of ["desktop", "phone"]) {
     );
     assert.deepEqual(await button("Copy install command").boundingBox(), beforeCopy);
     await button("Copy install command").getByText("Copy", { exact: true }).waitFor();
+    await activate("pnpm");
+    assert.equal(await page.locator(".install code").textContent(), "pnpm add streamfold");
+    await activate("Copy install command");
+    await page.getByText("Copied", { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "pnpm add streamfold");
+    await activate("npm");
     const protocol = await context.newCDPSession(page);
     await protocol.send("Browser.setPermission", {
       permission: { name: "clipboard-write", allowWithoutGesture: true },
@@ -141,6 +155,7 @@ test("Fold follows the parser, motion preferences and viewport", async (t) => {
       getComputedStyle(document.querySelector("nav a"), "::after").transform ===
       "matrix(1, 0, 0, 1, 0, 0)",
   );
+  await page.locator(".drawing").scrollIntoViewIfNeeded();
   await button("Play fold").hover();
   await page.mouse.down();
   assert.ok(
@@ -150,7 +165,7 @@ test("Fold follows the parser, motion preferences and viewport", async (t) => {
   );
   await page.mouse.up();
   await button("Pause fold").press("Enter");
-  await button("Step").press("Enter");
+  await button("Step fold").press("Enter");
   await page.waitForFunction(
     () => document.querySelector(".drawing").getAnimations({ subtree: true }).length === 1,
   );
@@ -174,13 +189,13 @@ test("Fold follows the parser, motion preferences and viewport", async (t) => {
   await page.waitForFunction(
     () => !document.querySelector(".drawing").getAnimations({ subtree: true }).length,
   );
-  await button("Step").press("Space");
+  await button("Step fold").press("Space");
   assert.equal(
     await page.locator(".drawing").evaluate((svg) => svg.getAnimations({ subtree: true }).length),
     0,
   );
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await button("Step").press("Enter");
+  await button("Step fold").press("Enter");
   await page.waitForFunction(
     () => document.querySelector(".drawing").getAnimations({ subtree: true }).length === 1,
   );
@@ -190,7 +205,7 @@ test("Fold follows the parser, motion preferences and viewport", async (t) => {
   await button("Step").scrollIntoViewIfNeeded();
   await page.waitForFunction(
     () =>
-      document.querySelector(".drawing").getBoundingClientRect().bottom < 0 &&
+      document.querySelector(".drawing").getBoundingClientRect().top >= innerHeight &&
       !document.querySelector(".drawing").getAnimations({ subtree: true }).length,
   );
   await button("Step").press("Enter");

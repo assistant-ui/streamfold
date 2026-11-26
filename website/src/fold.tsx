@@ -8,6 +8,7 @@ type FoldProps = {
   playing: boolean;
   disabled: boolean;
   onPlay: () => void;
+  onStep: () => void;
 };
 
 // Paint the facets back to front. Each push seats the next piece of the same sheet.
@@ -28,7 +29,7 @@ const trails = [
   "M27 105l10-3 4 4-10 3zM61 168l8-3 4 4-8 3z",
 ];
 
-export function Fold({ count, chunks, output, playing, disabled, onPlay }: FoldProps) {
+export function Fold({ count, chunks, output, playing, disabled, onPlay, onStep }: FoldProps) {
   const drawing = useRef<SVGSVGElement>(null);
   const active = useRef<SVGPathElement>(null);
   const flight = useRef<Animation | null>(null);
@@ -92,10 +93,20 @@ export function Fold({ count, chunks, output, playing, disabled, onPlay }: FoldP
         <span>
           Fragment {String(count).padStart(2, "0")} / {String(chunks.length).padStart(2, "0")}
         </span>
-        <button onClick={onPlay} disabled={disabled} aria-label={action + " fold"}>
-          <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
-          {action} fold
-        </button>
+        <div className="fold-actions">
+          <button
+            onClick={onStep}
+            disabled={disabled || playing || complete}
+            aria-label="Step fold"
+          >
+            <ControlIcon name="step" />
+            Step
+          </button>
+          <button onClick={onPlay} disabled={disabled} aria-label={action + " fold"}>
+            <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
+            {action} fold
+          </button>
+        </div>
       </div>
       <svg
         ref={drawing}
