@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `openAIRealtime` from `streamfold/openai` for Realtime function calls.
+  Deltas expose partial arguments. Only a completed response confirms its calls.
+
 - Add `mistralChat` from `streamfold/mistral` for decoded Mistral chat streams.
   It tracks interleaved function calls by choice and tool index, accepts whole
   argument objects, and rejects truncated calls.

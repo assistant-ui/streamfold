@@ -6,15 +6,16 @@ validate a tool schema, or execute tools. A host parser hook is a separate
 integration point.
 
 This matrix records the pinned SDK versions and local evidence checked on
-2026-11-18, with Mistral chat, the Agents Runner, and OpenRouter checked on 2026-11-25. No live model
+2026-11-18, with Mistral chat, the Agents Runner, and OpenRouter checked on 2026-11-25 and OpenAI Realtime on 2026-11-26. No live model
 request was made for this review. Fixture compatibility does not guarantee
 support for every model or future SDK version.
 
 ## Event adapters
 
 Nine adapter subpaths shipped by Streamfold 0.1.19. The additional Chat
-Completions export requires 0.1.20 or newer. The four new entries (Pi, OpenAI Agents, OpenRouter, and Mistral chat)
-are unreleased and absent from 0.1.21. SDKs remain application dependencies.
+Completions export requires 0.1.20 or newer. Pi, OpenAI Agents, OpenRouter, Mistral chat,
+and OpenAI Realtime require a source build containing the adapter. The published
+0.1.20 package omits these entries. SDKs remain application dependencies.
 
 | Event source | Import | SDK tested | Evidence |
 | --- | --- | --- | --- |
@@ -23,6 +24,7 @@ are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 | Mistral `chat.stream` | `streamfold/mistral` (`mistralChat`, unreleased) | `@mistralai/mistralai` 3.4.0 | Real SSE decoder, interleaved IDs, whole argument objects, truncation, stalled reader cancellation |
 | OpenAI Responses | `streamfold/openai` (`openAI`) | `openai` 7.47.0 | Real SDK SSE decoder with synthetic responses, failures, and incomplete endings |
 | OpenAI Chat Completions | `streamfold/openai` (`openAIChatCompletions`, since 0.1.20) | `openai` 7.47.0 | 21 focused protocol/SDK tests, 8 packed-package SDK tests, Chrome smoke |
+| OpenAI Realtime | `streamfold/openai` (`openAIRealtime`, unreleased) | `openai` 7.47.0 | SDK WebSocket decoder with in-memory frames, server event types, response status and interleaved call fixtures |
 | OpenAI Agents Runner (unreleased) | `streamfold/openai-agents` (`openAIAgents`) | `@openai/agents` 0.22.0, `openai` 7.47.0 | Offline Runner and HTTP SSE decoders, handoff across turns, failure, cancellation and final output |
 | OpenRouter chat | `streamfold/openrouter` (`openRouter`, unreleased) | `@openrouter/sdk` 1.5.137 (pinned), 1.5.141 (separate fixture run) | Native `chat.send` SSE decoder, interleaved calls, error chunks, length truncation, pending-read cancellation |
 | Anthropic Messages and beta Messages | `streamfold/anthropic` | `@anthropic-ai/sdk` 1.9.0 | Real SDK stream decoding, initial inputs, JSON deltas, server tools, and beta MCP tool inputs |
