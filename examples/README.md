@@ -63,6 +63,23 @@ Disabling is synchronous and idempotent, prevents pending initialization from
 registering later, and leaves existing parsers and other registrations intact.
 A cancelled initialization resolves to `false`; a later call can re-enable it.
 
+## TanStack AI
+
+Run the offline weather example from the repository root with Node 22 or newer.
+
+```bash
+cd examples/tanstack-ai
+npm ci
+npm start
+npm test
+```
+
+The real TanStack `chat()` stream reads interleaved tool calls from a fixture
+HTTP response. The example prints partial city names followed by the final
+arguments for each call. Its npm lockfile pins the SDKs and Streamfold 0.1.20.
+See the [compatibility notes](../INTEGRATIONS.md#tanstack-ai-chat-streams)
+for TypeScript narrowing, cancellation, and terminal errors.
+
 ## OpenAI Agents Runner (unreleased)
 
 The [Runner example](./openai-agents.mjs) streams immutable argument previews

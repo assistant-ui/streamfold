@@ -31,6 +31,7 @@ are unreleased and absent from 0.1.21. SDKs remain application dependencies.
 | Gemini Interactions | `streamfold/gemini` | `@google/genai` 3.5.0 | Real SDK Interactions SSE decoder, streamed arguments and terminal outcomes |
 | LangChain message chunks | `streamfold/langchain` | `@langchain/core` 1.4.1 | Real `AIMessageChunk`/`convertToChunk` objects, indexed and unindexed arguments |
 | Pi native `AssistantMessageEvent` | `streamfold/pi` (unreleased) | `@earendil-works/pi-ai` 1.6.0 (pinned) | Offline OpenAI Chat, Anthropic Messages, and Google Gemini GenerateContent decoders, SDK types, split and complete inputs, cancellation |
+| TanStack AI server-side `chat()` | `streamfold/ag-ui` | `@tanstack/ai` 1.8.0 and `@tanstack/ai-openai` 1.2.0 | Offline Chat Completions SSE decoding, two interleaved calls, malformed arguments, truncated response, and cancellation |
 | AG-UI tool argument events | `streamfold/ag-ui` | `@ag-ui/client` and `@ag-ui/core` 1.0.5 | Real client SSE decoding, compact chunk normalization, interleaved and no-argument calls, terminal errors, local HTTP cancellation, and SDK types |
 
 With Pi AI 1.6.0, Gemini's native `google-generative-ai` decoder turns each
@@ -57,6 +58,29 @@ Gemini's adapter targets **Interactions**, not native GenerateContent object
 arguments. The Ollama example below targets its OpenAI-compatible endpoint,
 not native `/api/chat` object arguments. Completed argument objects do not need
 incremental string parsing.
+
+## TanStack AI chat streams
+
+The [runnable example](examples/tanstack-ai/example.mjs) feeds provider SSE
+bytes to TanStack's Chat Completions adapter through an injected fetch. Its
+`chat()` iterator emits `TOOL_CALL_START`, `TOOL_CALL_ARGS`, and `TOOL_CALL_END`.
+Streamfold parses the argument deltas by call ID. Consume through the end of
+the run. On a truncated response, TanStack can close a call with valid JSON
+and then emit `RUN_ERROR`. That error rejects the reader even after a final
+argument value has been yielded.
+
+The full TanStack `StreamChunk` union includes unrelated event types that
+lack the index signature in Streamfold's AG-UI declaration. The
+[reader](examples/tanstack-ai/read-tool-inputs.mjs) narrows on `event.type`
+and forwards the three tool events and `RUN_ERROR` unchanged. Pass the same
+run-scoped abort controller to `chat()` and the reader.
+
+The example and compatibility checks are unreleased. The adapter is already
+published and the fixture pins Streamfold 0.1.20. One version difference
+matters for a no-argument call: when TanStack emits start and end without an
+argument delta, 0.1.20 rejects with `EMPTY_INPUT`. The checkout completes
+that call with `{}`. An explicit `{}` argument delta supplies valid JSON
+on both versions.
 
 ## AG-UI client boundary
 

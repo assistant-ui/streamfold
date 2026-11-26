@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a runnable TanStack AI example that reads tool arguments through the
+  published `streamfold/ag-ui` adapter.
+
 - Add `mistralChat` from `streamfold/mistral` for decoded Mistral chat streams.
   It tracks interleaved function calls by choice and tool index, accepts whole
   argument objects, and rejects truncated calls.

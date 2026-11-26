@@ -1,0 +1,14 @@
+{
+  "name": "streamfold-tanstack-ai-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node example.mjs",
+    "test": "node --test example.test.mjs"
+  },
+  "dependencies": {
+    "@tanstack/ai": "1.8.0",
+    "@tanstack/ai-openai": "1.2.0",
+    "streamfold": "0.1.20"
+  }
+}
