@@ -11,6 +11,48 @@ const commands = {
 } as const;
 const chunks = ['{"city":"', "San Fran", 'cisco",', '"units":"', 'metric"}'];
 
+const intervalMs = 800;
+
+function seconds(ms: number) {
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
+function hasCity(value: unknown) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "city" in value &&
+    typeof value.city === "string" &&
+    value.city.length > 0
+  );
+}
+
+function OutputPane({
+  label,
+  name,
+  output,
+  firstCityMs,
+  waiting,
+}: {
+  label: string;
+  name: string;
+  output: string;
+  firstCityMs: number | null;
+  waiting: string;
+}) {
+  return (
+    <section className="pane" aria-label={name}>
+      <small>{label}</small>
+      <h3>{name}</h3>
+      <div className="milestone">
+        <span>First nonempty city</span>
+        <strong>{firstCityMs === null ? "Pending" : seconds(firstCityMs)}</strong>
+      </div>
+      <pre data-empty={!output}>{output || waiting}</pre>
+    </section>
+  );
+}
+
 function CommandLine({ command }: { command: readonly string[] }) {
   const [result, setResult] = useState<"idle" | "copied" | "denied">("idle");
   const feedback = useRef<number | undefined>(undefined);
@@ -81,7 +123,11 @@ export function Replay() {
   const scanner = useRef<IncrementalJsonScanner | null>(null);
   const [count, setCount] = useState(0);
   const [output, setOutput] = useState("");
-  const [bytes, setBytes] = useState(0);
+  const buffer = useRef("");
+  const [bufferedOutput, setBufferedOutput] = useState("");
+  const [bufferedCityMs, setBufferedCityMs] = useState<number | null>(null);
+  const [streamCityMs, setStreamCityMs] = useState<number | null>(null);
+  const arrivalMs = Math.max(count - 1, 0) * intervalMs;
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
   const complete = count === chunks.length;
@@ -109,19 +155,28 @@ export function Replay() {
     setPlaying(false);
     setCount(0);
     setOutput("");
-    setBytes(0);
+    buffer.current = "";
+    setBufferedOutput("");
+    setBufferedCityMs(null);
+    setStreamCityMs(null);
     setError("");
   }
   function advance(index: number) {
     try {
       const parser = (scanner.current ??= createStructuredStream());
-      const update = parser.push(chunks[index]!);
+      const fragment = chunks[index]!;
+      const timeMs = index * intervalMs;
+      buffer.current += fragment;
+      const update = parser.push(fragment);
       const last = index + 1 === chunks.length;
       const state = last ? parser.finish() : update;
-      setBytes(state.bytesSeen);
+      if (hasCity(state.partialValue)) setStreamCityMs((first) => first ?? timeMs);
       setOutput(JSON.stringify(state.partialValue, null, 2));
       setCount(index + 1);
       if (last) {
+        const parsed: unknown = JSON.parse(buffer.current);
+        setBufferedOutput(JSON.stringify(parsed, null, 2));
+        if (hasCity(parsed)) setBufferedCityMs(timeMs);
         parser.dispose();
         scanner.current = null;
         setPlaying(false);
@@ -135,14 +190,14 @@ export function Replay() {
   }
   useEffect(() => {
     if (!playing) return;
-    const timer = window.setTimeout(() => advance(count), 800);
+    const timer = window.setTimeout(() => advance(count), intervalMs);
     return () => window.clearTimeout(timer);
   }, [count, playing]);
   function play() {
     if (playing) return setPlaying(false);
     if (complete) reset();
     setPlaying(true);
-    advance(complete ? 0 : count);
+    if (!count || complete) advance(0);
   }
 
   return (
@@ -162,6 +217,25 @@ export function Replay() {
           <h2 id="replay-title">Fragment replay</h2>
           <span className="file">weather.json</span>
         </div>
+        <p className="comparison-note" role="status">
+          {error ||
+            (bufferedCityMs !== null && streamCityMs !== null ? (
+              <>
+                Streamfold returned a nonempty city{" "}
+                <strong>{seconds(bufferedCityMs - streamCityMs)} earlier</strong>. Both finished at{" "}
+                {seconds(arrivalMs)}.
+              </>
+            ) : streamCityMs !== null ? (
+              <>Streamfold has a city. JSON.parse waits for all five fragments.</>
+            ) : (
+              <>
+                Five fragments, {seconds(intervalMs)} apart.{" "}
+                {count
+                  ? "The next fragment adds the first city characters."
+                  : "Step twice to see the first nonempty city."}
+              </>
+            ))}
+        </p>
         <div className="console">
           <div className="controls">
             <div>
@@ -183,29 +257,30 @@ export function Replay() {
               {status} · {count}/{chunks.length}
             </small>
           </div>
+          <div className="arrival">
+            <span>
+              Simulated arrival <b>{seconds(arrivalMs)}</b>
+            </span>
+            <code>{count ? chunks[count - 1] : "Waiting for the first fragment"}</code>
+            <a href="https://github.com/assistant-ui/streamfold/blob/v0.1.20/benchmarks/SDK_ADAPTER_REPORT.md">
+              Parser benchmarks ↗
+            </a>
+          </div>
           <div className="panes">
-            <div className="pane">
-              <h3>Incoming fragments</h3>
-              <ol>
-                {chunks.map((chunk, i) => (
-                  <li
-                    key={chunk}
-                    className={i === count - 1 ? "current" : i < count ? "sent" : ""}
-                    aria-current={i === count - 1 ? "step" : undefined}
-                  >
-                    <span>{String(i + 1).padStart(2, "0")}</span>
-                    <code>{chunk}</code>
-                    <small>{i < count ? "received" : "queued"}</small>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <div className="pane result">
-              <h3>
-                Partial value <span>{bytes} B</span>
-              </h3>
-              <pre>{error || output || "// Waiting for the first fragment"}</pre>
-            </div>
+            <OutputPane
+              label="Before · buffered"
+              name="JSON.parse"
+              output={bufferedOutput}
+              firstCityMs={bufferedCityMs}
+              waiting="Waiting for the final fragment…"
+            />
+            <OutputPane
+              label="After · incremental"
+              name="Streamfold"
+              output={output}
+              firstCityMs={streamCityMs}
+              waiting="Waiting for input…"
+            />
           </div>
         </div>
       </section>

@@ -12,6 +12,15 @@ async function assertIconSize(control) {
   assert.deepEqual([icon.width, icon.height], [16, 16], await control.innerText());
 }
 
+async function captureComparison(page, mode, state) {
+  const path = fileURLToPath(new URL(`${mode}-${state}.png`, screenshots));
+  if (mode === "desktop") {
+    await page.screenshot({ path, fullPage: true });
+  } else {
+    await page.locator(".replay").screenshot({ path });
+  }
+}
+
 for (const [mode, width, height] of [
   ["desktop", 1440, 900],
   ["phone", 390, 844],
@@ -67,21 +76,28 @@ for (const [mode, width, height] of [
       const bounds = await link.boundingBox();
       assert.ok(bounds.width >= 44 && bounds.height >= 44 && bounds.x + bounds.width <= width);
     }
+    assert.equal(
+      await page.getByRole("link", { name: "Parser benchmarks ↗" }).getAttribute("href"),
+      "https://github.com/assistant-ui/streamfold/blob/v0.1.20/benchmarks/SDK_ADAPTER_REPORT.md",
+    );
     const play = await button("Play").boundingBox();
     assert.ok(play.y + play.height <= height);
     const [incoming, partial] = await Promise.all(
       (await page.locator(".pane").all()).map((pane) => pane.boundingBox()),
     );
-    if (mode === "desktop") {
-      assert.equal(incoming.y, partial.y);
-      assert.ok(partial.x >= incoming.x + incoming.width - 1);
-    } else {
-      assert.ok(partial.y >= incoming.y + incoming.height - 1);
-    }
+    assert.equal(incoming.y, partial.y);
+    assert.ok(partial.x >= incoming.x + incoming.width - 1);
+    const before = page.getByRole("region", { name: "JSON.parse", exact: true });
+    const after = page.getByRole("region", { name: "Streamfold", exact: true });
+    const clock = page.locator(".arrival b");
+    assert.equal(await before.locator("strong").innerText(), "Pending");
+    assert.equal(await after.locator("strong").innerText(), "Pending");
     await page.keyboard.press("Tab");
     assert.equal(await page.locator(":focus").textContent(), "Skip to content");
     assert.equal(await button("Reset").isDisabled(), true);
     await activate("Step");
+    assert.equal(await clock.innerText(), "0.0 s");
+    assert.equal(await after.locator("strong").innerText(), "Pending");
     if (mode === "desktop") {
       assert.ok(
         await button("Step").evaluate(
@@ -90,7 +106,11 @@ for (const [mode, width, height] of [
       );
     }
     await activate("Step");
-    assert.deepEqual(JSON.parse(await page.locator("pre").innerText()), { city: "San Fran" });
+    assert.equal(await clock.innerText(), "0.8 s");
+    assert.equal(await before.locator("strong").innerText(), "Pending");
+    assert.equal(await before.locator("pre").getAttribute("data-empty"), "true");
+    assert.equal(await after.locator("strong").innerText(), "0.8 s");
+    assert.deepEqual(JSON.parse(await after.locator("pre").innerText()), { city: "San Fran" });
     await page.getByText("Paused · 2/5").waitFor();
     assert.equal((await button("Resume").boundingBox()).width, play.width);
     await assertIconSize(button("Resume"));
@@ -105,22 +125,27 @@ for (const [mode, width, height] of [
     assert.equal((await button("Replay").boundingBox()).width, play.width);
     await assertIconSize(button("Replay"));
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
-    assert.deepEqual(JSON.parse(await page.locator("pre").innerText()), {
+    assert.equal(await clock.innerText(), "3.2 s");
+    assert.equal(await before.locator("strong").innerText(), "3.2 s");
+    assert.equal(await after.locator("strong").innerText(), "0.8 s");
+    assert.equal(await before.locator("pre").innerText(), await after.locator("pre").innerText());
+    assert.match(await page.locator(".comparison-note").innerText(), /2\.4 s earlier/);
+    assert.deepEqual(JSON.parse(await after.locator("pre").innerText()), {
       city: "San Francisco",
       units: "metric",
     });
     if (process.env.CAPTURE_PNG) {
       await mkdir(screenshots, { recursive: true });
       await page.getByRole("heading", { name: "Fragment replay" }).click();
-      await page.screenshot({
-        path: fileURLToPath(new URL(mode + "-console.png", screenshots)),
-        fullPage: true,
-      });
+      await captureComparison(page, mode, "complete");
     }
     assert.equal(await button("Step").isDisabled(), true);
     await activate("Replay");
     await activate("Reset");
     await page.getByText("Ready · 0/5").waitFor();
+    assert.equal(await clock.innerText(), "0.0 s");
+    assert.equal(await after.locator("strong").innerText(), "Pending");
+    assert.equal(await before.locator("pre").getAttribute("data-empty"), "true");
     await activate("Play");
     await page.getByText("Complete · 5/5").waitFor();
     await button("Copy install command").scrollIntoViewIfNeeded();
@@ -167,8 +192,36 @@ for (const [mode, width, height] of [
       await page.getByRole("heading", { name: "Fragment replay" }).click();
       await page.evaluate(() => window.scrollTo(0, 0));
       assert.equal(await page.locator("button:focus, button:active, button:hover").count(), 0);
-      await page.screenshot({ path: fileURLToPath(new URL(mode + ".png", screenshots)) });
+      await captureComparison(page, mode, "midway");
     }
     assert.deepEqual(errors, []);
   });
 }
+
+test("pausing the schedule preserves both parsers' milestones", async (t) => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.clock.install({ time: new Date("2025-01-01T00:00:00Z") });
+  await page.goto(url);
+  await page.clock.pauseAt(new Date("2025-01-01T00:01:00Z"));
+  const press = (name) => page.getByRole("button", { name, exact: true }).press("Enter");
+  const clock = page.locator(".arrival b");
+  await press("Play");
+  await page.clock.runFor(800);
+  assert.equal(await clock.innerText(), "0.8 s");
+  await press("Pause");
+  await page.clock.runFor(20_000);
+  assert.equal(await clock.innerText(), "0.8 s");
+  await press("Resume");
+  await page.clock.runFor(799);
+  assert.equal(await clock.innerText(), "0.8 s");
+  await page.clock.runFor(1);
+  assert.equal(await clock.innerText(), "1.6 s");
+  await press("Pause");
+  await press("Step");
+  assert.equal(await clock.innerText(), "2.4 s");
+  await press("Step");
+  assert.deepEqual(await page.locator(".milestone strong").allTextContents(), ["3.2 s", "0.8 s"]);
+  assert.equal(await clock.innerText(), "3.2 s");
+});
