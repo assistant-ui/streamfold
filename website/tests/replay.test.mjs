@@ -12,6 +12,15 @@ async function assertIconSize(control) {
   assert.deepEqual([icon.width, icon.height], [16, 16], await control.innerText());
 }
 
+// A touch browser can scroll the document to reveal the selected command.
+async function copyButtonLayout(page) {
+  return page.locator(".install").evaluate((row) => {
+    const control = row.querySelector("button").getBoundingClientRect();
+    const bounds = row.getBoundingClientRect();
+    return [control.x - bounds.x, control.y - bounds.y, control.width, control.height];
+  });
+}
+
 async function captureComparison(page, mode, state) {
   const path = fileURLToPath(new URL(`${mode}-${state}.png`, screenshots));
   if (mode === "desktop") {
@@ -149,7 +158,7 @@ for (const [mode, width, height] of [
     await activate("Play");
     await page.getByText("Complete · 5/5").waitFor();
     await button("Copy install command").scrollIntoViewIfNeeded();
-    const beforeCopy = await button("Copy install command").boundingBox();
+    const beforeCopy = await copyButtonLayout(page);
     await activate("Copy install command");
     await page.getByText("Copied", { exact: true }).waitFor();
     assert.equal(
@@ -160,7 +169,7 @@ for (const [mode, width, height] of [
       await page.evaluate(() => navigator.clipboard.readText()),
       "npm install streamfold",
     );
-    assert.deepEqual(await button("Copy install command").boundingBox(), beforeCopy);
+    assert.deepEqual(await copyButtonLayout(page), beforeCopy);
     await assertIconSize(button("Copy install command"));
     await button("Copy install command").getByText("Copy", { exact: true }).waitFor();
     await activate("pnpm");
@@ -181,7 +190,7 @@ for (const [mode, width, height] of [
     await activate("Copy install command");
     await page.getByRole("status").filter({ hasText: "Copy blocked" }).waitFor();
     assert.equal(await page.evaluate(() => getSelection()?.toString()), "npm install streamfold");
-    assert.deepEqual(await button("Copy install command").boundingBox(), beforeCopy);
+    assert.deepEqual(await copyButtonLayout(page), beforeCopy);
     await assertIconSize(button("Copy install command"));
     if (process.env.CAPTURE_PNG) {
       await page.reload();
