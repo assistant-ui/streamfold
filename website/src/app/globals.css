@@ -13,6 +13,7 @@
   --edge: #2d2d2d;
   --rule: 1px solid var(--edge);
   --soft-rule: 1px solid #232323;
+  --control-height: 34px;
   --mono: "Geist Mono Variable", ui-monospace, monospace;
   --inset: inset 0 1px rgb(255 255 255/0.06), 0 1px 2px rgb(0 0 0/0.16);
   background: var(--canvas);
@@ -28,7 +29,6 @@ h1,
 h2,
 h3,
 p,
-figure,
 pre,
 ul,
 ol {
@@ -65,7 +65,6 @@ pre,
 small,
 .eyebrow,
 .file,
-.fold-scene,
 .method-list > li > code,
 footer {
   font-family: var(--mono);
@@ -89,8 +88,6 @@ nav,
 .controls,
 .controls > div,
 .controls small,
-.fold-bar,
-.fold-actions,
 .install,
 .install-options {
   display: flex;
@@ -99,8 +96,7 @@ nav,
 header,
 footer,
 .section-head,
-.controls,
-.fold-bar {
+.controls {
   justify-content: space-between;
 }
 header {
@@ -187,10 +183,10 @@ nav a:active::after {
 }
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 32%);
   gap: clamp(36px, 5vw, 80px);
   align-items: center;
-  padding-block: clamp(44px, 5vw, 76px);
+  padding-block: clamp(40px, 4.5vw, 64px);
 }
 .hero-copy {
   min-width: 0;
@@ -223,7 +219,6 @@ h1 em {
   line-height: 1.55;
 }
 .controls button,
-.fold-actions button,
 .install button {
   border: 1px solid #363636;
   border-radius: 5px;
@@ -237,8 +232,7 @@ h1 em {
 }
 .install-wrap {
   position: relative;
-  margin-top: 28px;
-  width: min(100%, 352px);
+  width: 100%;
   background: var(--well);
   border: 1px solid var(--edge);
   border-radius: 5px;
@@ -254,8 +248,9 @@ h1 em {
   border-radius: 0;
   box-shadow: none;
   padding: 0 15px;
-  min-height: 44px;
-  font: 11px var(--mono);
+  min-width: 52px;
+  min-height: var(--control-height);
+  font: 12px/1 var(--mono);
 }
 .install-options button[aria-pressed="true"] {
   color: var(--ink);
@@ -263,7 +258,7 @@ h1 em {
 }
 .install {
   gap: 9px;
-  padding: 3px 6px 3px 14px;
+  padding: 6px 6px 6px 14px;
 }
 .prompt,
 .install code {
@@ -280,22 +275,27 @@ h1 em {
   font-weight: 500;
 }
 .install button,
-.controls button,
-.fold-actions button {
+.controls button {
   min-width: 44px;
-  min-height: 44px;
+  min-height: var(--control-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 10px;
-  font: 11px var(--mono);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
 }
 .install button {
   margin-left: auto;
-  width: 79px;
+  flex: 0 0 86px;
+  padding-inline: 8px;
   color: var(--text);
-  text-transform: uppercase;
+}
+.install button svg,
+.controls button svg {
+  flex: none;
 }
 .install button[data-copied="true"] {
   color: #a4d5ba;
@@ -340,14 +340,11 @@ h1 em {
 .pane {
   padding: clamp(16px, 2vw, 28px);
 }
-.pane h3,
-.fold-scene figcaption span {
+.pane h3 {
   color: var(--dim);
   font: 450 10.5px var(--mono);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-}
-.pane h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -386,19 +383,19 @@ pre {
   overflow-wrap: anywhere;
 }
 .controls {
-  border-top: var(--rule);
+  border-bottom: var(--rule);
   gap: 8px;
   flex-wrap: wrap;
-  padding: 10px 14px;
+  padding: 8px 12px;
 }
-.controls > div,
-.fold-actions {
+.controls > div {
   gap: 6px;
 }
 .controls small {
   font: 11px var(--mono);
   color: var(--muted);
   gap: 6px;
+  min-width: 16ch;
   font-variant-numeric: tabular-nums;
 }
 .controls i {
@@ -411,55 +408,7 @@ pre {
   background: #9fc3af;
 }
 .controls .primary {
-  min-width: 84px;
-}
-.fold-scene {
-  min-width: 0;
-}
-.fold-bar {
-  min-height: 54px;
-  border-block: var(--rule);
-  color: var(--muted);
-  font: 11px var(--mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  gap: 6px;
-}
-.fold-actions button {
-  text-transform: uppercase;
-  color: var(--text);
-}
-.drawing {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: 0 auto 12px;
-}
-.facets path {
-  stroke: #d4d4cd;
-  stroke-width: 0.85;
-  transform-box: fill-box;
-  transform-origin: 15% 65%;
-}
-.facets [data-pending="true"] {
-  fill: #151515;
-  stroke: #494946;
-}
-figcaption {
-  padding-top: 8px;
-}
-figcaption div {
-  display: grid;
-  grid-template-columns: 9ch minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  padding: 2px 0;
-  font: 11px var(--mono);
-}
-figcaption code {
-  font-size: 12px;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  width: 100px;
 }
 .mechanism {
   margin-top: clamp(40px, 5vw, 72px);
@@ -538,18 +487,19 @@ button:active:not(:disabled) {
       color 140ms;
   }
 }
+@media (any-pointer: coarse) {
+  :root {
+    --control-height: 44px;
+  }
+}
 @media (max-width: 780px) {
   .hero {
     grid-template-columns: minmax(0, 1fr);
     padding-block: 36px;
     gap: 28px;
   }
-  .fold-scene {
-    width: min(100%, 500px);
-    justify-self: center;
-  }
-  .drawing {
-    width: min(100%, 360px);
+  .install-wrap {
+    max-width: 380px;
   }
   .method-list {
     grid-template-columns: 1fr;
@@ -583,19 +533,21 @@ button:active:not(:disabled) {
     font-size: clamp(48px, 13vw, 55px);
     margin-block: 12px;
   }
-  .install-wrap {
-    margin-top: 20px;
+  .install {
+    gap: 6px;
+    padding-inline: 8px 6px;
+  }
+  .install code {
+    font-size: 12px;
   }
   .controls {
     padding: 7px;
     gap: 6px;
   }
-  .controls button,
-  .fold-actions button {
+  .controls button {
     padding-inline: 7px;
   }
-  .controls > div,
-  .fold-actions {
+  .controls > div {
     gap: 3px;
   }
   footer {

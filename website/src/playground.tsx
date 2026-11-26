@@ -5,8 +5,6 @@ import { createStructuredStream, type IncrementalJsonScanner } from "streamfold"
 
 import { ControlIcon } from "./control-icon";
 
-import { Fold } from "./fold";
-
 const commands = {
   npm: ["npm", "install", "streamfold"],
   pnpm: ["pnpm", "add", "streamfold"],
@@ -156,17 +154,8 @@ export function Replay() {
             JSON, <em>as it arrives.</em>
           </h1>
           <p>Turn fragmented tool-call arguments into live JSON values, one chunk at a time.</p>
-          <Install />
         </div>
-        <Fold
-          count={count}
-          chunks={chunks}
-          output={output}
-          playing={playing}
-          disabled={!!error}
-          onPlay={play}
-          onStep={() => advance(count)}
-        />
+        <Install />
       </section>
       <section className="replay" aria-labelledby="replay-title">
         <div className="section-head">
@@ -174,6 +163,26 @@ export function Replay() {
           <span className="file">weather.json</span>
         </div>
         <div className="console">
+          <div className="controls">
+            <div>
+              <button className="primary" onClick={play} disabled={!!error}>
+                <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
+                {playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play"}
+              </button>
+              <button disabled={playing || complete || !!error} onClick={() => advance(count)}>
+                <ControlIcon name="step" />
+                Step
+              </button>
+              <button disabled={!count && !error} onClick={reset}>
+                <ControlIcon name="reset" />
+                Reset
+              </button>
+            </div>
+            <small role="status">
+              <i className={count || playing ? "lit" : ""} />
+              {status} · {count}/{chunks.length}
+            </small>
+          </div>
           <div className="panes">
             <div className="pane">
               <h3>Incoming fragments</h3>
@@ -197,26 +206,6 @@ export function Replay() {
               </h3>
               <pre>{error || output || "// Waiting for the first fragment"}</pre>
             </div>
-          </div>
-          <div className="controls">
-            <div>
-              <button className="primary" onClick={play} disabled={!!error}>
-                <ControlIcon name={playing ? "pause" : complete ? "replay" : "play"} />
-                {playing ? "Pause" : complete ? "Replay" : count ? "Resume" : "Play"}
-              </button>
-              <button disabled={playing || complete || !!error} onClick={() => advance(count)}>
-                <ControlIcon name="step" />
-                Step
-              </button>
-              <button disabled={!count && !error} onClick={reset}>
-                <ControlIcon name="reset" />
-                Reset
-              </button>
-            </div>
-            <small role="status">
-              <i className={count || playing ? "lit" : ""} />
-              {status} · {count}/{chunks.length}
-            </small>
           </div>
         </div>
       </section>

@@ -7,28 +7,24 @@ import { chromium, devices } from "playwright";
 const url = process.env.PREVIEW_URL ?? "http://127.0.0.1:4317";
 const screenshots = new URL("../../artifacts/website/", import.meta.url);
 
-async function assertCompleteCaptionGap(page) {
-  const gap = await page
-    .locator("figcaption div")
-    .last()
-    .evaluate((row) => {
-      const label = row.querySelector("span");
-      const value = row.querySelector("code");
-      const range = document.createRange();
-      range.selectNodeContents(label);
-      return value.getBoundingClientRect().left - range.getBoundingClientRect().right;
-    });
-  assert.ok(gap >= 12, `The complete label has ${gap}px of space before the value.`);
+async function assertIconSize(control) {
+  const icon = await control.locator("svg").boundingBox();
+  assert.deepEqual([icon.width, icon.height], [16, 16], await control.innerText());
 }
 
-for (const mode of ["desktop", "phone"]) {
+for (const [mode, width, height] of [
+  ["desktop", 1440, 900],
+  ["phone", 390, 844],
+  ["phone-320", 320, 640],
+]) {
   test(mode + " production replay", async (t) => {
+    const touch = mode !== "desktop";
     const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
     t.after(() => browser.close());
     const context = await browser.newContext({
-      ...(mode === "phone"
-        ? { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } }
-        : { viewport: { width: 1440, height: 900 } }),
+      ...(touch ? devices["Pixel 7"] : {}),
+      viewport: { width, height },
+      reducedMotion: width === 320 ? "reduce" : "no-preference",
       permissions: ["clipboard-read", "clipboard-write"],
     });
     const page = await context.newPage();
@@ -38,31 +34,41 @@ for (const mode of ["desktop", "phone"]) {
       if (message.type() === "error") errors.push(message.text());
     });
     const button = (name) => page.getByRole("button", { name, exact: true });
-    const activate = (name) =>
-      mode === "phone" ? button(name).tap() : button(name).press("Enter");
-    await page.goto(url);
+    const activate = (name) => (touch ? button(name).tap() : button(name).press("Enter"));
+    const response = await page.goto(url);
+    assert.match(await response.text(), /Waiting for the first fragment/);
     assert.equal(new URL(page.url()).origin, new URL(url).origin);
-    const fold = page.getByRole("img", { name: "JSON fragments folding into a paper plane" });
-    await fold.waitFor({ timeout: 5000 });
-    const figure = await fold.boundingBox();
-    assert.ok(figure && figure.width >= 220 && figure.height >= 100);
-    for (const name of ["Play", "Step", "Reset", "Copy install command"]) {
-      const bounds = await button(name).boundingBox();
-      assert.ok(bounds && bounds.width >= 44 && bounds.height >= 44, name);
-    }
     await page.evaluate(() => document.fonts.ready);
-    assert.equal(await page.locator("body").evaluate((el) => getComputedStyle(el).margin), "0px");
-    assert.ok(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
-      ),
+    assert.deepEqual(
+      await page.evaluate(() => [
+        document.documentElement.clientWidth,
+        document.documentElement.scrollWidth,
+      ]),
+      [width, width],
     );
-    const hero = page.locator(".hero");
-    assert.equal(await hero.getByRole("heading", { level: 1 }).innerText(), "JSON, as it arrives.");
-    assert.equal(await hero.locator(".drawing").count(), 1);
-    assert.ok(figure.y >= 0 && figure.y + figure.height <= page.viewportSize().height);
-    const replay = await page.getByRole("heading", { name: "Fragment replay" }).boundingBox();
-    assert.ok(replay.y >= figure.y + figure.height);
+    for (const name of ["npm", "pnpm", "Copy install command", "Play", "Step", "Reset"]) {
+      const control = button(name);
+      const bounds = await control.boundingBox();
+      assert.ok(bounds.width >= 44 && bounds.x >= 0 && bounds.x + bounds.width <= width, name);
+      assert.ok(
+        touch ? bounds.height >= 44 : bounds.height >= 32 && bounds.height <= 36,
+        name + " height: " + bounds.height,
+      );
+      const font = await control.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+      assert.ok(font >= 12 && font <= 14, name + " label: " + font);
+    }
+    for (const name of ["Play", "Step", "Reset", "Copy install command"]) {
+      await assertIconSize(button(name));
+    }
+    const installer = await page.locator(".install-wrap").boundingBox();
+    const copy = await button("Copy install command").boundingBox();
+    assert.ok(copy.x + copy.width <= installer.x + installer.width - 6);
+    for (const link of await page.locator("nav a").all()) {
+      const bounds = await link.boundingBox();
+      assert.ok(bounds.width >= 44 && bounds.height >= 44 && bounds.x + bounds.width <= width);
+    }
+    const play = await button("Play").boundingBox();
+    assert.ok(play.y + play.height <= height);
     const [incoming, partial] = await Promise.all(
       (await page.locator(".pane").all()).map((pane) => pane.boundingBox()),
     );
@@ -71,10 +77,6 @@ for (const mode of ["desktop", "phone"]) {
       assert.ok(partial.x >= incoming.x + incoming.width - 1);
     } else {
       assert.ok(partial.y >= incoming.y + incoming.height - 1);
-    }
-    if (process.env.CAPTURE_PNG) {
-      await mkdir(screenshots, { recursive: true });
-      await page.screenshot({ path: fileURLToPath(new URL(mode + ".png", screenshots)) });
     }
     await page.keyboard.press("Tab");
     assert.equal(await page.locator(":focus").textContent(), "Skip to content");
@@ -90,26 +92,26 @@ for (const mode of ["desktop", "phone"]) {
     await activate("Step");
     assert.deepEqual(JSON.parse(await page.locator("pre").innerText()), { city: "San Fran" });
     await page.getByText("Paused · 2/5").waitFor();
+    assert.equal((await button("Resume").boundingBox()).width, play.width);
+    await assertIconSize(button("Resume"));
     await activate("Resume");
     assert.equal(await button("Step").isDisabled(), true);
+    assert.equal((await button("Pause").boundingBox()).width, play.width);
+    await assertIconSize(button("Pause"));
     await activate("Pause");
     assert.equal(await button("Step").isEnabled(), true);
     await activate("Resume");
     await page.getByText("Complete · 5/5").waitFor();
-    await assertCompleteCaptionGap(page);
+    assert.equal((await button("Replay").boundingBox()).width, play.width);
+    await assertIconSize(button("Replay"));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
     assert.deepEqual(JSON.parse(await page.locator("pre").innerText()), {
       city: "San Francisco",
       units: "metric",
     });
-    assert.equal(
-      await page.locator(".fold-scene figcaption code").last().textContent(),
-      await page.locator("pre").textContent(),
-    );
-    await page
-      .locator(".drawing")
-      .evaluate((svg) => Promise.all(svg.getAnimations({ subtree: true }).map((a) => a.finished)));
     if (process.env.CAPTURE_PNG) {
       await mkdir(screenshots, { recursive: true });
+      await page.getByRole("heading", { name: "Fragment replay" }).click();
       await page.screenshot({
         path: fileURLToPath(new URL(mode + "-console.png", screenshots)),
         fullPage: true,
@@ -134,8 +136,11 @@ for (const mode of ["desktop", "phone"]) {
       "npm install streamfold",
     );
     assert.deepEqual(await button("Copy install command").boundingBox(), beforeCopy);
+    await assertIconSize(button("Copy install command"));
     await button("Copy install command").getByText("Copy", { exact: true }).waitFor();
     await activate("pnpm");
+    assert.equal(await button("pnpm").getAttribute("aria-pressed"), "true");
+    assert.equal(await button("npm").getAttribute("aria-pressed"), "false");
     assert.equal(await page.locator(".install code").textContent(), "pnpm add streamfold");
     await activate("Copy install command");
     await page.getByText("Copied", { exact: true }).waitFor();
@@ -152,143 +157,18 @@ for (const mode of ["desktop", "phone"]) {
     await page.getByRole("status").filter({ hasText: "Copy blocked" }).waitFor();
     assert.equal(await page.evaluate(() => getSelection()?.toString()), "npm install streamfold");
     assert.deepEqual(await button("Copy install command").boundingBox(), beforeCopy);
+    await assertIconSize(button("Copy install command"));
+    if (process.env.CAPTURE_PNG) {
+      await page.reload();
+      await page.evaluate(() => document.fonts.ready);
+      await button("Step").click();
+      await button("Step").click();
+      await page.getByText("Paused · 2/5").waitFor();
+      await page.getByRole("heading", { name: "Fragment replay" }).click();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      assert.equal(await page.locator("button:focus, button:active, button:hover").count(), 0);
+      await page.screenshot({ path: fileURLToPath(new URL(mode + ".png", screenshots)) });
+    }
     assert.deepEqual(errors, []);
   });
 }
-
-test("Fold follows the parser, motion preferences and viewport", async (t) => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
-  t.after(() => browser.close());
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  const response = await page.goto(url);
-  const html = await response.text();
-  assert.match(html, /aria-label="Play fold"/);
-  assert.match(html, /<code>Waiting for input<\/code>/);
-  const button = (name) => page.getByRole("button", { name, exact: true });
-  const docs = page.getByRole("navigation").getByRole("link", { name: "Docs" });
-  await docs.hover();
-  await page.waitForFunction(
-    () =>
-      getComputedStyle(document.querySelector("nav a"), "::after").transform ===
-      "matrix(1, 0, 0, 1, 0, 0)",
-  );
-  await page.locator(".drawing").scrollIntoViewIfNeeded();
-  await button("Play fold").hover();
-  await page.mouse.down();
-  assert.ok(
-    await button("Play fold").evaluate(
-      (el) => el.matches(":active") && getComputedStyle(el).boxShadow !== "none",
-    ),
-  );
-  await page.mouse.up();
-  await button("Pause fold").press("Enter");
-  await button("Step fold").press("Enter");
-  await page.waitForFunction(
-    () => document.querySelector(".drawing").getAnimations({ subtree: true }).length === 1,
-  );
-  const motion = await page.locator(".drawing").evaluate((svg) => {
-    const [flight] = svg.getAnimations({ subtree: true });
-    flight.pause();
-    const samples = [0, 320, 640].map((time) => {
-      flight.currentTime = time;
-      return getComputedStyle(flight.effect.target).transform;
-    });
-    flight.currentTime = 320;
-    return { duration: flight.effect.getTiming().duration, samples };
-  });
-  assert.equal(motion.duration, 640);
-  assert.equal(new Set(motion.samples).size, 3);
-  assert.equal(await page.locator('.facets [data-pending="true"]').count(), 3);
-  assert.deepEqual(JSON.parse(await page.locator("figcaption code").last().textContent()), {
-    city: "San Fran",
-  });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.waitForFunction(
-    () => !document.querySelector(".drawing").getAnimations({ subtree: true }).length,
-  );
-  await button("Step fold").press("Space");
-  assert.equal(
-    await page.locator(".drawing").evaluate((svg) => svg.getAnimations({ subtree: true }).length),
-    0,
-  );
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await button("Step fold").press("Enter");
-  await page.waitForFunction(
-    () => document.querySelector(".drawing").getAnimations({ subtree: true }).length === 1,
-  );
-  // Hold an actual flight so the observer, rather than the 640 ms finish, must stop it.
-  await page.locator(".drawing").evaluate((svg) => svg.getAnimations({ subtree: true })[0].pause());
-  await page.setViewportSize({ width: 320, height: 400 });
-  await button("Step").scrollIntoViewIfNeeded();
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".drawing").getBoundingClientRect().bottom <= 0 &&
-      !document.querySelector(".drawing").getAnimations({ subtree: true }).length,
-  );
-  await button("Step").press("Enter");
-  assert.equal(await page.locator('.facets [data-pending="true"]').count(), 0);
-  assert.equal(
-    await page.locator(".drawing").evaluate((svg) => svg.getAnimations({ subtree: true }).length),
-    0,
-  );
-});
-
-test("320px touch layout starts still with reduced motion", async (t) => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
-  t.after(() => browser.close());
-  const page = await browser.newPage({
-    ...devices["Pixel 7"],
-    viewport: { width: 320, height: 640 },
-    reducedMotion: "reduce",
-  });
-  await page.goto(url);
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
-    ),
-  );
-  for (const link of await page.locator("nav a").all()) {
-    const box = await link.boundingBox();
-    assert.ok(box.width >= 44 && box.height >= 44 && box.x + box.width <= 320);
-  }
-  await page.getByRole("button", { name: "Play fold", exact: true }).tap();
-  await page.getByRole("button", { name: "Pause fold", exact: true }).tap();
-  assert.equal(
-    await page.locator(".drawing").evaluate((svg) => svg.getAnimations({ subtree: true }).length),
-    0,
-  );
-  assert.equal(
-    await page.locator("figcaption code").last().textContent(),
-    await page.locator("pre").textContent(),
-  );
-  await page.getByRole("button", { name: "Resume fold", exact: true }).tap();
-  await page.getByText("Complete · 5/5").waitFor();
-  await assertCompleteCaptionGap(page);
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth === document.documentElement.clientWidth,
-    ),
-  );
-});
-
-test("the page fits both phone viewports", async (t) => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
-  t.after(() => browser.close());
-  const page = await browser.newPage({ ...devices["Pixel 7"] });
-  const widths = [];
-  for (const width of [320, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.goto(url);
-    await page.evaluate(() => document.fonts.ready);
-    widths.push(
-      await page.evaluate(() => [
-        document.documentElement.clientWidth,
-        document.documentElement.scrollWidth,
-      ]),
-    );
-  }
-  assert.deepEqual(widths, [
-    [320, 320],
-    [390, 390],
-  ]);
-});
