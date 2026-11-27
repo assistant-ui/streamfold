@@ -124,7 +124,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm and Node.js
-        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # ratchet:pnpm/setup@v3.1.2
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@22
           install: false
@@ -186,7 +186,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup pnpm and Node.js
-        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # ratchet:pnpm/setup@v3.1.2
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # ratchet:pnpm/setup@v3.2.0
         with:
           runtime: node@22
           install: false
