@@ -43,7 +43,7 @@
     "@openai/agents": "0.22.0",
     "@openrouter/sdk": "1.5.137",
     "ai": "7.0.166",
-    "assistant-stream": "0.3.54",
+    "assistant-stream": "0.3.59",
     "bumpp": "^12.3.0",
     "cohere-ai": "8.3.1",
     "fast-check": "4.10.2",
