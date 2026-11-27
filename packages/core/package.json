@@ -111,6 +111,6 @@
     }
   },
   "devDependencies": {
-    "assistant-stream": "0.3.58"
+    "assistant-stream": "0.3.59"
   }
 }

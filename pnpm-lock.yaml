@@ -42,8 +42,8 @@ importers:
         specifier: 7.0.166
         version: 7.0.166(zod@4.6.7)
       assistant-stream:
-        specifier: 0.3.54
-        version: 0.3.54(ai@7.0.166(zod@4.6.7))
+        specifier: 0.3.59
+        version: 0.3.59(ai@7.0.166(zod@4.6.7))
       bumpp:
         specifier: ^12.3.0
         version: 12.3.0
@@ -72,8 +72,8 @@ importers:
   packages/core:
     devDependencies:
       assistant-stream:
-        specifier: 0.3.58
-        version: 0.3.58(ai@7.0.166(zod@4.6.7))
+        specifier: 0.3.59
+        version: 0.3.59(ai@7.0.166(zod@4.6.7))
 
 packages:
 
@@ -615,22 +615,8 @@ packages:
   args-tokenizer@0.3.0:
     resolution: {integrity: sha512-xXAd7G2Mll5W8uo37GETpQ2VrE84M181Z7ugHFGQnJZ50M2mbOv0osSZ9VsSgPfJQ+LVG0prSi0th+ELMsno7Q==}
 
-  assistant-stream@0.3.54:
-    resolution: {integrity: sha512-Jed48fZg12rzHHWDoTIRKLAO7SovX942f5VXCZ/GifGhaBH0fS1wZhhWhT8BVldJ4uDnCAMlszPGl82eZwO+vw==}
-    peerDependencies:
-      ai: ^6.0.0 || ^7.0.0
-      ioredis: ^5.10.1 || ^6.0.0
-      redis: ^5.12.1
-    peerDependenciesMeta:
-      ai:
-        optional: true
-      ioredis:
-        optional: true
-      redis:
-        optional: true
-
-  assistant-stream@0.3.58:
-    resolution: {integrity: sha512-i3g2FPxq2bC45Ac1J4bDuAJOHga1f7LdkJjw0nl0tEAIjENhZSVI/FjdLI0qxL1XPkMeWDT7IIBtJfnIXw8jZA==}
+  assistant-stream@0.3.59:
+    resolution: {integrity: sha512-VSfGhMRFH8+NPOqtzAHLXL53USRMpJe/VGOdzW9khOY1TK/CyBwb1/iQRLvPzsBTptt4NV2MGCD1Soc7K5O/kg==}
     peerDependencies:
       ai: ^6.0.0 || ^7.0.0
       ioredis: ^5.10.1 || ^6.0.0
@@ -2107,16 +2093,7 @@ snapshots:
 
   args-tokenizer@0.3.0: {}
 
-  assistant-stream@0.3.54(ai@7.0.166(zod@4.6.7)):
-    dependencies:
-      '@standard-schema/spec': 1.1.0
-      '@types/json-schema': 7.0.15
-      nanoid: 6.0.2
-      secure-json-parse: 4.1.1
-    optionalDependencies:
-      ai: 7.0.166(zod@4.6.7)
-
-  assistant-stream@0.3.58(ai@7.0.166(zod@4.6.7)):
+  assistant-stream@0.3.59(ai@7.0.166(zod@4.6.7)):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15
