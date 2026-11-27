@@ -24,8 +24,8 @@ importers:
         specifier: 1.6.0
         version: 1.6.0(@aws-sdk/credential-provider-node@3.972.92)(@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.6)(zod@4.6.7))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@7.30.2)(ws@8.23.0)(zod@4.6.7)
       '@google/genai':
-        specifier: 3.5.0
-        version: 3.5.0(@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.6)(zod@4.6.7))
+        specifier: 3.6.1
+        version: 3.6.1(@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.6)(zod@4.6.7))
       '@langchain/core':
         specifier: 1.4.1
         version: 1.4.1(@opentelemetry/api@1.10.0)(openai@7.47.0(@aws-sdk/credential-provider-node@3.972.92)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@7.30.2)(ws@8.22.0)(zod@4.6.7))(ws@8.22.0)
@@ -250,8 +250,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@google/genai@3.5.0':
-    resolution: {integrity: sha512-A305FnkyvO+jQSBo6OJL5YEvfJLDAAbjut/oWoKtkEoUpJ+lugbI5byN6omIc0wEgxqR1Vwr/36fP0TQp6WKxg==}
+  '@google/genai@3.6.1':
+    resolution: {integrity: sha512-DQIkZkl+VoZc+RUSaJ41vRuywjQDpP0t/oUf5/ddQhNW6JsPjVULW2EgHmuJ1mrr6ACtrmUdPlqtNXF1yfKySg==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -1760,7 +1760,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/genai@3.5.0(@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.6)(zod@4.6.7))':
+  '@google/genai@3.6.1(@modelcontextprotocol/sdk@1.32.2(@cfworker/json-schema@4.1.6)(zod@4.6.7))':
     dependencies:
       google-auth-library: 10.9.1
       p-retry: 4.6.2
